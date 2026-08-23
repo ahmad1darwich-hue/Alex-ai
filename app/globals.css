@@ -1,0 +1,46 @@
+*{box-sizing:border-box} html,body{margin:0;min-height:100%;background:#09090b;color:#f8f8fa;font-family:Arial,sans-serif}
+button,input,textarea{font:inherit}.hidden{display:none!important}
+.loginWrap{min-height:100vh;display:grid;place-items:center;padding:22px}
+.loginCard{width:min(430px,100%);background:#121216;border:1px solid #27272f;border-radius:24px;padding:28px}
+.logo{font-size:36px;font-weight:900;letter-spacing:1px}.muted{color:#9b9ba6}
+.field{width:100%;background:#0d0d11;color:white;border:1px solid #30303a;border-radius:14px;padding:14px;outline:none}
+.primary{border:0;border-radius:14px;padding:13px 18px;font-weight:800;cursor:pointer}
+.full{width:100%;margin-top:12px}.error{color:#ff9d9d;margin-top:10px}
+
+.shell{min-height:100vh;display:grid;grid-template-columns:280px 1fr}
+.sidebar{background:#111115;border-left:1px solid #25252d;padding:18px;display:flex;flex-direction:column;gap:14px}
+.brandRow{display:flex;align-items:center;justify-content:space-between}.brand{font-size:29px;font-weight:900}
+.newBtn{background:#f2f2f4;color:#111;border:0;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer}
+.modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modeBtn{background:#18181e;color:#e8e8ec;border:1px solid #2a2a32;border-radius:12px;padding:11px 8px;cursor:pointer}
+.modeBtn.active{background:#2a2a32;border-color:#555561}
+.sectionTitle{font-size:12px;color:#8d8d97;text-transform:uppercase;margin-top:5px}
+.convList{display:flex;flex-direction:column;gap:5px;overflow:auto;flex:1;min-height:120px}
+.conv{background:transparent;border:0;color:#d7d7dd;text-align:right;padding:9px;border-radius:10px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv.active,.conv:hover{background:#1d1d23}
+.logout{background:transparent;color:#aaa;border:1px solid #2b2b32;border-radius:11px;padding:9px;cursor:pointer}
+
+.main{width:min(980px,100%);margin:0 auto;padding:24px 22px 20px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.top h1{margin:0;font-size:27px}.top p{margin:5px 0 0}
+.memoryBtn{background:#17171c;color:white;border:1px solid #2d2d35;border-radius:12px;padding:10px 12px;cursor:pointer}
+.chat{min-height:64vh;display:flex;flex-direction:column;gap:12px;padding:24px 0}
+.msg{max-width:80%;padding:13px 15px;border-radius:17px;white-space:pre-wrap;line-height:1.6}
+.msg.user{align-self:flex-start;background:#292932}.msg.assistant{align-self:flex-end;background:#131318;border:1px solid #27272e}
+.composer{position:sticky;bottom:12px;background:#101014;border:1px solid #292930;border-radius:20px;padding:10px}
+.composer textarea{width:100%;min-height:70px;max-height:180px;resize:vertical;background:transparent;color:white;border:0;outline:0;padding:8px}
+.composerBottom{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.attach{cursor:pointer;background:#1b1b21;border:1px solid #303038;border-radius:12px;padding:9px 12px}
+.send{background:#f2f2f4;color:#111;border:0;border-radius:12px;padding:10px 18px;font-weight:800;cursor:pointer}
+.files{font-size:12px;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.modalBack{position:fixed;inset:0;background:#0009;display:grid;place-items:center;padding:20px;z-index:5}
+.modal{width:min(650px,100%);background:#131318;border:1px solid #303039;border-radius:20px;padding:20px}
+.modal textarea{width:100%;min-height:130px;background:#0d0d11;color:white;border:1px solid #303039;border-radius:14px;padding:12px;resize:vertical}
+.memoryList{max-height:280px;overflow:auto;margin:12px 0}.memoryItem{display:flex;gap:8px;align-items:flex-start;border-bottom:1px solid #25252c;padding:9px 0}.memoryItem span{flex:1}
+.danger{background:transparent;color:#ff9d9d;border:0;cursor:pointer}.modalActions{display:flex;gap:8px;justify-content:flex-start}
+
+@media(max-width:800px){
+ .shell{grid-template-columns:1fr}.sidebar{border-left:0;border-bottom:1px solid #25252d;padding:11px;gap:9px}
+ .brandRow{display:none}.modeGrid{grid-template-columns:repeat(5,minmax(max-content,1fr));overflow:auto}.modeBtn{font-size:12px}
+ .sectionTitle,.convList,.logout{display:none}.main{padding:18px 13px}.chat{min-height:62vh}.msg{max-width:90%}
+}

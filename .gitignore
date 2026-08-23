@@ -1,0 +1,7 @@
+node_modules
+.next
+.env.local
+data/alex-ai.db
+data/uploads
+.DS_Store
+.env
