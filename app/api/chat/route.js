@@ -44,9 +44,7 @@ async function fileToModelPart(file) {
     const parsed = await pdf(bytes);
     text = parsed.text || "";
   } else if (name.toLowerCase().endsWith(".docx")) {
-    const parsed = await mammoth.extractRawText({
-      buffer: bytes
-    });
+    const parsed = await mammoth.extractRawText({ buffer: bytes });
     text = parsed.value || "";
   } else if (
     type.startsWith("text/") ||
@@ -85,7 +83,6 @@ function extractMemory(message) {
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
-
     if (match?.[1]?.trim()) {
       return match[1].trim();
     }
@@ -134,7 +131,7 @@ export async function POST(req) {
     }
 
     const conversationResult = await db.execute({
-      sql: "SELECT * FROM conversations WHERE id=?",
+      sql: "SELECT * FROM conversations WHERE id = ?",
       args: [conversationId]
     });
 
@@ -157,9 +154,9 @@ export async function POST(req) {
 
     const previousResult = await db.execute({
       sql: `
-        SELECT role,content
+        SELECT role, content
         FROM messages
-        WHERE conversation_id=?
+        WHERE conversation_id = ?
         ORDER BY id DESC
         LIMIT 14
       `,
@@ -186,7 +183,7 @@ export async function POST(req) {
     }
 
     const input = previous.map(m => ({
-      role: m.role,
+      role: String(m.role),
       content: String(m.content)
     }));
 
@@ -201,7 +198,6 @@ export async function POST(req) {
 
     const response = await client.responses.create({
       model: process.env.ALEX_AI_MODEL || "gpt-5.5",
-
       instructions:
         (modeInstructions[mode] || modeInstructions.general) +
         (
@@ -209,7 +205,6 @@ export async function POST(req) {
             ? `\n\nPrivate user memory supplied by the app:\n${memories}`
             : ""
         ),
-
       input,
       store: false
     });
@@ -226,8 +221,8 @@ export async function POST(req) {
     await db.execute({
       sql: `
         INSERT INTO messages
-        (conversation_id,role,content,created_at)
-        VALUES (?,?,?,?)
+        (conversation_id, role, content, created_at)
+        VALUES (?, ?, ?, ?)
       `,
       args: [
         conversationId,
@@ -240,8 +235,8 @@ export async function POST(req) {
     await db.execute({
       sql: `
         INSERT INTO messages
-        (conversation_id,role,content,created_at)
-        VALUES (?,?,?,?)
+        (conversation_id, role, content, created_at)
+        VALUES (?, ?, ?, ?)
       `,
       args: [
         conversationId,
@@ -258,7 +253,7 @@ export async function POST(req) {
         sql: `
           SELECT id
           FROM memory
-          WHERE lower(content)=lower(?)
+          WHERE lower(content) = lower(?)
           LIMIT 1
         `,
         args: [memoryToSave]
@@ -268,8 +263,8 @@ export async function POST(req) {
         await db.execute({
           sql: `
             INSERT INTO memory
-            (content,created_at)
-            VALUES (?,?)
+            (content, created_at)
+            VALUES (?, ?)
           `,
           args: [
             memoryToSave,
@@ -283,7 +278,7 @@ export async function POST(req) {
       sql: `
         SELECT COUNT(*) AS c
         FROM messages
-        WHERE conversation_id=?
+        WHERE conversation_id = ?
       `,
       args: [conversationId]
     });
@@ -302,8 +297,8 @@ export async function POST(req) {
       await db.execute({
         sql: `
           UPDATE conversations
-          SET title=?,mode=?,updated_at=?
-          WHERE id=?
+          SET title = ?, mode = ?, updated_at = ?
+          WHERE id = ?
         `,
         args: [
           title,
@@ -316,8 +311,8 @@ export async function POST(req) {
       await db.execute({
         sql: `
           UPDATE conversations
-          SET mode=?,updated_at=?
-          WHERE id=?
+          SET mode = ?, updated_at = ?
+          WHERE id = ?
         `,
         args: [
           mode,
