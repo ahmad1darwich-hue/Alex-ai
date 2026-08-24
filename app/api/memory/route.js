@@ -30,7 +30,7 @@ export async function POST(req) {
   }
 
   const result = await db.execute({
-    sql: "INSERT INTO memory (content,created_at) VALUES (?,?)",
+    sql: "INSERT INTO memory (content, created_at) VALUES (?, ?)",
     args: [content.trim(), new Date().toISOString()]
   });
 
@@ -48,7 +48,7 @@ export async function DELETE(req) {
   const { id } = await req.json();
 
   await db.execute({
-    sql: "DELETE FROM memory WHERE id=?",
+    sql: "DELETE FROM memory WHERE id = ?",
     args: [id]
   });
 
