@@ -50,8 +50,31 @@ async function callClaude(key, messages) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") { res.status(405).json({ error: "POST only" }); return; }
   const key = process.env.ANTHROPIC_API_KEY;
+
+  // Self-diagnostic: GET /api/agent?diag=uswsbrain2026 runs a live health check.
+  if (req.method === "GET") {
+    const url = req.url || "";
+    if (!url.includes("diag=uswsbrain2026")) {
+      res.status(200).json({ ok: true, hasKey: !!key, model: MODEL, note: "POST to chat." });
+      return;
+    }
+    if (!key) { res.status(200).json({ ok: false, hasKey: false, model: MODEL, reason: "no ANTHROPIC_API_KEY set" }); return; }
+    try {
+      const r = await fetch(API, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model: MODEL, max_tokens: 12, messages: [{ role: "user", content: "hi" }] })
+      });
+      const txt = await r.text();
+      res.status(200).json({ ok: r.ok, hasKey: true, model: MODEL, test_status: r.status, test_body: txt.slice(0, 500) });
+    } catch (e) {
+      res.status(200).json({ ok: false, hasKey: true, model: MODEL, error: String(e).slice(0, 400) });
+    }
+    return;
+  }
+
+  if (req.method !== "POST") { res.status(405).json({ error: "POST only" }); return; }
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
