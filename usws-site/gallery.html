@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap">
+<title>Gallery — Urban Sydney Wide Solutions</title>
+<meta name="description" content="Our work — real landscaping, decking, paving, concreting, retaining walls and turf projects by Urban Sydney Wide Solutions across Sydney.">
+<style>
+:root{--forest:#123726;--green:#2E7D53;--green2:#3DA35D;--lime:#8FD46A;--ink:#16211C;--body:#42514A;--muted:#6E7C74;--bg:#FBFAF6;--surf:#fff;--sand:#F1EDE3;--line:#E4E0D4;--line2:#D6D1C2;--sans:"Inter",system-ui,sans-serif;--disp:"Fraunces",Georgia,serif;--sh:0 1px 2px rgba(18,55,38,.05),0 12px 30px rgba(18,55,38,.07);color-scheme:light}
+*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0}
+body{background:var(--bg);color:var(--body);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--disp);color:var(--ink);margin:0;line-height:1.13;font-weight:600;letter-spacing:-.01em}
+p{margin:0}a{color:inherit;text-decoration:none}img{max-width:100%;display:block}
+.wrap{max-width:1200px;margin:0 auto;padding-inline:20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:15px;border-radius:999px;padding:13px 22px;cursor:pointer;border:1.5px solid transparent;transition:transform .1s,background .2s}
+.btn:active{transform:translateY(1px)}
+.btn-p{background:var(--green);color:#fff;box-shadow:0 6px 16px rgba(46,125,83,.28)}.btn-p:hover{background:#296f4a}
+.btn-w{background:#fff;color:var(--forest)}.btn-o{background:transparent;border-color:rgba(255,255,255,.5);color:#fff}.btn-o:hover{background:rgba(255,255,255,.1)}
+.btn-lg{padding:15px 28px;font-size:16px}
+header{position:sticky;top:0;z-index:40;background:rgba(251,250,246,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:16px;height:64px}
+.logo{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(150deg,var(--green),var(--forest));display:grid;place-items:center;flex:none;color:var(--lime);font-family:var(--disp);font-weight:700;font-size:20px}
+.logo b{font-family:var(--disp);font-weight:700;font-size:18px;line-height:1;display:block;letter-spacing:.02em}
+.logo small{display:block;font-size:9.5px;letter-spacing:.13em;color:var(--muted);text-transform:uppercase;margin-top:3px;font-weight:600}
+.nl{display:flex;gap:22px;margin-inline-start:auto}.nl a{font-weight:500;font-size:14.5px;color:var(--body)}.nl a:hover{color:var(--green)}.nl a.on{color:var(--green);font-weight:600}
+.nav .ph{font-weight:700;color:var(--ink);font-size:14.5px;white-space:nowrap}
+@media(max-width:940px){.nl{display:none}.nav .ph{display:none}}
+.ghero{background:var(--forest);color:#fff;padding-block:56px 60px}
+.ghero .kick{font-weight:700;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--lime)}
+.ghero h1{color:#fff;font-size:clamp(32px,5vw,52px);margin-top:10px}
+.ghero p{color:#cfe3d7;font-size:clamp(16px,2vw,19px);max-width:60ch;margin-top:14px}
+.filters{display:flex;flex-wrap:wrap;gap:9px;margin-top:26px}
+.filters button{font:inherit;font-size:13.5px;font-weight:600;color:#dcefe3;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);padding:8px 15px;border-radius:999px;cursor:pointer;transition:.15s}
+.filters button:hover{background:rgba(255,255,255,.16)}
+.filters button.on{background:var(--lime);color:var(--forest);border-color:var(--lime)}
+main{padding-block:44px 72px}
+.catlabel{font-family:var(--disp);font-weight:700;font-size:22px;color:var(--ink);margin:34px 0 4px;display:flex;align-items:center;gap:12px}
+.catlabel:first-child{margin-top:0}
+.catlabel small{font-family:var(--sans);font-weight:600;font-size:12.5px;color:var(--muted);background:var(--sand);padding:3px 10px;border-radius:999px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
+@media(max-width:980px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:660px){.grid{grid-template-columns:repeat(2,1fr)}}
+.gi{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:4/3;background:var(--sand);box-shadow:var(--sh);cursor:pointer}
+.gi img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
+.gi:hover img{transform:scale(1.06)}
+.gi span{position:absolute;left:12px;bottom:10px;right:12px;color:#fff;font-weight:600;font-size:13.5px;text-shadow:0 1px 6px rgba(0,0,0,.7);z-index:2}
+.gi::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.5),transparent 55%);opacity:.85}
+.cta{background:var(--sand);border-radius:20px;padding:36px 28px;text-align:center;margin-top:52px}
+.cta h2{font-size:clamp(24px,3.5vw,32px)}
+.cta p{color:var(--muted);margin-top:8px;font-size:16px}
+.cta .row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:20px}
+.cta .btn-call{background:var(--forest);color:#fff}
+/* lightbox */
+.lb{position:fixed;inset:0;z-index:100;background:rgba(9,20,14,.94);display:none;align-items:center;justify-content:center;padding:20px}
+.lb.open{display:flex}
+.lb img{max-width:min(1100px,94vw);max-height:82vh;border-radius:10px;box-shadow:0 30px 80px rgba(0,0,0,.6);object-fit:contain}
+.lb .cap{position:absolute;bottom:22px;left:0;right:0;text-align:center;color:#eaf3ee;font-weight:600;font-size:15px;text-shadow:0 1px 6px rgba(0,0,0,.8)}
+.lb .cnt{position:absolute;top:20px;left:0;right:0;text-align:center;color:#9fc0ad;font-size:13px;letter-spacing:.04em}
+.lb button{position:absolute;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;width:48px;height:48px;border-radius:50%;font-size:22px;cursor:pointer;display:grid;place-items:center;transition:.15s}
+.lb button:hover{background:rgba(255,255,255,.25)}
+.lb .close{top:18px;right:18px;font-size:20px}
+.lb .prev{left:18px;top:50%;transform:translateY(-50%)}
+.lb .next{right:18px;top:50%;transform:translateY(-50%)}
+@media(max-width:560px){.lb .prev{left:10px}.lb .next{right:10px}.lb button{width:42px;height:42px}}
+footer{background:#0e2c1e;color:#bcd6c6;margin-top:0}
+footer .wrap{padding-block:36px}
+.frow{display:flex;flex-wrap:wrap;gap:18px 30px;align-items:center;justify-content:space-between}
+footer a{color:#bcd6c6}footer a:hover{color:var(--lime)}
+.cr{border-top:1px solid rgba(255,255,255,.1);margin-top:22px;padding-top:14px;font-size:12.5px;color:#7fa08e;line-height:1.7}
+</style>
+</head>
+<body>
+<header><div class="wrap nav">
+<a class="logo" href="/"><span class="mk">🌿</span><span><b>USWS</b><small>Urban Sydney Wide</small></span></a>
+<nav class="nl"><a href="/#services">Services</a><a href="/gallery" class="on">Gallery</a><a href="/#process">Process</a><a href="/#areas">Areas</a><a href="/#faq">FAQ</a><a href="/#contact">Contact</a></nav>
+<span class="ph">📞 0434 449 997</span>
+<a class="btn btn-p" href="/#contact">Free quote</a>
+</div></header>
+
+<section class="ghero"><div class="wrap">
+<span class="kick">Our work</span>
+<h1>Real projects across Sydney</h1>
+<p>Every photo below is our own work — decking, paving, concreting, retaining walls, turf and feature gardens for homes and businesses right across Sydney. Tap any image to view it larger.</p>
+<div class="filters" id="filters"></div>
+</div></section>
+
+<main><div class="wrap" id="galwrap"></div>
+
+<div class="wrap"><div class="cta">
+<h2>Like what you see?</h2>
+<p>Send us a photo of your space and we'll give you a free, no-obligation quote.</p>
+<div class="row">
+<a class="btn btn-p btn-lg" href="/#contact">Get a free quote</a>
+<a class="btn btn-call btn-lg" href="tel:+61434449997">Call 0434 449 997</a>
+</div>
+</div></div>
+</main>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true">
+<div class="cnt" id="lbcnt"></div>
+<button class="close" id="lbclose" aria-label="Close">✕</button>
+<button class="prev" id="lbprev" aria-label="Previous">‹</button>
+<img id="lbimg" alt="">
+<button class="next" id="lbnext" aria-label="Next">›</button>
+<div class="cap" id="lbcap"></div>
+</div>
+
+<footer><div class="wrap">
+<div class="frow">
+<a class="logo" href="/" style="color:#fff"><span class="mk">🌿</span><span><b style="color:#fff">USWS</b><small style="color:#8fb2a0">Urban Sydney Wide Solutions</small></span></a>
+<div style="display:flex;gap:22px;flex-wrap:wrap;font-size:14.5px">
+<a href="tel:+61434449997">📞 0434 449 997</a>
+<a href="mailto:info@usws.com.au">✉️ info@usws.com.au</a>
+<a href="/">← Back to home</a>
+</div>
+</div>
+<div class="cr">© <span id="yr"></span> Urban Sydney Wide Solutions · Landscaping · Decking · Concreting · Paving · Fencing · Turf · Sydney-wide · ABN 20 386 532 878 · usws.com.au</div>
+</div></footer>
+
+<script>
+var CDN='https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/';
+var DATA=[
+ {c:'Decking & pools',items:[
+  ['deck-lit','Merbau deck with lighting'],['deck-merbau','Merbau entertaining deck'],
+  ['deck-pool-1','Merbau pool deck'],['deck-pool-3','Pool deck & surround'],
+  ['deck-pool-2','Hardwood pool deck'],['deck-steps','Deck & sandstone steps']]},
+ {c:'Paving & tiling',items:[
+  ['paving-travertine-court','Travertine courtyard'],['paving-silver-travertine','Silver travertine paving'],
+  ['paving-pebble-path','Travertine & pebble path'],['paving-charcoal-patio','Charcoal tile patio'],
+  ['paving-charcoal-path','Charcoal tile pathway'],['paving-sandstone-path','Sandstone path'],
+  ['paving-textured','Textured paving']]},
+ {c:'Concreting & driveways',items:[
+  ['concrete-driveway','Decorative concrete driveway'],['concrete-stencil','Stencilcrete driveway']]},
+ {c:'Retaining walls',items:[
+  ['retaining-besser-lawn','Besser block wall & lawn'],['retaining-front','Front retaining & garden'],
+  ['retaining-charcoal','Charcoal block wall'],['retaining-sandstone','Sandstone retaining wall'],
+  ['retaining-turf','Retaining wall & turf']]},
+ {c:'Turf & lawns',items:[
+  ['turf-rooftop','Rooftop turf terrace'],['turf-lawn','Synthetic turf lawn'],
+  ['turf-shadow','Artificial turf'],['turf-front','Front lawn & garden']]},
+ {c:'Gardens & features',items:[
+  ['feature-cabana-pool','Pool, cabana & deck'],['hero-garden','Landscaped garden & lawn'],
+  ['feature-estate-dusk','Established garden'],['feature-front-garden','Front feature garden'],
+  ['feature-grasstrees','Grass trees & planters'],['feature-grasstree','Feature grass tree'],
+  ['screen-hardwood','Hardwood privacy screen'],['screen-bamboo','Bamboo screen & garden'],
+  ['courtyard-turf','Landscaped courtyard']]}
+];
+var FLAT=[];
+DATA.forEach(function(g){g.items.forEach(function(it){FLAT.push({slug:it[0],cap:it[1],cat:g.c});});});
+
+// filters
+var cats=['All'].concat(DATA.map(function(g){return g.c;}));
+var fWrap=document.getElementById('filters');
+cats.forEach(function(c){
+ var b=document.createElement('button');b.textContent=c;if(c==='All')b.className='on';
+ b.onclick=function(){[].forEach.call(fWrap.children,function(x){x.classList.remove('on');});b.classList.add('on');render(c);};
+ fWrap.appendChild(b);
+});
+
+var gw=document.getElementById('galwrap');
+function render(filter){
+ gw.innerHTML='';
+ DATA.forEach(function(g){
+  if(filter!=='All'&&filter!==g.c)return;
+  var h=document.createElement('div');h.className='catlabel';
+  h.innerHTML=g.c+' <small>'+g.items.length+' project'+(g.items.length>1?'s':'')+'</small>';
+  gw.appendChild(h);
+  var grid=document.createElement('div');grid.className='grid';
+  g.items.forEach(function(it){
+   var idx=FLAT.findIndex(function(f){return f.slug===it[0];});
+   var d=document.createElement('div');d.className='gi';
+   d.innerHTML='<img loading="lazy" src="'+CDN+it[0]+'.jpg" alt="'+it[1]+'"><span>'+it[1]+'</span>';
+   d.onclick=function(){open(idx);};
+   grid.appendChild(d);
+  });
+  gw.appendChild(grid);
+ });
+}
+render('All');
+
+// lightbox
+var lb=document.getElementById('lb'),lbimg=document.getElementById('lbimg'),
+ lbcap=document.getElementById('lbcap'),lbcnt=document.getElementById('lbcnt'),cur=0;
+function open(i){cur=i;show();lb.classList.add('open');document.body.style.overflow='hidden';}
+function close(){lb.classList.remove('open');document.body.style.overflow='';}
+function show(){var f=FLAT[cur];lbimg.src=CDN+f.slug+'.jpg';lbimg.alt=f.cap;lbcap.textContent=f.cap+' · '+f.cat;lbcnt.textContent=(cur+1)+' / '+FLAT.length;}
+function nav(d){cur=(cur+d+FLAT.length)%FLAT.length;show();}
+document.getElementById('lbclose').onclick=close;
+document.getElementById('lbnext').onclick=function(){nav(1);};
+document.getElementById('lbprev').onclick=function(){nav(-1);};
+lb.onclick=function(e){if(e.target===lb)close();};
+document.addEventListener('keydown',function(e){
+ if(!lb.classList.contains('open'))return;
+ if(e.key==='Escape')close();else if(e.key==='ArrowRight')nav(1);else if(e.key==='ArrowLeft')nav(-1);
+});
+document.getElementById('yr').textContent=new Date().getFullYear();
+</script>
+</body>
+</html>

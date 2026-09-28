@@ -1,0 +1,11 @@
+{
+  "redirects": [
+    {"source":"/contact","destination":"/","statusCode":301},
+    {"source":"/contact/","destination":"/","statusCode":301}
+  ],
+  "rewrites": [
+    {"source":"/gallery","destination":"/gallery.html"},
+    {"source":"/gallery/","destination":"/gallery.html"},
+    {"source":"/((?!api|gallery|.*\\.).*)","destination":"/index.html"}
+  ]
+}

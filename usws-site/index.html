@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap">
+<title>Urban Sydney Wide Solutions</title>
+<meta name="description" content="Urban Sydney Wide Solutions — landscaping, concreting, decking, fencing, paving, retaining walls and turf across Sydney. Residential & commercial. Free quotes, fully insured, open 24 hours. Call 0434 449 997.">
+<style>
+:root{--forest:#123726;--green:#2E7D53;--green2:#3DA35D;--lime:#8FD46A;--ink:#16211C;--body:#42514A;--muted:#6E7C74;--bg:#FBFAF6;--surf:#fff;--sand:#F1EDE3;--line:#E4E0D4;--line2:#D6D1C2;--sans:"Inter",system-ui,sans-serif;--disp:"Fraunces",Georgia,serif;--sh:0 1px 2px rgba(18,55,38,.05),0 12px 30px rgba(18,55,38,.07);--shl:0 20px 50px rgba(18,55,38,.15);color-scheme:light}
+*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0}
+body{background:var(--bg);color:var(--body);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--disp);color:var(--ink);margin:0;line-height:1.13;font-weight:600;letter-spacing:-.01em}
+p{margin:0}a{color:inherit;text-decoration:none}img{max-width:100%;display:block}
+.wrap{max-width:1140px;margin:0 auto;padding-inline:20px}
+section{scroll-margin-top:70px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:15px;border-radius:999px;padding:13px 22px;cursor:pointer;border:1.5px solid transparent;transition:transform .1s,background .2s}
+.btn:active{transform:translateY(1px)}
+.btn-p{background:var(--green);color:#fff;box-shadow:0 6px 16px rgba(46,125,83,.28)}.btn-p:hover{background:#296f4a}
+.btn-w{background:#fff;color:var(--forest)}
+.btn-o{background:transparent;border-color:rgba(255,255,255,.5);color:#fff}.btn-o:hover{background:rgba(255,255,255,.1)}
+.btn-wa{background:#25D366;color:#0a2e17}.btn-wa:hover{background:#1fbe5a}
+.btn-lg{padding:15px 28px;font-size:16px}
+.btn-g{background:var(--forest);color:#fff}.btn-g:hover{background:#0d2c1d}
+header{position:sticky;top:0;z-index:40;background:rgba(251,250,246,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:16px;height:64px}
+.logo{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(150deg,var(--green),var(--forest));display:grid;place-items:center;flex:none;color:var(--lime);font-family:var(--disp);font-weight:700;font-size:20px}
+.logo b{font-family:var(--disp);font-weight:700;font-size:18px;line-height:1;display:block;letter-spacing:.02em}
+.logo small{display:block;font-size:9.5px;letter-spacing:.13em;color:var(--muted);text-transform:uppercase;margin-top:3px;font-weight:600}
+.nl{display:flex;gap:22px;margin-inline-start:auto}.nl a{font-weight:500;font-size:14.5px;color:var(--body)}.nl a:hover{color:var(--green)}
+.nav .ph{font-weight:700;color:var(--ink);font-size:14.5px;white-space:nowrap}
+@media(max-width:940px){.nl{display:none}.nav .ph{display:none}}
+.hero{position:relative;color:#fff;isolation:isolate;background:var(--forest)}
+.hero-bg{position:absolute;inset:0;z-index:-2;object-fit:cover;width:100%;height:100%}
+.hero::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(115deg,rgba(11,38,26,.92) 0%,rgba(14,44,30,.82) 45%,rgba(18,55,38,.55) 100%)}
+.hero .wrap{padding-block:82px 88px}
+.eb{display:inline-block;font-weight:600;font-size:12.5px;color:#d9f0e2;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:6px 14px;border-radius:999px;backdrop-filter:blur(4px)}
+.hero h1{color:#fff;font-size:clamp(38px,6.5vw,66px);margin:20px 0 0;max-width:15ch}
+.hero h1 em{font-style:normal;color:var(--lime)}
+.hero .lead{color:#e4f1e9;font-size:clamp(17px,2vw,20px);max-width:54ch;margin-top:18px}
+.hcta{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.trust{display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,.16);color:#eaf3ee;font-size:14px;font-weight:500}
+.trust span::before{content:"✓";color:var(--lime);font-weight:800;margin-inline-end:7px}
+.sec{padding-block:72px}.band{background:var(--sand)}.dark{background:var(--forest);color:#fff}
+.kick{font-weight:700;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--green)}.dark .kick{color:var(--lime)}
+.sh2{font-size:clamp(28px,4vw,42px);margin-top:10px}.dark .sh2{color:#fff}
+.sp{margin-top:12px;font-size:17px;color:var(--muted);max-width:58ch}.dark .sp{color:#cfe3d7}
+.center{text-align:center;margin-inline:auto}
+.svc{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:40px}
+@media(max-width:760px){.svc{grid-template-columns:1fr}}
+.sc{background:var(--surf);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--sh);display:flex;flex-direction:column}
+.sc-img{aspect-ratio:16/10;background:var(--sand);object-fit:cover;width:100%}
+.sc-b{padding:22px 24px 26px}
+.sc h3{font-size:21px;margin-bottom:8px}
+.sc ul{list-style:none;padding:0;margin:12px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+@media(max-width:520px){.sc ul{grid-template-columns:1fr}}
+.sc li{font-size:14px;color:var(--body)}.sc li::before{content:"✓";color:var(--green2);font-weight:800;margin-inline-end:7px}
+.gal{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:36px}
+@media(max-width:860px){.gal{grid-template-columns:repeat(3,1fr)}}@media(max-width:620px){.gal{grid-template-columns:1fr 1fr}}
+.gi{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:4/3;background:var(--sand);box-shadow:var(--sh)}
+.gi img{width:100%;height:100%;object-fit:cover;transition:transform .5s}.gi:hover img{transform:scale(1.06)}
+.gi span{position:absolute;left:14px;bottom:12px;color:#fff;font-weight:600;font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.6);z-index:2}
+.gi::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 55%)}
+.workcta{text-align:center;margin-top:34px}
+.proc{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
+@media(max-width:760px){.proc{grid-template-columns:1fr 1fr}}@media(max-width:440px){.proc{grid-template-columns:1fr}}
+.pc{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--sh)}
+.pc b{font-family:var(--disp);font-size:30px;color:var(--lime);display:block;line-height:1}
+.pc h4{font-size:16px;margin:10px 0 5px}.pc p{font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
+@media(max-width:640px){.stats{grid-template-columns:1fr 1fr}}
+.st{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:22px}
+.st b{font-family:var(--disp);font-size:26px;color:#fff;display:block}.st span{font-size:13px;color:#bcd6c6}
+.areas{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 18px;margin-top:30px}
+@media(max-width:760px){.areas{grid-template-columns:1fr 1fr}}@media(max-width:440px){.areas{grid-template-columns:1fr}}
+.areas div{font-size:14.5px;color:var(--ink);font-weight:500}.areas div::before{content:"•";color:var(--green);font-weight:800;margin-inline-end:8px}
+.faq{max-width:820px;margin:34px auto 0;display:grid;gap:11px}
+details{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:2px 20px;box-shadow:var(--sh)}
+summary{list-style:none;cursor:pointer;padding:16px 0;font-family:var(--disp);font-weight:600;font-size:16.5px;color:var(--ink)}
+summary::-webkit-details-marker{display:none}summary::after{content:"+";float:right;color:var(--green);font-weight:700;font-size:20px;line-height:1}
+details[open] summary::after{content:"–"}
+details p{padding:0 0 16px;font-size:15px}
+.cg{display:grid;grid-template-columns:1fr 1.05fr;gap:44px;align-items:start;margin-top:8px}
+@media(max-width:860px){.cg{grid-template-columns:1fr;gap:30px}}
+.cm{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:15px 17px;margin-bottom:11px;display:flex;gap:13px;align-items:center}
+.cm .ic{width:40px;height:40px;border-radius:10px;background:rgba(143,212,106,.16);display:grid;place-items:center;font-size:19px;flex:none}
+.cm .l{font-size:11.5px;color:#a9c6b5;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.cm .v{font-size:17px;font-weight:600;color:#fff;font-family:var(--disp)}.cm a.v:hover{color:var(--lime)}
+.fc{background:var(--surf);border-radius:20px;padding:26px;box-shadow:var(--shl);color:var(--body)}
+.fc h3{font-size:22px;color:var(--ink)}.fc .s{font-size:14px;color:var(--muted);margin-top:4px}
+.photo{margin-top:18px;border:2px dashed var(--line2);border-radius:14px;background:var(--bg);padding:20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.photo:hover{border-color:var(--green2);background:#f4f9f4}
+.photo .pi{font-size:30px}.photo .pt{font-weight:600;color:var(--ink);margin-top:6px;font-size:15px}.photo .ps{font-size:12.5px;color:var(--muted);margin-top:2px}
+.photo input{display:none}
+#pv{margin-top:14px;display:none}#pv img{border-radius:12px;max-height:220px;width:100%;object-fit:cover;border:1px solid var(--line)}
+#pv .rm{font-size:13px;color:var(--green);font-weight:600;margin-top:8px;cursor:pointer;display:inline-block}
+.frm{display:grid;gap:12px;margin-top:16px}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:520px){.r2{grid-template-columns:1fr}}
+.frm label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:5px}
+.frm input,.frm select,.frm textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line2);border-radius:10px;font:inherit;font-size:15px;color:var(--ink);background:var(--bg)}
+.frm textarea{min-height:80px;resize:vertical}
+.frm input:focus,.frm select:focus,.frm textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(46,125,83,.14)}
+.sent{background:var(--sand);border:1px solid var(--line2);border-radius:10px;padding:12px;font-size:14px;color:var(--ink)}
+footer{background:#0e2c1e;color:#bcd6c6}
+footer .wrap{padding-block:42px}
+.fgrid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:28px}@media(max-width:680px){.fgrid{grid-template-columns:1fr}}
+footer h4{color:#fff;font-size:15px;margin-bottom:12px;font-family:var(--sans);font-weight:700;letter-spacing:.02em}
+footer a{color:#bcd6c6;font-size:14.5px}footer a:hover{color:var(--lime)}
+footer .fl{display:grid;gap:8px}
+.cr{border-top:1px solid rgba(255,255,255,.1);margin-top:28px;padding-top:16px;font-size:12.5px;color:#7fa08e;line-height:1.7}
+</style>
+</head>
+<body>
+<header><div class="wrap nav">
+<a class="logo" href="#top"><span class="mk">🌿</span><span><b>USWS</b><small>Urban Sydney Wide</small></span></a>
+<nav class="nl"><a href="#services">Services</a><a href="#work">Our work</a><a href="/gallery">Gallery</a><a href="#process">Process</a><a href="#areas">Areas</a><a href="#faq">FAQ</a><a href="#contact">Contact</a></nav>
+<span class="ph">📞 0434 449 997</span>
+<a class="btn btn-p" href="#contact">Free quote</a>
+</div></header>
+
+<span id="top"></span>
+<section class="hero">
+<img class="hero-bg" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/hero-garden.jpg" alt="Landscaped garden and lawn in Sydney by USWS">
+<div class="wrap">
+<span class="eb">Licensed &amp; insured · Residential &amp; commercial · Open 24 hrs</span>
+<h1>Sydney outdoors, <em>transformed.</em></h1>
+<p class="lead">Urban Sydney Wide Solutions designs, builds and maintains outdoor spaces across Sydney — landscaping, decking, concreting, paving, retaining walls, fencing and turf. Quality work, on time, guaranteed.</p>
+<div class="hcta">
+<a class="btn btn-w btn-lg" href="#contact">Get a free quote</a>
+<a class="btn btn-o btn-lg" href="tel:+61434449997">Call 0434 449 997</a>
+</div>
+<div class="trust"><span>Free, no-obligation quotes</span><span>Fully insured team</span><span>Workmanship guarantee</span><span>We reply within 1 business day</span></div>
+</div>
+</section>
+
+<section class="sec band" id="services"><div class="wrap">
+<div><span class="kick">What we do</span><h2 class="sh2">Everything outdoors, one trusted team</h2><p class="sp">From full landscape builds to decking, concreting, paving, fencing and ongoing care — for homes and businesses right across Sydney.</p></div>
+<div class="svc">
+<div class="sc"><img class="sc-img" loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/paving-travertine-court.jpg" alt="Travertine courtyard landscaping"><div class="sc-b"><h3>🌿 Landscaping &amp; design</h3><ul><li>Design &amp; construction</li><li>Turf &amp; synthetic lawn</li><li>Paving &amp; travertine</li><li>Retaining walls</li><li>Feature gardens</li><li>Pool landscaping</li></ul></div></div>
+<div class="sc"><img class="sc-img" loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/deck-lit.jpg" alt="Merbau timber deck with lighting"><div class="sc-b"><h3>🪵 Decking &amp; structures</h3><ul><li>Merbau &amp; hardwood decks</li><li>Pool decks &amp; surrounds</li><li>Pergolas &amp; screens</li><li>Timber &amp; bamboo fencing</li><li>Glass &amp; Colorbond</li><li>Outdoor living areas</li></ul></div></div>
+<div class="sc"><img class="sc-img" loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/concrete-driveway.jpg" alt="Decorative concrete driveway"><div class="sc-b"><h3>🧱 Concreting &amp; paving</h3><ul><li>Driveways</li><li>Decorative &amp; stencil</li><li>Sandstone &amp; travertine</li><li>Paths &amp; patios</li><li>Pool surrounds</li><li>Slabs &amp; footings</li></ul></div></div>
+<div class="sc"><img class="sc-img" loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/turf-lawn.jpg" alt="Turf and garden maintenance"><div class="sc-b"><h3>✂️ Turf &amp; maintenance</h3><ul><li>Natural &amp; synthetic turf</li><li>Mowing &amp; edging</li><li>Pruning &amp; hedging</li><li>Mulching &amp; garden beds</li><li>Clean-ups</li><li>Scheduled upkeep</li></ul></div></div>
+</div>
+</div></section>
+
+<section class="sec" id="work"><div class="wrap">
+<div class="center" style="max-width:640px"><span class="kick">Our work</span><h2 class="sh2">Real projects, built by our team</h2><p class="sp center">A selection of recent work across Sydney — decking, paving, retaining walls, concreting, turf and feature gardens.</p></div>
+<div class="gal">
+<div class="gi"><img loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/deck-lit.jpg" alt="Merbau deck with lighting"><span>Merbau deck &amp; lighting</span></div>
+<div class="gi"><img loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/paving-travertine-court.jpg" alt="Travertine courtyard"><span>Travertine courtyard</span></div>
+<div class="gi"><img loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/retaining-besser-lawn.jpg" alt="Retaining wall and lawn"><span>Retaining &amp; lawn</span></div>
+<div class="gi"><img loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/feature-cabana-pool.jpg" alt="Pool, cabana and deck"><span>Pool &amp; cabana</span></div>
+<div class="gi"><img loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/concrete-stencil.jpg" alt="Decorative stencil driveway"><span>Stencil driveway</span></div>
+<div class="gi"><img loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/turf-rooftop.jpg" alt="Rooftop turf terrace"><span>Rooftop turf</span></div>
+<div class="gi"><img loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/paving-pebble-path.jpg" alt="Travertine and pebble path"><span>Travertine &amp; pebble path</span></div>
+<div class="gi"><img loading="lazy" src="https://cdn.jsdelivr.net/gh/ahmad1darwich-hue/Alex-ai@a40baa55691e5c03c5796d2edf3b8db71e619e7b/usws-assets/img/feature-grasstrees.jpg" alt="Grass trees and planters"><span>Feature planting</span></div>
+</div>
+<div class="workcta"><a class="btn btn-g btn-lg" href="/gallery">View full gallery →</a></div>
+</div></section>
+
+<section class="sec band" id="process"><div class="wrap">
+<div><span class="kick">How it works</span><h2 class="sh2">Simple, from first call to final handover</h2></div>
+<div class="proc">
+<div class="pc"><b>1</b><h4>Free site visit</h4><p>We visit, listen to your ideas and measure up — then send a clear, fixed quote.</p></div>
+<div class="pc"><b>2</b><h4>Design &amp; plan</h4><p>We agree the scope, materials and timeline so you know exactly what you're getting.</p></div>
+<div class="pc"><b>3</b><h4>We build</h4><p>Our team does the work cleanly and on schedule, keeping you updated throughout.</p></div>
+<div class="pc"><b>4</b><h4>Handover &amp; guarantee</h4><p>We walk you through the finished space, backed by our workmanship guarantee.</p></div>
+</div>
+</div></section>
+
+<section class="sec dark"><div class="wrap">
+<div><span class="kick">Why USWS</span><h2 class="sh2">Reliable work, honest prices, done right</h2><p class="sp">One team for your whole outdoor project — no juggling trades, no surprises.</p></div>
+<div class="stats"><div class="st"><b>Sydney-wide</b><span>homes &amp; businesses</span></div><div class="st"><b>Free</b><span>on-site quotes</span></div><div class="st"><b>Insured</b><span>&amp; fully licensed</span></div><div class="st"><b>24 / 7</b><span>reach us anytime</span></div></div>
+</div></section>
+
+<section class="sec band" id="areas"><div class="wrap">
+<div><span class="kick">Where we work</span><h2 class="sh2">Serving all of Sydney</h2><p class="sp">From the Eastern Suburbs to the Hills and the Shire — if you're in the Sydney metro area, we can help.</p></div>
+<div class="areas"><div>Eastern Suburbs</div><div>Inner West</div><div>Inner City</div><div>North Shore</div><div>Northern Beaches</div><div>The Hills</div><div>Ryde &amp; Macquarie</div><div>Parramatta</div><div>Western Sydney</div><div>Sutherland Shire</div><div>Canterbury-Bankstown</div><div>St George</div><div>Hornsby</div><div>Blacktown</div><div>Liverpool</div><div>Penrith</div><div>Campbelltown</div><div>&amp; surrounds</div></div>
+</div></section>
+
+<section class="sec" id="faq"><div class="wrap">
+<div class="center"><span class="kick">Good to know</span><h2 class="sh2">Frequently asked questions</h2></div>
+<div class="faq">
+<details open><summary>Do you offer free quotes?</summary><p>Yes — every quote starts with a free, no-obligation site visit so we can measure up and give you a clear, fixed price.</p></details>
+<details><summary>Are you licensed and insured?</summary><p>Absolutely. We're fully insured and work to Sydney and Australian building and safety standards. ABN 20 386 532 878.</p></details>
+<details><summary>Do you do commercial work?</summary><p>Yes — we work with both homeowners and businesses, from single gardens to larger commercial landscaping and concreting projects.</p></details>
+<details><summary>How long does a project take?</summary><p>It depends on scope — a lawn or clean-up can be a day, while a full landscape build may take a week or more. We give you a clear timeline in your quote.</p></details>
+<details><summary>How soon will you get back to me?</summary><p>We reply within one business day — often the same day. Call or WhatsApp us any time on 0434 449 997.</p></details>
+</div>
+</div></section>
+
+<section class="sec dark" id="contact"><div class="wrap">
+<div class="cg">
+<div>
+<span class="kick">Get in touch</span>
+<h2 class="sh2" style="color:#fff">Ready for a free quote?</h2>
+<p class="sp">Send us a photo of your space and a few details — we'll get back to you with the next steps and arrange a free site visit.</p>
+<div style="margin-top:24px">
+<div class="cm"><span class="ic">💬</span><div><div class="l">Call or WhatsApp</div><a class="v" href="tel:+61434449997">0434 449 997</a></div></div>
+<div class="cm"><span class="ic">✉️</span><div><div class="l">Email</div><a class="v" href="mailto:info@usws.com.au">info@usws.com.au</a></div></div>
+<div class="cm"><span class="ic">🕒</span><div><div class="l">Hours</div><div class="v">Open 24 hours, 7 days</div></div></div>
+<div class="cm"><span class="ic">📍</span><div><div class="l">Service area</div><div class="v">Sydney metro &amp; surrounds</div></div></div>
+</div>
+</div>
+<div class="fc">
+<h3>📸 Send a photo, get a free quote</h3>
+<div class="s">Add a photo of your yard or project, fill in your details, and we'll reply within one business day.</div>
+<label class="photo" for="ph" id="phlabel">
+<div class="pi">📷</div><div class="pt">Tap to add a photo of your space</div><div class="ps">Optional — take one now or choose from your gallery</div>
+<input id="ph" type="file" accept="image/*">
+</label>
+<div id="pv"><img id="pvimg" alt="Your photo"><span class="rm" id="rm">✕ Remove photo</span></div>
+<form class="frm" id="qf" novalidate>
+<div class="r2"><div><label for="n">Name</label><input id="n" autocomplete="name"></div><div><label for="p">Phone</label><input id="p" type="tel" autocomplete="tel"></div></div>
+<div class="r2"><div><label for="s">Suburb</label><input id="s"></div><div><label for="sv">Service</label><select id="sv"><option>Landscaping</option><option>Decking</option><option>Concreting</option><option>Paving / retaining</option><option>Fencing</option><option>Turf / lawn</option><option>Maintenance</option><option>Something else</option></select></div></div>
+<div><label for="d">Tell us about the project</label><textarea id="d" placeholder="e.g. New merbau deck and travertine paving for a backyard…"></textarea></div>
+<button type="submit" class="btn btn-wa btn-lg" style="width:100%">Send via WhatsApp</button>
+<div class="s" style="text-align:center">Opens WhatsApp with your details ready. Prefer to talk? Call 0434 449 997.</div>
+<div class="sent" id="sm" hidden></div>
+</form>
+</div>
+</div>
+</div></section>
+
+<footer><div class="wrap">
+<div class="fgrid">
+<div>
+<a class="logo" href="#top" style="color:#fff"><span class="mk">🌿</span><span><b style="color:#fff">USWS</b><small style="color:#8fb2a0">Urban Sydney Wide Solutions</small></span></a>
+<p style="margin-top:14px;max-width:36ch;font-size:14.5px">Landscaping, decking, concreting, paving, fencing and garden maintenance for homes and businesses across Sydney.</p>
+</div>
+<div><h4>Explore</h4><div class="fl"><a href="#services">Services</a><a href="/gallery">Gallery</a><a href="#process">How it works</a><a href="#areas">Service areas</a><a href="#contact">Free quote</a></div></div>
+<div><h4>Get in touch</h4><div class="fl"><a href="tel:+61434449997">📞 0434 449 997</a><a href="mailto:info@usws.com.au">✉️ info@usws.com.au</a><a href="#contact">Request a free quote</a><span style="font-size:14.5px">🕒 Open 24 hours, 7 days</span></div></div>
+</div>
+<div class="cr">© <span id="yr"></span> Urban Sydney Wide Solutions · Landscaping · Decking · Concreting · Paving · Fencing · Turf · Sydney-wide · ABN 20 386 532 878 · usws.com.au</div>
+</div></footer>
+
+<script>
+document.getElementById('yr').textContent=new Date().getFullYear();
+var hasPhoto=false;
+document.getElementById('ph').addEventListener('change',function(e){
+var f=e.target.files&&e.target.files[0];if(!f)return;
+var r=new FileReader();r.onload=function(ev){document.getElementById('pvimg').src=ev.target.result;document.getElementById('pv').style.display='block';document.getElementById('phlabel').style.display='none';hasPhoto=true;};r.readAsDataURL(f);
+});
+document.getElementById('rm').addEventListener('click',function(){document.getElementById('ph').value='';document.getElementById('pv').style.display='none';document.getElementById('phlabel').style.display='block';hasPhoto=false;});
+document.getElementById('qf').addEventListener('submit',function(e){
+e.preventDefault();
+var g=function(i){return (document.getElementById(i).value||'').trim()};
+var n=g('n'),p=g('p'),s=g('s'),sv=document.getElementById('sv').value,d=g('d'),m=document.getElementById('sm');
+if(!n||!p||!s){m.hidden=false;m.textContent='Please add your name, phone and suburb so we can get back to you.';return;}
+var t='Hi USWS, I would like a free quote.\n\nName: '+n+'\nPhone: '+p+'\nSuburb: '+s+'\nService: '+sv+(d?('\nDetails: '+d):'');
+if(hasPhoto){t+='\n\n(I have a photo of my space to send.)';}
+window.open('https://wa.me/61434449997?text='+encodeURIComponent(t),'_blank');
+m.hidden=false;
+m.innerHTML=hasPhoto?'Opening WhatsApp… once it opens, tap the 📎 attach icon and send us your photo. If it does not open, call or message 0434 449 997.':'Opening WhatsApp… if it does not open, call or message us on 0434 449 997.';
+});
+</script>
+</body>
+</html>
