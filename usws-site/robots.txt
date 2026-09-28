@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://usws.com.au/sitemap.xml
