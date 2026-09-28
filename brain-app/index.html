@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Brain — your autonomous agent</title>
-<meta name="description" content="Brain — an autonomous AI agent. Ask it to build a website, an app, a report or a plan, and it delivers finished work.">
+<title>Brain — your assistant</title>
+<meta name="description" content="Brain — an AI assistant for customer replies, trading and building things.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
 <style>
 :root{--bg:#0b0f14;--panel:#121821;--panel2:#0f141c;--line:#1f2a37;--line2:#2a3a4d;--txt:#e6edf3;--mut:#8b98a8;--acc:#5eead4;--acc2:#22d3ee;--user:#1d4ed8;--glow:0 0 0 1px rgba(94,234,212,.15),0 10px 40px rgba(0,0,0,.4);--sans:"Inter",system-ui,sans-serif;--disp:"Space Grotesk",var(--sans);color-scheme:dark}
 *{box-sizing:border-box}html,body{margin:0;height:100%}
 body{background:radial-gradient(1200px 600px at 70% -10%,rgba(34,211,238,.08),transparent),radial-gradient(900px 500px at 10% 110%,rgba(94,234,212,.06),transparent),var(--bg);color:var(--txt);font-family:var(--sans);display:flex;flex-direction:column;height:100dvh}
 a{color:var(--acc2)}
-header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
 .logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#04121a;font-family:var(--disp);font-weight:700;font-size:20px;box-shadow:var(--glow)}
 .brand b{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:.02em;display:block;line-height:1}
 .brand small{color:var(--mut);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
@@ -26,8 +26,6 @@ header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:
 .av.u{background:var(--user);color:#fff}
 .bub{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:15px;line-height:1.6;white-space:pre-wrap;max-width:100%;overflow-wrap:anywhere;min-height:20px}
 .msg.u .bub{background:#0e1830;border-color:#1e2f57}
-.cursor::after{content:"▋";color:var(--acc);animation:bl 1s steps(2) infinite}
-@keyframes bl{50%{opacity:0}}
 .art{margin-top:12px;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:var(--panel2)}
 .art .bar{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
 .art .bar .fn{font-family:var(--disp);color:var(--acc);font-weight:600}
@@ -41,11 +39,11 @@ header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:
 @keyframes sp{to{transform:rotate(360deg)}}
 .banner{max-width:860px;margin:0 auto 14px;background:linear-gradient(90deg,rgba(245,158,11,.12),transparent);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:12px 15px;font-size:13.5px;color:#fcd9a3}
 .banner b{color:#fde9c8}
-.composer{border-top:1px solid var(--line);background:rgba(11,15,20,.85);backdrop-filter:blur(10px);padding:14px 16px}
+.composer{border-top:1px solid var(--line);background:rgba(11,15,20,.85);padding:14px 16px}
 .cform{max-width:860px;margin:0 auto;display:flex;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:10px 12px}
 .cform textarea{flex:1;background:transparent;border:0;color:var(--txt);font:inherit;font-size:15px;resize:none;max-height:160px;outline:none;line-height:1.5}
 .send{width:40px;height:40px;border-radius:11px;border:0;background:linear-gradient(145deg,var(--acc),var(--acc2));color:#04121a;font-size:18px;cursor:pointer;flex:none;display:grid;place-items:center}
-.send:disabled{opacity:.5;cursor:default}
+.send:disabled{opacity:.5}
 .hint{max-width:860px;margin:8px auto 0;color:var(--mut);font-size:11.5px;text-align:center}
 .sug{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}
 .sug button{font:inherit;font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}
@@ -58,41 +56,35 @@ header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:
 <body>
 <header>
 <div class="logo">◇</div>
-<div class="brand"><b>Brain</b><small>Autonomous agent</small></div>
+<div class="brand"><b>Brain</b><small>Your assistant</small></div>
 <div class="status"><span class="dot" id="dot"></span><span id="stat">…</span></div>
 </header>
-
 <div class="wrap"><div class="thread" id="thread">
 <div class="intro">
-<h1>What should Brain build?</h1>
-<p>Ask for a website, an app, a report or a plan — Brain plans it and streams the finished work right here.</p>
+<h1>How can Brain help?</h1>
+<p>Reply to a customer, plan a trade, or build something — just ask.</p>
 <div class="sug" id="sug"></div>
 </div>
 </div></div>
-
 <div class="composer">
 <div class="cform">
-<textarea id="in" rows="1" placeholder="Ask Brain to build something…"></textarea>
+<textarea id="in" rows="1" placeholder="Ask Brain…"></textarea>
 <button class="send" id="send" title="Send">➤</button>
 </div>
-<div class="hint">Brain streams live and is powered by Claude. Your key stays server-side in Vercel.</div>
+<div class="hint">Powered by Claude · your key stays server-side in Vercel</div>
 </div>
-
 <script>
-var thread=document.getElementById('thread'), input=document.getElementById('in'),
-    send=document.getElementById('send'), dot=document.getElementById('dot'), stat=document.getElementById('stat');
-var history=[], busy=false, started=false;
-var SUG=["What's the gold price right now?","Build a one-page site for a coffee shop","Make a budget tracker app","Draft an SMC trading checklist"];
+var thread=document.getElementById('thread'),input=document.getElementById('in'),send=document.getElementById('send'),dot=document.getElementById('dot'),stat=document.getElementById('stat');
+var history=[],busy=false,started=false;
+var SUG=["What's the gold price right now?","Write a reply to a customer asking for a turf quote","Make an SMC trading checklist","Build a deck cost calculator"];
 var sug=document.getElementById('sug');
 SUG.forEach(function(s){var b=document.createElement('button');b.textContent=s;b.onclick=function(){input.value=s;submit();};sug.appendChild(b);});
-
 input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px';});
 input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit();}});
 send.onclick=submit;
 function scroll(){var w=document.querySelector('.wrap');w.scrollTop=w.scrollHeight;}
-
 function addMsg(role,text){
-  if(!started){started=true;var intro=thread.querySelector('.intro');if(intro)intro.remove();}
+  if(!started){started=true;var i=thread.querySelector('.intro');if(i)i.remove();}
   var m=document.createElement('div');m.className='msg '+(role==='user'?'u':'b');
   var av=document.createElement('div');av.className='av '+(role==='user'?'u':'b');av.textContent=role==='user'?'You':'◇';
   var col=document.createElement('div');col.style.cssText='min-width:0;flex:1';
@@ -100,82 +92,56 @@ function addMsg(role,text){
   col.appendChild(bub);m.appendChild(av);m.appendChild(col);thread.appendChild(m);scroll();
   return {m:m,bub:bub,col:col};
 }
-function addThinking(){
-  var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> Brain is thinking…';return r;
-}
-
-// Pull ```lang\n(<!-- FILE: name -->)\n...``` blocks out as artifacts; replace in text with a note.
+function addThinking(){var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> Brain is thinking…';return r;}
 function extractArtifacts(text){
-  var arts=[],i=0;
-  var re=/```([a-zA-Z0-9]+)?[ \t]*\n([\s\S]*?)```/g, out=text, m;
-  var replacements=[];
+  var arts=[],out=text,re=/```([a-zA-Z0-9]+)?[ \t]*\n([\s\S]*?)```/g,m,reps=[];
   while((m=re.exec(text))!==null){
-    var lang=(m[1]||'text').toLowerCase(), content=m[2];
-    var fn=null;
+    var lang=(m[1]||'text').toLowerCase(),content=m[2],fn=null;
     var fm=content.match(/^\s*(?:<!--|\/\/|#)\s*FILE:\s*(.+?)\s*(?:-->)?\s*$/im);
     if(fm){fn=fm[1].trim();content=content.replace(fm[0],'').replace(/^\n/,'');}
-    if(!fn){fn=lang==='html'?'index.html':(lang==='css'?'style.css':(lang==='js'||lang==='javascript'?'script.js':(lang==='python'?'app.py':(lang==='csv'?'data.csv':(lang==='markdown'||lang==='md'?'notes.md':'file.txt')))));}
+    if(!fn)fn=lang==='html'?'index.html':(lang==='css'?'style.css':(lang==='js'||lang==='javascript'?'script.js':(lang==='python'?'app.py':(lang==='csv'?'data.csv':(lang==='markdown'||lang==='md'?'notes.md':'file.txt')))));
     var type=lang==='html'?'html':((lang==='markdown'||lang==='md')?'markdown':(lang==='csv'?'csv':'code'));
-    i++;arts.push({filename:fn,type:type,content:content.replace(/\s+$/,'')});
-    replacements.push([m[0],'📄 '+fn+' — see below']);
+    arts.push({filename:fn,type:type,content:content.replace(/\s+$/,'')});
+    reps.push([m[0],'📄 '+fn+' — see below']);
   }
-  replacements.forEach(function(p){out=out.replace(p[0],p[1]);});
+  reps.forEach(function(p){out=out.replace(p[0],p[1]);});
   return {text:out.trim(),artifacts:arts};
 }
-
 function renderArtifact(container,a){
-  var wrap=document.createElement('div');wrap.className='art';
-  var isHtml=a.type==='html';
+  var wrap=document.createElement('div');wrap.className='art';var isHtml=a.type==='html';
   var bar='<div class="bar"><span class="fn">'+a.filename+'</span><span class="sp">';
   if(isHtml)bar+='<button data-act="toggle">View code</button>';
   bar+='<button data-act="copy">Copy</button><button data-act="dl">Download</button></span></div>';
-  wrap.innerHTML=bar;
-  var view=document.createElement('div');
+  wrap.innerHTML=bar;var view=document.createElement('div');
   if(isHtml){var f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts');f.srcdoc=a.content;view.appendChild(f);}
   else{var pre=document.createElement('pre');pre.textContent=a.content;view.appendChild(pre);}
-  wrap.appendChild(view);var codeShown=false;
-  wrap.addEventListener('click',function(e){
-    var act=e.target.getAttribute('data-act');if(!act)return;
+  wrap.appendChild(view);var shown=false;
+  wrap.addEventListener('click',function(e){var act=e.target.getAttribute('data-act');if(!act)return;
     if(act==='copy'){navigator.clipboard.writeText(a.content);e.target.textContent='Copied';setTimeout(function(){e.target.textContent='Copy';},1200);}
     if(act==='dl'){var bl=new Blob([a.content],{type:'text/plain'});var u=URL.createObjectURL(bl);var x=document.createElement('a');x.href=u;x.download=a.filename;x.click();URL.revokeObjectURL(u);}
-    if(act==='toggle'){codeShown=!codeShown;view.innerHTML='';if(codeShown){var pre=document.createElement('pre');pre.textContent=a.content;view.appendChild(pre);e.target.textContent='View preview';}else{var f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts');f.srcdoc=a.content;view.appendChild(f);e.target.textContent='View code';}}
+    if(act==='toggle'){shown=!shown;view.innerHTML='';if(shown){var pre=document.createElement('pre');pre.textContent=a.content;view.appendChild(pre);e.target.textContent='View preview';}else{var f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts');f.srcdoc=a.content;view.appendChild(f);e.target.textContent='View code';}}
   });
   container.appendChild(wrap);scroll();
 }
-
 async function submit(){
   var text=input.value.trim();if(!text||busy)return;
   busy=true;send.disabled=true;input.value='';input.style.height='auto';
   addMsg('user',text);history.push({role:'user',content:text});
   var th=addThinking();
-  var full='',started2=false,r;
   try{
-    r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:history})});
-    if(!r.body){var t=await r.text();th.bub.className='bub';th.bub.textContent=t||'(no response)';busy=false;send.disabled=false;return;}
-    var reader=r.body.getReader(),dec=new TextDecoder();
-    while(true){
-      var out=await reader.read();if(out.done)break;
-      var chunk=dec.decode(out.value,{stream:true});full+=chunk;
-      if(!started2){started2=true;th.bub.className='bub cursor';th.bub.textContent='';}
-      th.bub.textContent=full;scroll();
-    }
-    th.bub.className='bub';
-    var ex=extractArtifacts(full);
-    th.bub.textContent=ex.text||'Done.';
+    var r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:history})});
+    var d=await r.json();
+    var ex=extractArtifacts(d.reply||'…');
+    th.bub.className='bub';th.bub.textContent=ex.text||'Done.';
     ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
-    history.push({role:'assistant',content:full});
+    history.push({role:'assistant',content:d.reply||''});
     dot.className='dot live';stat.textContent='active';
-  }catch(e){
-    th.bub.className='bub';th.bub.textContent='⚠️ Connection error: '+e.message;
-  }
+  }catch(e){th.bub.className='bub';th.bub.textContent='⚠️ Connection error: '+e.message;}
   busy=false;send.disabled=false;input.focus();
 }
-
-// status
 fetch('/api/agent',{method:'GET'}).then(function(r){return r.json();}).then(function(d){
-  if(d && d.hasKey===false){dot.className='dot';stat.textContent='needs API key';
-    var b=document.createElement('div');b.className='banner';
-    b.innerHTML='<b>Brain is installed but not activated.</b> Add <b>ANTHROPIC_API_KEY</b> in Vercel → project settings → Environment Variables, then redeploy.';
+  if(d&&d.hasKey===false){dot.className='dot';stat.textContent='needs API key';
+    var b=document.createElement('div');b.className='banner';b.innerHTML='<b>Brain is installed but not activated.</b> Add <b>ANTHROPIC_API_KEY</b> in Vercel → project settings → Environment Variables, then redeploy.';
     thread.parentNode.insertBefore(b,thread);
   }else{dot.className='dot live';stat.textContent='active';}
 }).catch(function(){dot.className='dot live';stat.textContent='ready';});
