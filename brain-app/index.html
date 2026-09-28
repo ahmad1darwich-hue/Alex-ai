@@ -82,7 +82,7 @@ header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:
 var thread=document.getElementById('thread'), input=document.getElementById('in'),
     send=document.getElementById('send'), dot=document.getElementById('dot'), stat=document.getElementById('stat');
 var history=[], busy=false, started=false;
-var SUG=["Build a one-page site for a coffee shop","Make a budget tracker app","Write a 7-day content plan for Instagram","Build a live gold price widget"];
+var SUG=["What's the gold price right now?","Build a one-page site for a coffee shop","Make a budget tracker app","Draft an SMC trading checklist"];
 var sug=document.getElementById('sug');
 SUG.forEach(function(s){var b=document.createElement('button');b.textContent=s;b.onclick=function(){input.value=s;submit();};sug.appendChild(b);});
 
