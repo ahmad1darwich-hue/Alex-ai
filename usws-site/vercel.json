@@ -1,8 +1,13 @@
 {
-  "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
     {"source": "/contact", "destination": "/", "statusCode": 301},
     {"source": "/contact/", "destination": "/", "statusCode": 301}
+  ],
+  "rewrites": [
+    {"source": "/gallery", "destination": "/gallery.html"},
+    {"source": "/areas", "destination": "/areas/index.html"},
+    {"source": "/areas/:slug", "destination": "/areas/:slug.html"},
+    {"source": "/((?!api|gallery|areas|assets|sitemap|robots|.*\\.).*)", "destination": "/index.html"}
   ]
 }
