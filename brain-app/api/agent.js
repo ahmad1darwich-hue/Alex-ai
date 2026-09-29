@@ -34,7 +34,7 @@ async function liveData(text) {
   const btc = /bitcoin|btc|بيتكوين|بتكوين/i.test(q), eth = /ethereum|eth|ايثير|إيثير/i.test(q);
   if (gold || silver) {
     try {
-      const r = await timedFetch("https://data-asg.goldprice.org/dbXRates/USD", { headers: { "user-agent": "Mozilla/5.0", "accept": "application/json" } }, 3500);
+      const r = await timedFetch("https://data-asg.goldprice.org/dbXRates/USD", { headers: { "user-agent": "Mozilla/5.0", "accept": "application/json" } }, 2500);
       if (r.ok) { const j = await r.json(), it = j && j.items && j.items[0];
         if (it) { if (gold && it.xauPrice) out.push("Gold (XAU) = $" + Number(it.xauPrice).toFixed(2) + "/oz USD");
                   if (silver && it.xagPrice) out.push("Silver (XAG) = $" + Number(it.xagPrice).toFixed(2) + "/oz USD"); } }
@@ -43,7 +43,7 @@ async function liveData(text) {
   if (btc || eth) {
     try {
       const ids = [btc ? "bitcoin" : null, eth ? "ethereum" : null].filter(Boolean).join(",");
-      const r = await timedFetch("https://api.coingecko.com/api/v3/simple/price?ids=" + ids + "&vs_currencies=usd", { headers: { "accept": "application/json" } }, 3500);
+      const r = await timedFetch("https://api.coingecko.com/api/v3/simple/price?ids=" + ids + "&vs_currencies=usd", { headers: { "accept": "application/json" } }, 2500);
       if (r.ok) { const j = await r.json();
         if (j.bitcoin) out.push("Bitcoin (BTC) = $" + j.bitcoin.usd.toLocaleString() + " USD");
         if (j.ethereum) out.push("Ethereum (ETH) = $" + j.ethereum.usd.toLocaleString() + " USD"); }
@@ -68,12 +68,16 @@ export default async function handler(req, res) {
   let sys = SYSTEM;
   try { const lu = [...messages].reverse().find(m => m.role === "user"); if (lu) { const ld = await liveData(lu.content); if (ld) sys += ld; } } catch (e) {}
 
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 8000);
   try {
     const r = await fetch(API, {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 2000, system: sys, messages })
+      body: JSON.stringify({ model: MODEL, max_tokens: 1200, system: sys, messages }),
+      signal: ctrl.signal
     });
+    clearTimeout(to);
     if (!r.ok) {
       const t = await r.text();
       let hint = "";
@@ -88,6 +92,8 @@ export default async function handler(req, res) {
     const text = (j.content || []).filter(b => b.type === "text").map(b => b.text).join("\n") || "…";
     res.status(200).json({ reply: text });
   } catch (e) {
-    res.status(200).json({ reply: "⚠️ Brain couldn't reach Claude: " + String(e.message || e) });
+    clearTimeout(to);
+    const aborted = e && (e.name === "AbortError" || /abort/i.test(String(e)));
+    res.status(200).json({ reply: aborted ? "⚠️ استغرق وقتاً أطول من اللازم — جرّب سؤالاً أقصر أو أعد المحاولة." : "⚠️ Brain couldn't reach Claude: " + String(e.message || e) });
   }
 }

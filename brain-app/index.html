@@ -128,15 +128,21 @@ async function submit(){
   busy=true;send.disabled=true;input.value='';input.style.height='auto';
   addMsg('user',text);history.push({role:'user',content:text});
   var th=addThinking();
+  var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},22000);
   try{
-    var r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:history})});
+    var r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:history}),signal:ac.signal});
+    clearTimeout(tmo);
     var d=await r.json();
     var ex=extractArtifacts(d.reply||'…');
     th.bub.className='bub';th.bub.textContent=ex.text||'Done.';
     ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
     history.push({role:'assistant',content:d.reply||''});
     dot.className='dot live';stat.textContent='active';
-  }catch(e){th.bub.className='bub';th.bub.textContent='⚠️ Connection error: '+e.message;}
+  }catch(e){
+    clearTimeout(tmo);
+    th.bub.className='bub';
+    th.bub.textContent=(e&&e.name==='AbortError')?'⚠️ الرد تأخّر أكثر من اللازم — جرّب مرة ثانية أو سؤال أقصر.':'⚠️ Connection error: '+(e&&e.message||e);
+  }
   busy=false;send.disabled=false;input.focus();
 }
 fetch('/api/agent',{method:'GET'}).then(function(r){return r.json();}).then(function(d){

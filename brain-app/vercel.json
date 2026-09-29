@@ -1,1 +1,1 @@
-{ "cleanUrls": true }
+{ "cleanUrls": true, "functions": { "api/agent.js": { "maxDuration": 60 } } }
