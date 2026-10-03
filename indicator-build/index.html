@@ -82,7 +82,7 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 .drawer{position:fixed;top:0;bottom:0;inset-inline-start:0;width:300px;max-width:85vw;background:var(--panel2);border-inline-end:1px solid var(--line);z-index:50;transition:transform .22s ease;overflow-y:auto;padding:16px}
 html[dir="rtl"] .drawer{transform:translateX(102%)}
 html[dir="ltr"] .drawer{transform:translateX(-102%)}
-.drawer.on{transform:none}
+html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on,.drawer.on{transform:none}
 .drawer h2{font-family:var(--disp);font-size:16px;margin:4px 2px 14px;color:var(--acc)}
 .dsec{margin-bottom:16px}.dsec>.t{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:0 2px 8px;font-weight:600}
 .dsec button{display:flex;align-items:center;gap:10px;width:100%;text-align:start;font:inherit;font-size:14px;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:pointer;margin-bottom:7px}
