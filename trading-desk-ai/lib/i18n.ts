@@ -1,4 +1,4 @@
-import type { Lang } from "./types";
+import type { Lang } from "@/lib/types";
 
 /**
  * Every user-facing string lives here. The UI is bilingual (ar + en) and
@@ -6,8 +6,9 @@ import type { Lang } from "./types";
  */
 export const strings = {
   ar: {
-    appName: "منصة التداول المعلّق",
-    tagline: "قراءة حية للسوق · إشارة معلّقة · القرار قرارك",
+    appName: "Allan",
+    tagline: "مساعد تداول · قراءة حية للسوق · إشارة معلّقة · القرار قرارك",
+    assistantName: "Allan",
     symbol: "الزوج",
     interval: "الإطار الزمني",
     analyze: "اقرأ السوق الآن",
@@ -30,13 +31,14 @@ export const strings = {
     approve: "اعتمد",
     reject: "ارفض",
     reset: "أعد للانتظار",
+    editPlan: "عدّل الأرقام",
     note: "ملاحظة",
     notePlaceholder: "اكتب سببك أو شروطك...",
     reasoning: "لماذا هذه الإشارة",
     news: "أخبار حية",
     noNews: "لا توجد أخبار الآن",
-    chat: "اسأل المساعد",
-    chatPlaceholder: "اسأل عن السوق...",
+    chat: "اسأل Allan",
+    chatPlaceholder: "اسأل Allan عن السوق...",
     send: "أرسل",
     aiOff: "طبقة الذكاء الاصطناعي غير مفعّلة — التحليل القاعدي يعمل كاملاً",
     videoKit: "عدة الفيديو",
@@ -51,8 +53,9 @@ export const strings = {
     refresh: "حدّث",
   },
   en: {
-    appName: "Pending Trading Desk",
-    tagline: "Live market read · pending signal · the decision is yours",
+    appName: "Allan",
+    tagline: "Trading assistant · live market read · pending signal · the decision is yours",
+    assistantName: "Allan",
     symbol: "Pair",
     interval: "Timeframe",
     analyze: "Read the market now",
@@ -75,13 +78,14 @@ export const strings = {
     approve: "Approve",
     reject: "Reject",
     reset: "Back to pending",
+    editPlan: "Edit prices",
     note: "Note",
     notePlaceholder: "Write your reason or conditions...",
     reasoning: "Why this signal",
     news: "Live news",
     noNews: "No headlines right now",
-    chat: "Ask the assistant",
-    chatPlaceholder: "Ask about the market...",
+    chat: "Ask Allan",
+    chatPlaceholder: "Ask Allan about the market...",
     send: "Send",
     aiOff: "The AI layer is not enabled — the rule-based analysis works fully on its own",
     videoKit: "Video kit",
