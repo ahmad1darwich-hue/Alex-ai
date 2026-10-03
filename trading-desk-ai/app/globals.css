@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: #08090c;
+  color: #e8ecf1;
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Arabic", sans-serif;
+}
+
+[dir="rtl"] {
+  text-align: right;
+}
+
+.card {
+  border: 1px solid #1c2029;
+  background: #0e1116;
+  border-radius: 14px;
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.up { color: #35d07f; }
+.down { color: #ff5c7a; }
+.flat { color: #8b93a1; }
