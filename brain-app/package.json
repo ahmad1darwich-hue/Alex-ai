@@ -2,5 +2,8 @@
   "name": "brain-agent",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" }
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "imapflow": "^1.0.0"
+  }
 }
