@@ -38,19 +38,21 @@ function mapMessages(history) {
   }).filter(m => Array.isArray(m.content) ? m.content.length : m.content);
 }
 
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type" };
+function jsonResp(obj) { return new Response(JSON.stringify(obj), { headers: Object.assign({ "content-type": "application/json" }, CORS) }); }
+
 export default async function handler(req) {
   const key = process.env.ANTHROPIC_API_KEY;
-  if (req.method === "GET") {
-    return new Response(JSON.stringify({ ok: true, hasKey: !!key, model: MODEL, mode: "indicators", streaming: true }), { headers: { "content-type": "application/json" } });
-  }
-  if (req.method !== "POST") return new Response("POST only", { status: 405 });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  if (req.method === "GET") return jsonResp({ ok: true, hasKey: !!key, model: MODEL, mode: "indicators", streaming: true });
+  if (req.method !== "POST") return new Response("POST only", { status: 405, headers: CORS });
 
   let body = {};
   try { body = await req.json(); } catch (e) {}
   const messages = mapMessages(body.messages);
 
-  if (!key) return new Response(JSON.stringify({ reply: "🔌 غير مفعّل — أضف ANTHROPIC_API_KEY في Vercel." }), { headers: { "content-type": "application/json" } });
-  if (!messages.length) return new Response(JSON.stringify({ reply: "وصّفلي المؤشر اللي بدك اصمّمه 👇" }), { headers: { "content-type": "application/json" } });
+  if (!key) return jsonResp({ reply: "🔌 غير مفعّل — أضف ANTHROPIC_API_KEY في Vercel." });
+  if (!messages.length) return jsonResp({ reply: "وصّفلي المؤشر اللي بدك اصمّمه 👇" });
 
   let upstream;
   try {
@@ -60,7 +62,7 @@ export default async function handler(req) {
       body: JSON.stringify({ model: MODEL, max_tokens: 6000, system: SYSTEM, messages, stream: true })
     });
   } catch (e) {
-    return new Response(JSON.stringify({ reply: "⚠️ تعذّر الاتصال: " + String(e && e.message || e) }), { headers: { "content-type": "application/json" } });
+    return jsonResp({ reply: "⚠️ تعذّر الاتصال: " + String(e && e.message || e) });
   }
   if (!upstream.ok || !upstream.body) {
     let t = ""; try { t = await upstream.text(); } catch (e) {}
@@ -69,7 +71,7 @@ export default async function handler(req) {
     else if (/credit|billing|quota|insufficient|402/i.test(t)) hint = " (نفد الرصيد — اشحن حساب Anthropic)";
     else if (/429|rate|overloaded|529/i.test(t)) hint = " (ضغط مؤقت — جرّب بعد دقيقة)";
     else if (/404|model|not_found/i.test(t)) hint = " (اسم الموديل غير متاح)";
-    return new Response(JSON.stringify({ reply: "⚠️ خطأ " + upstream.status + hint + "\n" + t.slice(0, 200) }), { headers: { "content-type": "application/json" } });
+    return jsonResp({ reply: "⚠️ خطأ " + upstream.status + hint + "\n" + t.slice(0, 200) });
   }
 
   const reader = upstream.body.getReader();
@@ -105,5 +107,5 @@ export default async function handler(req) {
       }
     }
   });
-  return new Response(stream, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" } });
+  return new Response(stream, { headers: Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" }, CORS) });
 }
