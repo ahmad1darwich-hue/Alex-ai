@@ -15,7 +15,9 @@ header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:
 .logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#04121a;font-family:var(--disp);font-weight:700;font-size:20px;box-shadow:var(--glow)}
 .brand b{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:.02em;display:block;line-height:1}
 .brand small{color:var(--mut);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
-.status{margin-inline-start:auto;font-size:12px;color:var(--mut);display:flex;align-items:center;gap:7px}
+#newchat{margin-inline-start:auto;font:inherit;font-size:12.5px;font-weight:600;color:var(--acc);background:#121821;border:1px solid var(--line2);border-radius:999px;padding:6px 13px;cursor:pointer}
+#newchat:hover{border-color:var(--acc)}
+.status{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:7px;margin-inline-start:14px}
 .dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px #f59e0b}
 .dot.live{background:var(--acc);box-shadow:0 0 8px var(--acc)}
 .wrap{flex:1;overflow-y:auto;padding:22px 16px 8px}
@@ -57,6 +59,7 @@ header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:
 <header>
 <div class="logo">◇</div>
 <div class="brand"><b>Brain</b><small>Your assistant</small></div>
+<button id="newchat" title="New chat">+ New</button>
 <div class="status"><span class="dot" id="dot"></span><span id="stat">…</span></div>
 </header>
 <div class="wrap"><div class="thread" id="thread">
@@ -75,13 +78,16 @@ header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:
 </div>
 <script>
 var thread=document.getElementById('thread'),input=document.getElementById('in'),send=document.getElementById('send'),dot=document.getElementById('dot'),stat=document.getElementById('stat');
-var history=[],busy=false,started=false;
+var convo=[],busy=false,started=false;
 var SUG=["What's the gold price right now?","Write a reply to a customer asking for a turf quote","Make an SMC trading checklist","Build a deck cost calculator"];
 var sug=document.getElementById('sug');
 SUG.forEach(function(s){var b=document.createElement('button');b.textContent=s;b.onclick=function(){input.value=s;submit();};sug.appendChild(b);});
 input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px';});
 input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit();}});
 send.onclick=submit;
+function saveConvo(){try{localStorage.setItem('brain_convo',JSON.stringify(convo.slice(-40)));}catch(e){}}
+function newChat(){convo=[];try{localStorage.removeItem('brain_convo');}catch(e){}location.reload();}
+var nc=document.getElementById('newchat');if(nc)nc.onclick=newChat;
 function scroll(){var w=document.querySelector('.wrap');w.scrollTop=w.scrollHeight;}
 function addMsg(role,text){
   if(!started){started=true;var i=thread.querySelector('.intro');if(i)i.remove();}
@@ -126,17 +132,17 @@ function renderArtifact(container,a){
 async function submit(){
   var text=input.value.trim();if(!text||busy)return;
   busy=true;send.disabled=true;input.value='';input.style.height='auto';
-  addMsg('user',text);history.push({role:'user',content:text});
+  addMsg('user',text);convo.push({role:'user',content:text});saveConvo();
   var th=addThinking();
   var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},22000);
   try{
-    var r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:history}),signal:ac.signal});
+    var r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:convo}),signal:ac.signal});
     clearTimeout(tmo);
     var d=await r.json();
     var ex=extractArtifacts(d.reply||'…');
     th.bub.className='bub';th.bub.textContent=ex.text||'Done.';
     ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
-    history.push({role:'assistant',content:d.reply||''});
+    convo.push({role:'assistant',content:d.reply||''});saveConvo();
     dot.className='dot live';stat.textContent='active';
   }catch(e){
     clearTimeout(tmo);
@@ -151,6 +157,18 @@ fetch('/api/agent',{method:'GET'}).then(function(r){return r.json();}).then(func
     thread.parentNode.insertBefore(b,thread);
   }else{dot.className='dot live';stat.textContent='active';}
 }).catch(function(){dot.className='dot live';stat.textContent='ready';});
+// restore saved conversation
+try{
+  var saved=JSON.parse(localStorage.getItem('brain_convo')||'[]');
+  if(saved&&saved.length){
+    convo=saved;
+    saved.forEach(function(msg){
+      if(msg.role==='user'){addMsg('user',msg.content);}
+      else{var r=addMsg('assistant','');var ex=extractArtifacts(msg.content||'');r.bub.textContent=ex.text||'…';ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}
+    });
+    scroll();
+  }
+}catch(e){}
 </script>
 </body>
 </html>
