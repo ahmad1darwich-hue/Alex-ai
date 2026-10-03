@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Nexus — مصمّم مؤشرات التداول بالذكاء الاصطناعي</title>
-<meta name="description" content="Nexus — حوّل فكرتك لمؤشر TradingView كامل بالذكاء الاصطناعي: SMC، إشارات، تنبيهات، باك-تست.">
+<title>Nexus — AI Trading Indicator Designer</title>
+<meta name="description" content="Nexus — turn your idea into a complete TradingView indicator with AI: SMC, signals, alerts, backtests.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
 <style>
 :root{--bg:#070b09;--panel:#0f1711;--panel2:#0b120d;--line:#1a271d;--line2:#27402e;--txt:#e9f5ee;--mut:#8aa897;--acc:#34e39b;--acc2:#19c8e8;--user:#15803d;--glow:0 0 0 1px rgba(52,227,155,.14),0 14px 50px rgba(0,0,0,.5);--sans:"Inter",system-ui,sans-serif;--disp:"Space Grotesk",var(--sans);color-scheme:dark}
@@ -12,6 +12,8 @@
 body{min-height:100dvh;background:radial-gradient(1100px 560px at 75% -8%,rgba(25,200,232,.10),transparent),radial-gradient(900px 520px at 12% 108%,rgba(52,227,155,.09),transparent),var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 .mono{font-variant-numeric:tabular-nums}
+.langbtn{font:inherit;font-weight:700;font-size:13px;color:var(--acc);background:var(--panel);border:1.5px solid var(--line2);border-radius:999px;padding:7px 14px;cursor:pointer;flex:none}
+.langbtn:hover{border-color:var(--acc)}
 /* ===== Landing ===== */
 .lwrap{max-width:1120px;margin:0 auto;padding-inline:22px}
 .lnav{display:flex;align-items:center;gap:12px;padding:20px 0}
@@ -19,7 +21,7 @@ a{color:inherit;text-decoration:none}
 .mk{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#042016;font-family:var(--disp);font-weight:700;font-size:21px;box-shadow:var(--glow)}
 .bname{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.06em}
 .bname span{color:var(--acc)}
-.lnav .cta{margin-inline-start:auto}
+.lnav .spacer{margin-inline-start:auto}
 .btn{display:inline-flex;align-items:center;gap:9px;font:inherit;font-weight:700;font-size:15px;border-radius:12px;padding:12px 22px;cursor:pointer;border:1.5px solid transparent;transition:transform .12s,filter .2s}
 .btn:active{transform:translateY(1px)}
 .btn-p{background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016;box-shadow:0 8px 26px rgba(52,227,155,.28)}.btn-p:hover{filter:brightness(1.07)}
@@ -77,7 +79,9 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 .dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px #f59e0b}.dot.live{background:var(--acc);box-shadow:0 0 8px var(--acc)}
 .scrim{position:fixed;inset:0;background:rgba(2,8,5,.6);backdrop-filter:blur(2px);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
 .scrim.on{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;bottom:0;inset-inline-start:0;width:300px;max-width:85vw;background:var(--panel2);border-inline-end:1px solid var(--line);z-index:50;transform:translateX(102%);transition:transform .22s ease;overflow-y:auto;padding:16px}
+.drawer{position:fixed;top:0;bottom:0;inset-inline-start:0;width:300px;max-width:85vw;background:var(--panel2);border-inline-end:1px solid var(--line);z-index:50;transition:transform .22s ease;overflow-y:auto;padding:16px}
+html[dir="rtl"] .drawer{transform:translateX(102%)}
+html[dir="ltr"] .drawer{transform:translateX(-102%)}
 .drawer.on{transform:none}
 .drawer h2{font-family:var(--disp);font-size:16px;margin:4px 2px 14px;color:var(--acc)}
 .dsec{margin-bottom:16px}.dsec>.t{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:0 2px 8px;font-weight:600}
@@ -123,21 +127,23 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 <div class="lwrap">
   <nav class="lnav">
     <div class="brandrow"><span class="mk">∿</span><span class="bname">NE<span>XUS</span></span></div>
-    <button class="btn btn-p cta" onclick="launch()">ابدأ التصميم ↗</button>
+    <span class="spacer"></span>
+    <button class="langbtn" id="langL" onclick="toggleLang()">EN</button>
+    <button class="btn btn-p" onclick="launch()" data-i18n="nav_cta">ابدأ التصميم ↗</button>
   </nav>
 
   <section class="hero">
-    <span class="eyebrow">⚡ مدعوم بالذكاء الاصطناعي</span>
-    <h1>صمّم مؤشّرك. <em>بفكرة.</em></h1>
-    <p class="sub">Nexus بتحوّل فكرتك لمؤشّر TradingView كامل — SMC، إشارات، تنبيهات، وباك-تست — تحكيلها بالعربي، وبتطلعلك الكود جاهز بثوانٍ.</p>
+    <span class="eyebrow" data-i18n="eyebrow">⚡ مدعوم بالذكاء الاصطناعي</span>
+    <h1 data-i18n-html="hero_h1">صمّم مؤشّرك. <em>بفكرة.</em></h1>
+    <p class="sub" data-i18n="hero_sub">Nexus بتحوّل فكرتك لمؤشّر TradingView كامل — SMC، إشارات، تنبيهات، وباك-تست — تحكيلها بالعربي، وبتطلعلك الكود جاهز بثوانٍ.</p>
     <div class="hcta">
-      <button class="btn btn-p" onclick="launch()">ابدأ مجاناً →</button>
-      <button class="btn btn-g" onclick="demo()">جرّب مؤشر جاهز</button>
+      <button class="btn btn-p" onclick="launch()" data-i18n="hero_cta1">ابدأ مجاناً →</button>
+      <button class="btn btn-g" onclick="demo()" data-i18n="hero_cta2">جرّب مؤشر جاهز</button>
     </div>
     <div class="hstat">
-      <span><b>Pine v6</b> · كود احترافي</span>
-      <span><b>بالعربي</b> · تصف وبينفّذ</span>
-      <span><b>ثوانٍ</b> · لا برمجة</span>
+      <span data-i18n-html="stat1"><b>Pine v6</b> · كود احترافي</span>
+      <span data-i18n-html="stat2"><b>بالعربي</b> · تصف وبينفّذ</span>
+      <span data-i18n-html="stat3"><b>ثوانٍ</b> · لا برمجة</span>
     </div>
 
     <div class="mock">
@@ -147,41 +153,41 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 <span class="c">// order blocks · FVG · BOS / CHOCH · alerts</span>
 swingLen = <span class="k">input.int</span>(8, <span class="s">"Swing length"</span>)
 ph = <span class="k">ta.pivothigh</span>(high, swingLen, swingLen)
-<span class="k">alertcondition</span>(bosUp, <span class="s">"Bullish BOS"</span>, <span class="s">"Nexus: صعود"</span>)
-<span class="c">// ... كامل وجاهز للصق في TradingView</span></pre>
+<span class="k">alertcondition</span>(bosUp, <span class="s">"Bullish BOS"</span>, <span class="s">"Nexus: BOS up"</span>)
+<span class="c">// ... complete and ready to paste into TradingView</span></pre>
     </div>
   </section>
 
   <section class="sec">
-    <div class="kick">المزايا</div>
-    <div class="sh">كل اللي بتحتاجه لبناء مؤشّر</div>
+    <div class="kick" data-i18n="feat_kick">المزايا</div>
+    <div class="sh" data-i18n="feat_sh">كل اللي بتحتاجه لبناء مؤشّر</div>
     <div class="grid">
-      <div class="card"><div class="ic">🤖</div><h3>مصمّم ذكي</h3><p>صِف فكرتك بالعربي، وNexus بتكتبلك كود Pine Script كامل وجاهز.</p></div>
-      <div class="card"><div class="ic">📦</div><h3>SMC & Price Action</h3><p>Order Blocks، FVG، BOS/CHOCH، سيولة — مفاهيم السمارت موني جاهزة.</p></div>
-      <div class="card"><div class="ic">🔔</div><h3>إشارات وتنبيهات</h3><p>أسهم Buy/Sell على الشارت مع alertcondition جاهزة توصلك فوراً.</p></div>
-      <div class="card"><div class="ic">🧪</div><h3>باك-تست</h3><p>حوّل أي مؤشّر لستراتيجية strategy() مع دخول/خروج وإدارة مخاطرة.</p></div>
+      <div class="card"><div class="ic">🤖</div><h3 data-i18n="f1h">مصمّم ذكي</h3><p data-i18n="f1p">صِف فكرتك بالعربي، وNexus بتكتبلك كود Pine Script كامل وجاهز.</p></div>
+      <div class="card"><div class="ic">📦</div><h3 data-i18n="f2h">SMC & Price Action</h3><p data-i18n="f2p">Order Blocks، FVG، BOS/CHOCH، سيولة — مفاهيم السمارت موني جاهزة.</p></div>
+      <div class="card"><div class="ic">🔔</div><h3 data-i18n="f3h">إشارات وتنبيهات</h3><p data-i18n="f3p">أسهم Buy/Sell على الشارت مع alertcondition جاهزة توصلك فوراً.</p></div>
+      <div class="card"><div class="ic">🧪</div><h3 data-i18n="f4h">باك-تست</h3><p data-i18n="f4p">حوّل أي مؤشّر لستراتيجية strategy() مع دخول/خروج وإدارة مخاطرة.</p></div>
     </div>
   </section>
 
   <section class="sec" style="padding-top:0">
-    <div class="kick">كيف بيشتغل</div>
-    <div class="sh">من فكرة لمؤشّر بـ ٣ خطوات</div>
+    <div class="kick" data-i18n="how_kick">كيف بيشتغل</div>
+    <div class="sh" data-i18n="how_sh">من فكرة لمؤشّر بـ ٣ خطوات</div>
     <div class="steps">
-      <div class="step"><b class="n">1</b><h4>احكي فكرتك</h4><p>اكتب أو احكي بالصوت: "مؤشر EMA كروس مع تنبيه" — بالعربي.</p></div>
-      <div class="step"><b class="n">2</b><h4>Nexus بتكتب الكود</h4><p>بتطلعلك نسخة Pine v6 كاملة، بتتولّد قدّامك مباشرةً.</p></div>
-      <div class="step"><b class="n">3</b><h4>الصق بـ TradingView</h4><p>انسخ أو نزّل ملف .pine، والصقه بالـ Pine Editor — وخلص.</p></div>
+      <div class="step"><b class="n">1</b><h4 data-i18n="s1h">احكي فكرتك</h4><p data-i18n="s1p">اكتب أو احكي بالصوت: "مؤشر EMA كروس مع تنبيه" — بالعربي.</p></div>
+      <div class="step"><b class="n">2</b><h4 data-i18n="s2h">Nexus بتكتب الكود</h4><p data-i18n="s2p">بتطلعلك نسخة Pine v6 كاملة، بتتولّد قدّامك مباشرةً.</p></div>
+      <div class="step"><b class="n">3</b><h4 data-i18n="s3h">الصق بـ TradingView</h4><p data-i18n="s3p">انسخ أو نزّل ملف .pine، والصقه بالـ Pine Editor — وخلص.</p></div>
     </div>
   </section>
 
   <div class="lwrap"><div class="bigcta">
-    <h2>جاهز تبني مؤشّرك الأول؟</h2>
-    <p>بدون برمجة. بدون تعقيد. بس فكرة.</p>
-    <div class="hcta"><button class="btn btn-p" onclick="launch()">ابدأ الآن ↗</button></div>
+    <h2 data-i18n="big_h">جاهز تبني مؤشّرك الأول؟</h2>
+    <p data-i18n="big_p">بدون برمجة. بدون تعقيد. بس فكرة.</p>
+    <div class="hcta"><button class="btn btn-p" onclick="launch()" data-i18n="big_cta">ابدأ الآن ↗</button></div>
   </div></div>
 
   <div class="lwrap"><div class="lfoot">
-    <span class="mk">∿</span><span>© <span id="yr"></span> Nexus — مصمّم مؤشرات التداول</span>
-    <span class="r">مؤشرات أصلية · أداة تعليمية، مو نصيحة مالية</span>
+    <span class="mk">∿</span><span data-i18n="foot_l">© {yr} Nexus — مصمّم مؤشرات التداول</span>
+    <span class="r" data-i18n="foot_r">مؤشرات أصلية · أداة تعليمية، مو نصيحة مالية</span>
   </div></div>
 </div>
 </div>
@@ -189,43 +195,44 @@ ph = <span class="k">ta.pivothigh</span>(high, swingLen, swingLen)
 <!-- ===================== APP ===================== -->
 <div id="appview">
 <header>
-<button class="icbtn" id="menu" title="القائمة">☰</button>
+<button class="icbtn" id="menu" data-i18n-title="t_menu" title="القائمة">☰</button>
 <div class="logo">∿</div>
 <div class="hbrand"><b>NEXUS</b><small>Indicator Designer</small></div>
 <div class="hright">
-<button id="home" title="الرئيسية">⌂</button>
-<button id="newchat" title="محادثة جديدة">+ جديد</button>
+<button class="langbtn" id="langA" onclick="toggleLang()">EN</button>
+<button id="home" data-i18n-title="t_home" title="الرئيسية">⌂</button>
+<button id="newchat" data-i18n="btn_new" data-i18n-title="t_new" title="محادثة جديدة">+ جديد</button>
 <div class="status"><span class="dot" id="dot"></span><span id="stat">…</span></div>
 </div>
 </header>
 
 <div class="scrim" id="scrim"></div>
 <nav class="drawer" id="drawer">
-<h2>∿ Nexus — بناء المؤشرات</h2>
-<div class="dsec"><div class="t">مؤشرات جاهزة (ابنِ)</div>
-<button data-p="صمّملي مؤشر SMC كامل (Smart Money Concepts): order blocks، FVG، BOS و CHOCH، ومناطق السيولة. overlay على الشارت، ألوان واضحة، وinputs للتحكّم."><span class="em">📦</span> مؤشر SMC كامل</button>
-<button data-p="صمّملي مؤشر اتجاه (trend) واضح: يحدّد الاتجاه بالألوان (صاعد/هابط/محايد) مع تنبيه عند تغيّر الاتجاه. استخدم EMA + ATR، بدون إعادة رسم."><span class="em">📈</span> مؤشر اتجاه + تنبيه</button>
-<button data-p="صمّملي مؤشر إشارات buy/sell على الشارت مع تنبيهات alertcondition جاهزة، ومرشّح اتجاه عشان يقلّل الإشارات الخاطئة."><span class="em">🔔</span> إشارات Buy/Sell + Alerts</button>
-<button data-p="صمّملي مؤشر دعوم ومقاومات تلقائي يرسم المستويات القوية ويحدّثها، مع خطوط نظيفة وحذف القديمة."><span class="em">📐</span> دعوم ومقاومات</button>
-<button data-p="صمّملي مؤشر زخم للسكالبينغ على فريمات صغيرة (1m-5m): RSI + حجم + شموع، مع إشارات دخول سريعة وتنبيهات."><span class="em">⚡</span> سكالبينغ/زخم</button>
+<h2 data-i18n="dw_title">∿ Nexus — بناء المؤشرات</h2>
+<div class="dsec"><div class="t" data-i18n="dw_ready">مؤشرات جاهزة (ابنِ)</div>
+<button data-p="صمّملي مؤشر SMC كامل (Smart Money Concepts): order blocks، FVG، BOS و CHOCH، ومناطق السيولة. overlay على الشارت، ألوان واضحة، وinputs للتحكّم." data-pen="Design a full SMC (Smart Money Concepts) indicator for me: order blocks, FVG, BOS and CHOCH, and liquidity zones. Overlay on the chart, clear colors, and inputs to control it."><span class="em">📦</span> <span data-i18n="dw_smc">مؤشر SMC كامل</span></button>
+<button data-p="صمّملي مؤشر اتجاه (trend) واضح: يحدّد الاتجاه بالألوان (صاعد/هابط/محايد) مع تنبيه عند تغيّر الاتجاه. استخدم EMA + ATR، بدون إعادة رسم." data-pen="Design a clear trend indicator: mark the trend by color (up/down/neutral) with an alert when the trend changes. Use EMA + ATR, no repainting."><span class="em">📈</span> <span data-i18n="dw_trend">مؤشر اتجاه + تنبيه</span></button>
+<button data-p="صمّملي مؤشر إشارات buy/sell على الشارت مع تنبيهات alertcondition جاهزة، ومرشّح اتجاه عشان يقلّل الإشارات الخاطئة." data-pen="Design a buy/sell signals indicator on the chart with ready alertcondition() alerts, and a trend filter to cut down false signals."><span class="em">🔔</span> <span data-i18n="dw_bs">إشارات Buy/Sell + Alerts</span></button>
+<button data-p="صمّملي مؤشر دعوم ومقاومات تلقائي يرسم المستويات القوية ويحدّثها، مع خطوط نظيفة وحذف القديمة." data-pen="Design an automatic support & resistance indicator that draws the strong levels and keeps them updated, with clean lines and old ones removed."><span class="em">📐</span> <span data-i18n="dw_sr">دعوم ومقاومات</span></button>
+<button data-p="صمّملي مؤشر زخم للسكالبينغ على فريمات صغيرة (1m-5m): RSI + حجم + شموع، مع إشارات دخول سريعة وتنبيهات." data-pen="Design a momentum scalping indicator for low timeframes (1m-5m): RSI + volume + candles, with fast entry signals and alerts."><span class="em">⚡</span> <span data-i18n="dw_scalp">سكالبينغ/زخم</span></button>
 </div>
-<div class="dsec"><div class="t">أدوات Pine</div>
-<button data-p="بدي احكيلك فكرة مؤشر وتحوّلها لكود Pine كامل جاهز. الفكرة هي: "><span class="em">💡</span> حوّل فكرتي لكود</button>
-<button data-p="بدي الصق كود Pine فيه مشكلة وتصلّحه وتشرحلي الغلط. الكود هو:\n\n"><span class="em">🛠️</span> صلّح كود Pine</button>
-<button data-p="حوّل هالمؤشر لستراتيجي strategy() قابلة للباك-تست مع دخول/خروج وإدارة مخاطرة (stop/target). المؤشر/الفكرة: "><span class="em">🧪</span> حوّل لستراتيجي</button>
-<button data-p="اشرحلي شو بيعمل هالكود Pine سطر بسطر وكيف استعمله. الكود:\n\n"><span class="em">📖</span> اشرحلي كود</button>
-<button data-img="1" data-p="هاي صورة مؤشر/شارت. حلّل المنطق اللي فيها وصمّملي مؤشر Pine يعيد نفس الفكرة."><span class="em">🖼️</span> صمّم من صورة</button>
+<div class="dsec"><div class="t" data-i18n="dw_tools">أدوات Pine</div>
+<button data-p="بدي احكيلك فكرة مؤشر وتحوّلها لكود Pine كامل جاهز. الفكرة هي: " data-pen="I want to tell you an indicator idea and have you turn it into complete, ready Pine code. The idea is: "><span class="em">💡</span> <span data-i18n="dw_idea">حوّل فكرتي لكود</span></button>
+<button data-p="بدي الصق كود Pine فيه مشكلة وتصلّحه وتشرحلي الغلط. الكود هو:\n\n" data-pen="I want to paste Pine code that has a problem, fix it, and explain what was wrong. The code is:\n\n"><span class="em">🛠️</span> <span data-i18n="dw_fix">صلّح كود Pine</span></button>
+<button data-p="حوّل هالمؤشر لستراتيجي strategy() قابلة للباك-تست مع دخول/خروج وإدارة مخاطرة (stop/target). المؤشر/الفكرة: " data-pen="Convert this indicator into a backtestable strategy() with entries/exits and risk management (stop/target). The indicator/idea: "><span class="em">🧪</span> <span data-i18n="dw_strat">حوّل لستراتيجي</span></button>
+<button data-p="اشرحلي شو بيعمل هالكود Pine سطر بسطر وكيف استعمله. الكود:\n\n" data-pen="Explain what this Pine code does line by line and how to use it. The code:\n\n"><span class="em">📖</span> <span data-i18n="dw_explain">اشرحلي كود</span></button>
+<button data-img="1" data-p="هاي صورة مؤشر/شارت. حلّل المنطق اللي فيها وصمّملي مؤشر Pine يعيد نفس الفكرة." data-pen="This is an image of an indicator/chart. Analyze the logic in it and design a Pine indicator that reproduces the same idea."><span class="em">🖼️</span> <span data-i18n="dw_img">صمّم من صورة</span></button>
 </div>
-<div class="dsec"><div class="t">ملفات</div>
-<button data-file="1" data-p="هاد ملف فيه كود أو مواصفات مؤشر. اقرأه وصمّملي/صلّحلي المؤشر على أساسه."><span class="em">📎</span> ارفع ملف Pine/مواصفات</button>
+<div class="dsec"><div class="t" data-i18n="dw_files">ملفات</div>
+<button data-file="1" data-p="هاد ملف فيه كود أو مواصفات مؤشر. اقرأه وصمّملي/صلّحلي المؤشر على أساسه." data-pen="This is a file with indicator code or specs. Read it and design/fix the indicator based on it."><span class="em">📎</span> <span data-i18n="dw_upload">ارفع ملف Pine/مواصفات</span></button>
 </div>
-<div style="color:var(--mut);font-size:11px;padding:6px 2px 10px">الكود بينزل كملف .pine — انسخه أو نزّله والصقه في Pine Editor بـ TradingView.</div>
+<div style="color:var(--mut);font-size:11px;padding:6px 2px 10px" data-i18n="dw_note">الكود بينزل كملف .pine — انسخه أو نزّله والصقه في Pine Editor بـ TradingView.</div>
 </nav>
 
 <div class="wrap"><div class="thread" id="thread">
 <div class="intro">
-<h1>مصمّم مؤشرات Nexus ∿</h1>
-<p>وصّف المؤشر اللي بدك — أو افتح ☰ لمؤشرات جاهزة. بطلعلك كود Pine Script كامل جاهز.</p>
+<h1 data-i18n="intro_h">مصمّم مؤشرات Nexus ∿</h1>
+<p data-i18n="intro_p">وصّف المؤشر اللي بدك — أو افتح ☰ لمؤشرات جاهزة. بطلعلك كود Pine Script كامل جاهز.</p>
 <div class="sug" id="sug"></div>
 </div>
 </div></div>
@@ -233,22 +240,110 @@ ph = <span class="k">ta.pivothigh</span>(high, swingLen, swingLen)
 <div class="composer">
 <div class="chips" id="chips"></div>
 <div class="cform">
-<button class="attbtn" id="att" title="ارفع صورة أو ملف">📎</button>
-<button class="micbtn" id="mic" title="تكلّم">🎤</button>
-<textarea id="in" rows="1" placeholder="وصّف المؤشر… أو اضغط 🎤 واحكي"></textarea>
-<button class="send" id="send" title="إرسال">➤</button>
+<button class="attbtn" id="att" data-i18n-title="t_att" title="ارفع صورة أو ملف">📎</button>
+<button class="micbtn" id="mic" data-i18n-title="t_mic" title="تكلّم">🎤</button>
+<textarea id="in" rows="1" data-i18n-ph="ph_in" placeholder="وصّف المؤشر… أو اضغط 🎤 واحكي"></textarea>
+<button class="send" id="send" data-i18n-title="t_send" title="إرسال">➤</button>
 </div>
-<div class="hint">Nexus · Pine Script v6 · أداة تعليمية، مو نصيحة مالية</div>
+<div class="hint" data-i18n="hint">Nexus · Pine Script v6 · أداة تعليمية، مو نصيحة مالية</div>
 </div>
 <input type="file" id="file" accept="image/*,.pine,.txt,.pdf" style="display:none">
 </div>
 
 <script>
-document.getElementById('yr').textContent=new Date().getFullYear();
+/* ===================== i18n ===================== */
+var I18N={
+ nav_cta:["ابدأ التصميم ↗","Start Designing ↗"],
+ eyebrow:["⚡ مدعوم بالذكاء الاصطناعي","⚡ Powered by AI"],
+ hero_h1:["صمّم مؤشّرك. <em>بفكرة.</em>","Design your indicator. <em>From an idea.</em>"],
+ hero_sub:["Nexus بتحوّل فكرتك لمؤشّر TradingView كامل — SMC، إشارات، تنبيهات، وباك-تست — تحكيلها بالعربي، وبتطلعلك الكود جاهز بثوانٍ.","Nexus turns your idea into a complete TradingView indicator — SMC, signals, alerts, and backtests. Describe it in plain words and get ready-to-paste code in seconds."],
+ hero_cta1:["ابدأ مجاناً →","Start Free →"],
+ hero_cta2:["جرّب مؤشر جاهز","Try a Demo"],
+ stat1:["<b>Pine v6</b> · كود احترافي","<b>Pine v6</b> · pro-grade code"],
+ stat2:["<b>بالعربي</b> · تصف وبينفّذ","<b>Plain language</b> · describe &amp; build"],
+ stat3:["<b>ثوانٍ</b> · لا برمجة","<b>Seconds</b> · no coding"],
+ feat_kick:["المزايا","Features"],
+ feat_sh:["كل اللي بتحتاجه لبناء مؤشّر","Everything you need to build an indicator"],
+ f1h:["مصمّم ذكي","Smart Designer"],
+ f1p:["صِف فكرتك بالعربي، وNexus بتكتبلك كود Pine Script كامل وجاهز.","Describe your idea in plain words and Nexus writes complete, ready Pine Script."],
+ f2h:["SMC & Price Action","SMC & Price Action"],
+ f2p:["Order Blocks، FVG، BOS/CHOCH، سيولة — مفاهيم السمارت موني جاهزة.","Order Blocks, FVG, BOS/CHOCH, liquidity — smart-money concepts, ready to go."],
+ f3h:["إشارات وتنبيهات","Signals & Alerts"],
+ f3p:["أسهم Buy/Sell على الشارت مع alertcondition جاهزة توصلك فوراً.","Buy/Sell arrows on the chart with ready alertcondition() so alerts reach you instantly."],
+ f4h:["باك-تست","Backtest"],
+ f4p:["حوّل أي مؤشّر لستراتيجية strategy() مع دخول/خروج وإدارة مخاطرة.","Turn any indicator into a strategy() with entries/exits and risk management."],
+ how_kick:["كيف بيشتغل","How it works"],
+ how_sh:["من فكرة لمؤشّر بـ ٣ خطوات","From idea to indicator in 3 steps"],
+ s1h:["احكي فكرتك","Describe your idea"],
+ s1p:["اكتب أو احكي بالصوت: \"مؤشر EMA كروس مع تنبيه\" — بالعربي.","Type or speak it: \"EMA cross indicator with an alert\" — in your own words."],
+ s2h:["Nexus بتكتب الكود","Nexus writes the code"],
+ s2p:["بتطلعلك نسخة Pine v6 كاملة، بتتولّد قدّامك مباشرةً.","A complete Pine v6 version is generated live, right in front of you."],
+ s3h:["الصق بـ TradingView","Paste into TradingView"],
+ s3p:["انسخ أو نزّل ملف .pine، والصقه بالـ Pine Editor — وخلص.","Copy or download the .pine file, paste it into the Pine Editor — done."],
+ big_h:["جاهز تبني مؤشّرك الأول؟","Ready to build your first indicator?"],
+ big_p:["بدون برمجة. بدون تعقيد. بس فكرة.","No coding. No complexity. Just an idea."],
+ big_cta:["ابدأ الآن ↗","Start now ↗"],
+ foot_l:["© {yr} Nexus — مصمّم مؤشرات التداول","© {yr} Nexus — Trading Indicator Designer"],
+ foot_r:["مؤشرات أصلية · أداة تعليمية، مو نصيحة مالية","Original indicators · educational tool, not financial advice"],
+ /* app */
+ btn_new:["+ جديد","+ New"],
+ dw_title:["∿ Nexus — بناء المؤشرات","∿ Nexus — Indicator Builder"],
+ dw_ready:["مؤشرات جاهزة (ابنِ)","Ready-made (build)"],
+ dw_smc:["مؤشر SMC كامل","Full SMC indicator"],
+ dw_trend:["مؤشر اتجاه + تنبيه","Trend + alert"],
+ dw_bs:["إشارات Buy/Sell + Alerts","Buy/Sell + Alerts"],
+ dw_sr:["دعوم ومقاومات","Support & Resistance"],
+ dw_scalp:["سكالبينغ/زخم","Scalping / Momentum"],
+ dw_tools:["أدوات Pine","Pine tools"],
+ dw_idea:["حوّل فكرتي لكود","Idea → code"],
+ dw_fix:["صلّح كود Pine","Fix Pine code"],
+ dw_strat:["حوّل لستراتيجي","Convert to strategy"],
+ dw_explain:["اشرحلي كود","Explain code"],
+ dw_img:["صمّم من صورة","Design from image"],
+ dw_files:["ملفات","Files"],
+ dw_upload:["ارفع ملف Pine/مواصفات","Upload Pine/spec file"],
+ dw_note:["الكود بينزل كملف .pine — انسخه أو نزّله والصقه في Pine Editor بـ TradingView.","Code downloads as a .pine file — copy or download it and paste into TradingView's Pine Editor."],
+ intro_h:["مصمّم مؤشرات Nexus ∿","Nexus Indicator Designer ∿"],
+ intro_p:["وصّف المؤشر اللي بدك — أو افتح ☰ لمؤشرات جاهزة. بطلعلك كود Pine Script كامل جاهز.","Describe the indicator you want — or open ☰ for ready-made ones. You'll get complete Pine Script."],
+ hint:["Nexus · Pine Script v6 · أداة تعليمية، مو نصيحة مالية","Nexus · Pine Script v6 · educational tool, not financial advice"],
+ /* titles / placeholder */
+ t_menu:["القائمة","Menu"],t_home:["الرئيسية","Home"],t_new:["محادثة جديدة","New chat"],
+ t_att:["ارفع صورة أو ملف","Upload image or file"],t_mic:["تكلّم","Speak"],t_send:["إرسال","Send"],
+ ph_in:["وصّف المؤشر… أو اضغط 🎤 واحكي","Describe the indicator… or tap 🎤 and speak"],
+ /* dynamic */
+ thinking:["Nexus عم تصمّم المؤشر…","Nexus is designing your indicator…"],
+ copy:["نسخ الكود","Copy"],copied:["تم ✓","Copied ✓"],dl:["تنزيل","Download"],
+ below:["تحت","below"],attach:["مرفق","attachment"],
+ fromAtt:["صمّم مؤشر من المرفق.","Design an indicator from the attachment."],
+ done:["تم.","Done."],
+ big:["الملف كبير (أقصى 8MB).","File is too large (max 8MB)."],
+ noimg:["تعذّر قراءة الصورة.","Could not read the image."],
+ errTimeout:["⚠️ تأخّر الاتصال — جرّب مرة ثانية.","⚠️ Connection timed out — try again."],
+ errConn:["⚠️ خطأ اتصال: ","⚠️ Connection error: "]
+};
+var SUG=[["مؤشر SMC كامل","Full SMC indicator"],["مؤشر اتجاه مع تنبيه","Trend indicator with alert"],["إشارات Buy/Sell + Alerts","Buy/Sell signals + Alerts"],["دعوم ومقاومات","Support & Resistance"]];
+var L=0; // 0=ar, 1=en
+try{if(localStorage.getItem('nexus_lang')==='en')L=1;}catch(e){}
+function t(k){var v=I18N[k];return v?v[L]:k;}
+function applyLang(){
+  document.documentElement.lang=L?'en':'ar';
+  document.documentElement.dir=L?'ltr':'rtl';
+  var yr=new Date().getFullYear();
+  document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(I18N[k])el.textContent=t(k).replace('{yr}',yr);});
+  document.querySelectorAll('[data-i18n-html]').forEach(function(el){var k=el.getAttribute('data-i18n-html');if(I18N[k])el.innerHTML=t(k).replace('{yr}',yr);});
+  document.querySelectorAll('[data-i18n-title]').forEach(function(el){var k=el.getAttribute('data-i18n-title');if(I18N[k])el.title=t(k);});
+  document.querySelectorAll('[data-i18n-ph]').forEach(function(el){var k=el.getAttribute('data-i18n-ph');if(I18N[k])el.placeholder=t(k);});
+  var lbl=L?'ع':'EN';var a=document.getElementById('langL'),b=document.getElementById('langA');if(a)a.textContent=lbl;if(b)b.textContent=lbl;
+  if(typeof rebuildSug==='function')rebuildSug();
+  if(typeof recRef!=='undefined'&&recRef){try{recRef.lang=L?'en-US':'ar-SA';}catch(e){}}
+}
+function toggleLang(){L=L?0:1;try{localStorage.setItem('nexus_lang',L?'en':'ar');}catch(e){}applyLang();}
+
+/* ===================== App ===================== */
 var started0=false;
 function launch(){document.getElementById('appview').classList.add('on');document.getElementById('in').focus();}
 function goHome(){document.getElementById('appview').classList.remove('on');}
-function demo(){launch();setTimeout(function(){input.value='صمّملي مؤشر SMC كامل: order blocks، FVG، BOS/CHOCH وتنبيهات';submit();},200);}
+function demo(){launch();setTimeout(function(){input.value=L?'Design a full SMC indicator: order blocks, FVG, BOS/CHOCH and alerts':'صمّملي مؤشر SMC كامل: order blocks، FVG، BOS/CHOCH وتنبيهات';submit();},200);}
 
 var thread=document.getElementById('thread'),input=document.getElementById('in'),send=document.getElementById('send'),dot=document.getElementById('dot'),stat=document.getElementById('stat');
 var drawer=document.getElementById('drawer'),scrim=document.getElementById('scrim'),fileInput=document.getElementById('file'),chipsEl=document.getElementById('chips');
@@ -260,11 +355,10 @@ function closeDrawer(){drawer.classList.remove('on');scrim.classList.remove('on'
 document.getElementById('menu').onclick=openDrawer;
 document.getElementById('home').onclick=goHome;
 scrim.onclick=function(){closeDrawer();};
-drawer.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var p=b.getAttribute('data-p');if(!p)return;closeDrawer();if(b.getAttribute('data-img')||b.getAttribute('data-file')){pickFile();}input.value=p;input.focus();input.dispatchEvent(new Event('input'));});
+drawer.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var p=L?(b.getAttribute('data-pen')||b.getAttribute('data-p')):b.getAttribute('data-p');if(!p)return;closeDrawer();if(b.getAttribute('data-img')||b.getAttribute('data-file')){pickFile();}input.value=p.replace(/\\n/g,'\n');input.focus();input.dispatchEvent(new Event('input'));});
 
-var SUG=["مؤشر SMC كامل","مؤشر اتجاه مع تنبيه","إشارات Buy/Sell + Alerts","دعوم ومقاومات"];
 var sug=document.getElementById('sug');
-SUG.forEach(function(s){var b=document.createElement('button');b.textContent=s;b.onclick=function(){input.value=s;submit();};sug.appendChild(b);});
+function rebuildSug(){sug.innerHTML='';SUG.forEach(function(s){var b=document.createElement('button');b.textContent=s[L];b.onclick=function(){input.value=s[L];submit();};sug.appendChild(b);});}
 
 input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,200)+'px';});
 input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit();}});
@@ -272,22 +366,23 @@ send.onclick=function(){submit();};
 document.getElementById('att').onclick=function(){pickFile();};
 function pickFile(){fileInput.value='';fileInput.click();}
 fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)handleFile(f);};
+var recRef=null;
 (function(){var mic=document.getElementById('mic');var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR||!mic){if(mic)mic.style.display='none';return;}
-  var rec=new SR();rec.lang='ar-SA';rec.interimResults=true;rec.continuous=true;var on=false,base='';
-  rec.onresult=function(e){var t='';for(var i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;input.value=(base+' '+t).trim();input.dispatchEvent(new Event('input'));};
+  var rec=new SR();recRef=rec;rec.lang=L?'en-US':'ar-SA';rec.interimResults=true;rec.continuous=true;var on=false,base='';
+  rec.onresult=function(e){var tx='';for(var i=e.resultIndex;i<e.results.length;i++)tx+=e.results[i][0].transcript;input.value=(base+' '+tx).trim();input.dispatchEvent(new Event('input'));};
   rec.onend=function(){on=false;mic.classList.remove('rec');};rec.onerror=function(){on=false;mic.classList.remove('rec');};
   mic.onclick=function(){if(on){rec.stop();return;}base=input.value;try{rec.start();on=true;mic.classList.add('rec');input.focus();}catch(e){}};})();
 
-function handleFile(f){if(f.size>8*1024*1024){alert('الملف كبير (أقصى 8MB).');return;}
+function handleFile(f){if(f.size>8*1024*1024){alert(t('big'));return;}
   if(/^image\//.test(f.type)){resizeImage(f,1280,function(b64){pending.push({kind:'image',media_type:'image/jpeg',data:b64,name:f.name,preview:'data:image/jpeg;base64,'+b64});renderChips();});}
   else if(f.type==='application/pdf'){readB64(f,function(b64){pending.push({kind:'document',media_type:'application/pdf',data:b64,name:f.name});renderChips();});}
   else {var r=new FileReader();r.onload=function(){pending.push({kind:'text',name:f.name,text:String(r.result).slice(0,30000)});renderChips();};r.readAsText(f);}}
-function resizeImage(f,maxDim,cb){var img=new Image(),url=URL.createObjectURL(f);img.onload=function(){var w=img.width,h=img.height,s=Math.min(1,maxDim/Math.max(w,h));var cw=Math.round(w*s),ch=Math.round(h*s),c=document.createElement('canvas');c.width=cw;c.height=ch;c.getContext('2d').drawImage(img,0,0,cw,ch);var du=c.toDataURL('image/jpeg',.82);URL.revokeObjectURL(url);cb(du.split(',')[1]);};img.onerror=function(){URL.revokeObjectURL(url);alert('تعذّر قراءة الصورة.');};img.src=url;}
+function resizeImage(f,maxDim,cb){var img=new Image(),url=URL.createObjectURL(f);img.onload=function(){var w=img.width,h=img.height,s=Math.min(1,maxDim/Math.max(w,h));var cw=Math.round(w*s),ch=Math.round(h*s),c=document.createElement('canvas');c.width=cw;c.height=ch;c.getContext('2d').drawImage(img,0,0,cw,ch);var du=c.toDataURL('image/jpeg',.82);URL.revokeObjectURL(url);cb(du.split(',')[1]);};img.onerror=function(){URL.revokeObjectURL(url);alert(t('noimg'));};img.src=url;}
 function readB64(f,cb){var r=new FileReader();r.onload=function(){cb(String(r.result).split(',')[1]);};r.readAsDataURL(f);}
-function renderChips(){chipsEl.innerHTML='';pending.forEach(function(p,i){var c=document.createElement('div');c.className='chip';c.innerHTML=(p.kind==='image'?'<img src="'+p.preview+'">':'<span>'+(p.kind==='document'?'📄':'📝')+'</span>')+'<span>'+(p.name||'مرفق')+'</span><span class="x" data-i="'+i+'">✕</span>';chipsEl.appendChild(c);});chipsEl.querySelectorAll('.x').forEach(function(x){x.onclick=function(){pending.splice(+x.getAttribute('data-i'),1);renderChips();};});}
+function renderChips(){chipsEl.innerHTML='';pending.forEach(function(p,i){var c=document.createElement('div');c.className='chip';c.innerHTML=(p.kind==='image'?'<img src="'+p.preview+'">':'<span>'+(p.kind==='document'?'📄':'📝')+'</span>')+'<span>'+(p.name||t('attach'))+'</span><span class="x" data-i="'+i+'">✕</span>';chipsEl.appendChild(c);});chipsEl.querySelectorAll('.x').forEach(function(x){x.onclick=function(){pending.splice(+x.getAttribute('data-i'),1);renderChips();};});}
 function clearPending(){pending=[];renderChips();}
 
-function lightConvo(){return convo.map(function(m){if(Array.isArray(m.content)){var t=m.content.filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join(' ');var n=m.content.filter(function(b){return b.type!=='text';}).length;return {role:m.role,content:(t||'')+(n?'  📎('+n+')':'')};}return {role:m.role,content:m.content};});}
+function lightConvo(){return convo.map(function(m){if(Array.isArray(m.content)){var tx=m.content.filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join(' ');var n=m.content.filter(function(b){return b.type!=='text';}).length;return {role:m.role,content:(tx||'')+(n?'  📎('+n+')':'')};}return {role:m.role,content:m.content};});}
 function saveConvo(){try{localStorage.setItem(STORE,JSON.stringify(lightConvo().slice(-30)));}catch(e){}}
 function newChat(){convo=[];clearPending();try{localStorage.removeItem(STORE);}catch(e){}location.reload();}
 document.getElementById('newchat').onclick=newChat;
@@ -300,8 +395,8 @@ function addMsg(role,text,imgs){if(!started){started=true;var i=thread.querySele
   var bub=document.createElement('div');bub.className='bub';bub.textContent=text||'';
   if(imgs&&imgs.length){imgs.forEach(function(src){var im=document.createElement('img');im.className='att';im.src=src;bub.appendChild(im);});}
   col.appendChild(bub);m.appendChild(av);m.appendChild(col);thread.appendChild(m);scroll();return {m:m,bub:bub,col:col};}
-function addThinking(){var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> Nexus عم تصمّم المؤشر…';return r;}
-function mdToHtml(t){var e=(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');e=e.replace(/^\s*#{1,6}\s?(.*)$/gm,'<b style="font-size:16px">$1</b>');e=e.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');e=e.replace(/`([^`]+)`/g,'<code style="background:#0e2016;padding:1px 5px;border-radius:5px">$1</code>');return e;}
+function addThinking(){var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> '+t('thinking');return r;}
+function mdToHtml(tx){var e=(tx||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');e=e.replace(/^\s*#{1,6}\s?(.*)$/gm,'<b style="font-size:16px">$1</b>');e=e.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');e=e.replace(/`([^`]+)`/g,'<code style="background:#0e2016;padding:1px 5px;border-radius:5px">$1</code>');return e;}
 function extractArtifacts(text){var arts=[],out=text,re=/```([a-zA-Z0-9]+)?[ \t]*\n([\s\S]*?)```/g,m,reps=[];
   var FILELANGS=['pine','pinescript','html','css','js','javascript','python','py','json','csv','txt'];
   while((m=re.exec(text))!==null){var lang=(m[1]||'text').toLowerCase(),content=m[2],fn=null;
@@ -309,31 +404,33 @@ function extractArtifacts(text){var arts=[],out=text,re=/```([a-zA-Z0-9]+)?[ \t]
     if(fm){fn=fm[1].trim();content=content.replace(fm[0],'').replace(/^\n/,'');}
     else if(FILELANGS.indexOf(lang)===-1){reps.push([m[0],content.replace(/\s+$/,'')]);continue;}
     if(!fn)fn=(lang==='pine'||lang==='pinescript')?'nexus_indicator.pine':(lang==='html'?'index.html':(lang==='python'||lang==='py'?'app.py':(lang==='js'||lang==='javascript'?'script.js':'code.txt')));
-    arts.push({filename:fn,content:content.replace(/\s+$/,'')});reps.push([m[0],'📄 '+fn+' — تحت']);}
+    arts.push({filename:fn,content:content.replace(/\s+$/,'')});reps.push([m[0],'📄 '+fn+' — '+t('below')]);}
   reps.forEach(function(p){out=out.replace(p[0],p[1]);});return {text:out.trim(),artifacts:arts};}
 function renderArtifact(container,a){var wrap=document.createElement('div');wrap.className='art';
-  wrap.innerHTML='<div class="bar"><span class="fn">'+a.filename+'</span><span class="sp"><button data-act="copy">نسخ الكود</button><button data-act="dl">تنزيل</button></span></div>';
+  wrap.innerHTML='<div class="bar"><span class="fn">'+a.filename+'</span><span class="sp"><button data-act="copy">'+t('copy')+'</button><button data-act="dl">'+t('dl')+'</button></span></div>';
   var pre=document.createElement('pre');pre.textContent=a.content;wrap.appendChild(pre);
   wrap.addEventListener('click',function(e){var act=e.target.getAttribute('data-act');if(!act)return;
-    if(act==='copy'){navigator.clipboard.writeText(a.content);e.target.textContent='تم ✓';setTimeout(function(){e.target.textContent='نسخ الكود';},1200);}
+    if(act==='copy'){navigator.clipboard.writeText(a.content);e.target.textContent=t('copied');setTimeout(function(){e.target.textContent=t('copy');},1200);}
     if(act==='dl'){var bl=new Blob([a.content],{type:'text/plain'});var u=URL.createObjectURL(bl);var x=document.createElement('a');x.href=u;x.download=a.filename;x.click();URL.revokeObjectURL(u);}});
   container.appendChild(wrap);scroll();}
 
 async function submit(){var text=input.value.trim();if((!text&&!pending.length)||busy)return;busy=true;send.disabled=true;
   var atts=pending.slice();var previews=atts.filter(function(a){return a.kind==='image';}).map(function(a){return a.preview;});
-  var content;if(atts.length){content=[];atts.forEach(function(a){if(a.kind==='image')content.push({type:'image',source:{type:'base64',media_type:a.media_type,data:a.data}});else if(a.kind==='document')content.push({type:'document',source:{type:'base64',media_type:a.media_type,data:a.data}});else if(a.kind==='text')content.push({type:'text',text:'محتوى الملف "'+a.name+'":\n'+a.text});});content.push({type:'text',text:text||'صمّم مؤشر من المرفق.'});}else{content=text;}
-  input.value='';input.style.height='auto';clearPending();addMsg('user',text||'(مرفق)',previews);convo.push({role:'user',content:content});saveConvo();
+  var content;if(atts.length){content=[];atts.forEach(function(a){if(a.kind==='image')content.push({type:'image',source:{type:'base64',media_type:a.media_type,data:a.data}});else if(a.kind==='document')content.push({type:'document',source:{type:'base64',media_type:a.media_type,data:a.data}});else if(a.kind==='text')content.push({type:'text',text:'File "'+a.name+'" content:\n'+a.text});});content.push({type:'text',text:text||t('fromAtt')});}else{content=text;}
+  input.value='';input.style.height='auto';clearPending();addMsg('user',text||'('+t('attach')+')',previews);convo.push({role:'user',content:content});saveConvo();
   var th=addThinking();var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},32000);
   try{var r=await fetch(ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:convo}),signal:ac.signal});clearTimeout(tmo);
     var ct=r.headers.get('content-type')||'';var full='';
     if(ct.indexOf('application/json')>=0){var d=await r.json();full=d.reply||'…';}
     else{th.bub.className='bub';th.bub.textContent='';var reader=r.body.getReader(),dcd=new TextDecoder();while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});th.bub.textContent=full;scroll();}}
-    var ex=extractArtifacts(full);th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||'تم.');ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});convo.push({role:'assistant',content:full});saveConvo();dot.className='dot live';stat.textContent='active';
-  }catch(e){clearTimeout(tmo);th.bub.className='bub';th.bub.textContent=(e&&e.name==='AbortError')?'⚠️ تأخّر الاتصال — جرّب مرة ثانية.':'⚠️ خطأ اتصال: '+(e&&e.message||e);}
+    var ex=extractArtifacts(full);th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||t('done'));ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});convo.push({role:'assistant',content:full});saveConvo();dot.className='dot live';stat.textContent='active';
+  }catch(e){clearTimeout(tmo);th.bub.className='bub';th.bub.textContent=(e&&e.name==='AbortError')?t('errTimeout'):t('errConn')+(e&&e.message||e);}
   busy=false;send.disabled=false;input.focus();}
 
 fetch(ENDPOINT,{method:'GET'}).then(function(r){return r.json();}).then(function(d){if(d&&d.hasKey===false){dot.className='dot';stat.textContent='needs key';}else{dot.className='dot live';stat.textContent='active';}}).catch(function(){dot.className='dot live';stat.textContent='ready';});
-try{var saved=JSON.parse(localStorage.getItem(STORE)||'[]');if(saved&&saved.length){convo=saved;saved.forEach(function(msg){var t=typeof msg.content==='string'?msg.content:'';if(msg.role==='user'){addMsg('user',t);}else{var r=addMsg('assistant','');var ex=extractArtifacts(t);r.bub.innerHTML=mdToHtml(ex.text||'…');ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}});}}catch(e){}
+try{var saved=JSON.parse(localStorage.getItem(STORE)||'[]');if(saved&&saved.length){convo=saved;saved.forEach(function(msg){var tx=typeof msg.content==='string'?msg.content:'';if(msg.role==='user'){addMsg('user',tx);}else{var r=addMsg('assistant','');var ex=extractArtifacts(tx);r.bub.innerHTML=mdToHtml(ex.text||'…');ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}});}}catch(e){}
+
+applyLang();
 </script>
 </body>
 </html>
