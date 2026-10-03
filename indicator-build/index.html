@@ -1,120 +1,222 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Brain Indicators — Pine Script designer</title>
-<meta name="description" content="Brain Indicators — designs TradingView Pine Script indicators and strategies.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<title>Nexus — مصمّم مؤشرات التداول بالذكاء الاصطناعي</title>
+<meta name="description" content="Nexus — حوّل فكرتك لمؤشر TradingView كامل بالذكاء الاصطناعي: SMC، إشارات، تنبيهات، باك-تست.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
 <style>
-:root{--bg:#0a0d0b;--panel:#111a14;--panel2:#0d1410;--line:#1d2a22;--line2:#28402f;--txt:#e6f3ea;--mut:#8ba897;--acc:#4ade80;--acc2:#22d3a8;--user:#15803d;--glow:0 0 0 1px rgba(74,222,128,.15),0 10px 40px rgba(0,0,0,.45);--sans:"Inter",system-ui,sans-serif;--disp:"Space Grotesk",var(--sans);color-scheme:dark}
-*{box-sizing:border-box}html,body{margin:0;height:100%}
-body{background:radial-gradient(1200px 600px at 70% -10%,rgba(34,211,168,.08),transparent),radial-gradient(900px 500px at 10% 110%,rgba(74,222,128,.06),transparent),var(--bg);color:var(--txt);font-family:var(--sans);display:flex;flex-direction:column;height:100dvh}
-a{color:var(--acc2)}
+:root{--bg:#070b09;--panel:#0f1711;--panel2:#0b120d;--line:#1a271d;--line2:#27402e;--txt:#e9f5ee;--mut:#8aa897;--acc:#34e39b;--acc2:#19c8e8;--user:#15803d;--glow:0 0 0 1px rgba(52,227,155,.14),0 14px 50px rgba(0,0,0,.5);--sans:"Inter",system-ui,sans-serif;--disp:"Space Grotesk",var(--sans);color-scheme:dark}
+*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0}
+body{min-height:100dvh;background:radial-gradient(1100px 560px at 75% -8%,rgba(25,200,232,.10),transparent),radial-gradient(900px 520px at 12% 108%,rgba(52,227,155,.09),transparent),var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.mono{font-variant-numeric:tabular-nums}
+/* ===== Landing ===== */
+.lwrap{max-width:1120px;margin:0 auto;padding-inline:22px}
+.lnav{display:flex;align-items:center;gap:12px;padding:20px 0}
+.brandrow{display:flex;align-items:center;gap:11px}
+.mk{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#042016;font-family:var(--disp);font-weight:700;font-size:21px;box-shadow:var(--glow)}
+.bname{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.06em}
+.bname span{color:var(--acc)}
+.lnav .cta{margin-inline-start:auto}
+.btn{display:inline-flex;align-items:center;gap:9px;font:inherit;font-weight:700;font-size:15px;border-radius:12px;padding:12px 22px;cursor:pointer;border:1.5px solid transparent;transition:transform .12s,filter .2s}
+.btn:active{transform:translateY(1px)}
+.btn-p{background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016;box-shadow:0 8px 26px rgba(52,227,155,.28)}.btn-p:hover{filter:brightness(1.07)}
+.btn-g{background:var(--panel);color:var(--txt);border-color:var(--line2)}.btn-g:hover{border-color:var(--acc)}
+.hero{text-align:center;padding:40px 0 20px}
+.eyebrow{display:inline-block;font-size:12.5px;font-weight:600;letter-spacing:.04em;color:var(--acc);background:rgba(52,227,155,.08);border:1px solid rgba(52,227,155,.22);padding:7px 15px;border-radius:999px}
+.hero h1{font-family:var(--disp);font-weight:700;font-size:clamp(36px,7vw,68px);line-height:1.08;margin:22px auto 0;max-width:16ch;letter-spacing:-.01em}
+.hero h1 em{font-style:normal;background:linear-gradient(100deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.sub{color:var(--mut);font-size:clamp(16px,2.1vw,20px);max-width:56ch;margin:20px auto 0;line-height:1.65}
+.hcta{display:flex;flex-wrap:wrap;gap:13px;justify-content:center;margin-top:30px}
+.hstat{display:flex;flex-wrap:wrap;gap:10px 30px;justify-content:center;margin-top:34px;color:var(--mut);font-size:14px}
+.hstat b{color:var(--txt);font-family:var(--disp)}
+.mock{max-width:900px;margin:52px auto 0;border:1px solid var(--line2);border-radius:18px;background:linear-gradient(180deg,var(--panel),var(--panel2));box-shadow:var(--glow);overflow:hidden}
+.mock .bar{display:flex;align-items:center;gap:7px;padding:12px 15px;border-bottom:1px solid var(--line)}
+.mock .bar i{width:11px;height:11px;border-radius:50%;background:#2a3a30;display:inline-block}
+.mock .bar i:first-child{background:#ef6a5e}.mock .bar i:nth-child(2){background:#f5bd4f}.mock .bar i:nth-child(3){background:var(--acc)}
+.mock .bar span{margin-inline-start:auto;color:var(--mut);font-size:12px;font-family:ui-monospace,monospace}
+.mock pre{margin:0;padding:18px 20px;overflow:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,Menlo,Consolas,monospace;color:#bfe9d4;direction:ltr;text-align:left}
+.mock pre .c{color:#5f8a73}.mock pre .k{color:var(--acc2)}.mock pre .s{color:var(--acc)}
+.sec{padding:66px 0}
+.kick{text-align:center;color:var(--acc);font-weight:700;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase}
+.sh{text-align:center;font-family:var(--disp);font-weight:700;font-size:clamp(26px,4vw,40px);margin-top:10px}
+.sp{text-align:center;color:var(--mut);font-size:16.5px;max-width:60ch;margin:12px auto 0}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
+@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--acc2);transform:translateY(-3px)}
+.card .ic{width:44px;height:44px;border-radius:12px;background:rgba(52,227,155,.1);border:1px solid rgba(52,227,155,.2);display:grid;place-items:center;font-size:22px}
+.card h3{font-family:var(--disp);font-size:18px;margin:14px 0 7px}
+.card p{color:var(--mut);font-size:14.5px;line-height:1.6;margin:0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
+@media(max-width:720px){.steps{grid-template-columns:1fr}}
+.step{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:22px}
+.step b.n{font-family:var(--disp);font-size:14px;color:#042016;background:linear-gradient(145deg,var(--acc),var(--acc2));width:30px;height:30px;border-radius:9px;display:grid;place-items:center}
+.step h4{font-family:var(--disp);font-size:16.5px;margin:13px 0 6px}.step p{color:var(--mut);font-size:14.5px;margin:0;line-height:1.6}
+.bigcta{text-align:center;background:linear-gradient(135deg,rgba(52,227,155,.1),rgba(25,200,232,.06));border:1px solid var(--line2);border-radius:22px;padding:48px 26px;margin:20px 0 70px}
+.bigcta h2{font-family:var(--disp);font-size:clamp(24px,3.6vw,34px);margin:0}
+.bigcta p{color:var(--mut);margin:12px 0 0}
+.lfoot{border-top:1px solid var(--line);padding:26px 0;color:var(--mut);font-size:13px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.lfoot .mk{width:30px;height:30px;border-radius:9px;font-size:15px}
+.lfoot .r{margin-inline-start:auto}
+/* ===== App view ===== */
+#appview{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg);z-index:100}
+#appview.on{display:flex}
 header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:relative;z-index:30}
 .icbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line2);background:var(--panel);color:var(--txt);font-size:18px;cursor:pointer;display:grid;place-items:center;flex:none}
 .icbtn:hover{border-color:var(--acc)}
 .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(145deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#042016;font-family:var(--disp);font-weight:700;font-size:18px;box-shadow:var(--glow)}
-.brand b{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:.02em;display:block;line-height:1}
-.brand small{color:var(--mut);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
-.hright{margin-inline-start:auto;display:flex;align-items:center;gap:10px}
-#newchat{font:inherit;font-size:12.5px;font-weight:600;color:var(--acc);background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:6px 13px;cursor:pointer}
-#newchat:hover{border-color:var(--acc)}
+.hbrand b{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:.05em;display:block;line-height:1}
+.hbrand small{color:var(--mut);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.hright{margin-inline-start:auto;display:flex;align-items:center;gap:9px}
+#home,#newchat{font:inherit;font-size:12.5px;font-weight:600;color:var(--acc);background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:6px 13px;cursor:pointer}
+#home:hover,#newchat:hover{border-color:var(--acc)}
 .status{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
-.dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px #f59e0b}
-.dot.live{background:var(--acc);box-shadow:0 0 8px var(--acc)}
+.dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px #f59e0b}.dot.live{background:var(--acc);box-shadow:0 0 8px var(--acc)}
 .scrim{position:fixed;inset:0;background:rgba(2,8,5,.6);backdrop-filter:blur(2px);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
 .scrim.on{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;bottom:0;inset-inline-start:0;width:300px;max-width:85vw;background:var(--panel2);border-inline-end:1px solid var(--line);z-index:50;transform:translateX(-102%);transition:transform .22s ease;overflow-y:auto;padding:16px}
+.drawer{position:fixed;top:0;bottom:0;inset-inline-start:0;width:300px;max-width:85vw;background:var(--panel2);border-inline-end:1px solid var(--line);z-index:50;transform:translateX(102%);transition:transform .22s ease;overflow-y:auto;padding:16px}
 .drawer.on{transform:none}
 .drawer h2{font-family:var(--disp);font-size:16px;margin:4px 2px 14px;color:var(--acc)}
-.dsec{margin-bottom:16px}
-.dsec>.t{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:0 2px 8px;font-weight:600}
+.dsec{margin-bottom:16px}.dsec>.t{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:0 2px 8px;font-weight:600}
 .dsec button{display:flex;align-items:center;gap:10px;width:100%;text-align:start;font:inherit;font-size:14px;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:pointer;margin-bottom:7px}
-.dsec button:hover{border-color:var(--acc);color:var(--acc)}
-.dsec button .em{font-size:16px;flex:none}
+.dsec button:hover{border-color:var(--acc);color:var(--acc)}.dsec button .em{font-size:16px;flex:none}
 .wrap{flex:1;overflow-y:auto;padding:22px 16px 8px}
 .thread{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
 .msg{display:flex;gap:12px;align-items:flex-start}
 .av{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:15px;font-weight:700;font-family:var(--disp)}
-.av.b{background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016}
-.av.u{background:var(--user);color:#fff}
+.av.b{background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016}.av.u{background:var(--user);color:#fff}
 .bub{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:15px;line-height:1.6;white-space:pre-wrap;max-width:100%;overflow-wrap:anywhere;min-height:20px}
 .msg.u .bub{background:#0e2016;border-color:#1c3a28}
 .bub img.att{max-width:220px;border-radius:10px;margin-top:8px;display:block;border:1px solid var(--line2)}
 .art{margin-top:12px;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:var(--panel2)}
 .art .bar{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
-.art .bar .fn{font-family:var(--disp);color:var(--acc);font-weight:600}
-.art .bar .sp{margin-inline-start:auto;display:flex;gap:8px}
-.art button{font:inherit;font-size:12px;font-weight:600;color:var(--txt);background:#16241b;border:1px solid var(--line2);border-radius:7px;padding:5px 10px;cursor:pointer}
-.art button:hover{border-color:var(--acc)}
-.art pre{margin:0;padding:14px;overflow:auto;max-height:440px;font-size:12.5px;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace;color:#cfe9d9}
+.art .bar .fn{font-family:var(--disp);color:var(--acc);font-weight:600}.art .bar .sp{margin-inline-start:auto;display:flex;gap:8px}
+.art button{font:inherit;font-size:12px;font-weight:600;color:var(--txt);background:#16241b;border:1px solid var(--line2);border-radius:7px;padding:5px 10px;cursor:pointer}.art button:hover{border-color:var(--acc)}
+.art pre{margin:0;padding:14px;overflow:auto;max-height:440px;font-size:12.5px;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace;color:#cfe9d9;direction:ltr;text-align:left}
 .think{color:var(--mut);font-size:14px;display:flex;align-items:center;gap:9px}
-.spin{width:15px;height:15px;border:2px solid var(--line2);border-top-color:var(--acc);border-radius:50%;animation:sp .8s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
-.composer{border-top:1px solid var(--line);background:rgba(10,13,11,.85);padding:12px 16px}
+.spin{width:15px;height:15px;border:2px solid var(--line2);border-top-color:var(--acc);border-radius:50%;animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+.composer{border-top:1px solid var(--line);background:rgba(7,11,9,.85);padding:12px 16px}
 .chips{max-width:900px;margin:0 auto 8px;display:flex;flex-wrap:wrap;gap:8px}
 .chip{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:5px 8px;font-size:12.5px;color:var(--txt)}
-.chip img{width:26px;height:26px;border-radius:5px;object-fit:cover}
-.chip .x{cursor:pointer;color:var(--mut);font-weight:700}
+.chip img{width:26px;height:26px;border-radius:5px;object-fit:cover}.chip .x{cursor:pointer;color:var(--mut);font-weight:700}
 .cform{max-width:900px;margin:0 auto;display:flex;gap:9px;align-items:flex-end;background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:9px 11px}
 .cform textarea{flex:1;background:transparent;border:0;color:var(--txt);font:inherit;font-size:15px;resize:none;max-height:200px;outline:none;line-height:1.5}
 .attbtn,.micbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line2);background:#111a14;color:var(--mut);font-size:17px;cursor:pointer;flex:none}
 .attbtn:hover,.micbtn:hover{color:var(--acc);border-color:var(--acc)}
-.micbtn.rec{color:#fff;background:#dc2626;border-color:#dc2626;animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
-.send{width:40px;height:40px;border-radius:11px;border:0;background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016;font-size:18px;cursor:pointer;flex:none;display:grid;place-items:center}
-.send:disabled{opacity:.5}
+.micbtn.rec{color:#fff;background:#dc2626;border-color:#dc2626;animation:pulse 1s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.send{width:40px;height:40px;border-radius:11px;border:0;background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016;font-size:18px;cursor:pointer;flex:none;display:grid;place-items:center}.send:disabled{opacity:.5}
 .hint{max-width:900px;margin:8px auto 0;color:var(--mut);font-size:11px;text-align:center}
 .sug{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
-.sug button{font:inherit;font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}
-.sug button:hover{color:var(--acc);border-color:var(--line2)}
+.sug button{font:inherit;font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}.sug button:hover{color:var(--acc);border-color:var(--line2)}
 .intro{max-width:640px;margin:5vh auto;text-align:center}
 .intro h1{font-family:var(--disp);font-size:clamp(26px,5vw,38px);margin:0 0 10px;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .intro p{color:var(--mut);font-size:15.5px;margin:0}
-.modal{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(2,8,5,.72)}
-.modal.on{display:flex}
-.mcard{width:min(960px,100%);height:min(86vh,720px);background:var(--panel2);border:1px solid var(--line2);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
-.mhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line)}
-.mhead .open{background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016;border:0;font-weight:700}
-.mhead b{font-family:var(--disp);color:var(--acc)}
-.mhead input{background:#0e1812;border:1px solid var(--line2);color:var(--txt);font:inherit;font-size:13px;border-radius:8px;padding:6px 9px;width:150px}
-.mhead .close{margin-inline-start:auto}
-.mcard iframe{flex:1;width:100%;border:0;background:#0a0d0b}
 </style>
 </head>
 <body>
+
+<!-- ===================== LANDING ===================== -->
+<div id="landing">
+<div class="lwrap">
+  <nav class="lnav">
+    <div class="brandrow"><span class="mk">∿</span><span class="bname">NE<span>XUS</span></span></div>
+    <button class="btn btn-p cta" onclick="launch()">ابدأ التصميم ↗</button>
+  </nav>
+
+  <section class="hero">
+    <span class="eyebrow">⚡ مدعوم بالذكاء الاصطناعي</span>
+    <h1>صمّم مؤشّرك. <em>بفكرة.</em></h1>
+    <p class="sub">Nexus بتحوّل فكرتك لمؤشّر TradingView كامل — SMC، إشارات، تنبيهات، وباك-تست — تحكيلها بالعربي، وبتطلعلك الكود جاهز بثوانٍ.</p>
+    <div class="hcta">
+      <button class="btn btn-p" onclick="launch()">ابدأ مجاناً →</button>
+      <button class="btn btn-g" onclick="demo()">جرّب مؤشر جاهز</button>
+    </div>
+    <div class="hstat">
+      <span><b>Pine v6</b> · كود احترافي</span>
+      <span><b>بالعربي</b> · تصف وبينفّذ</span>
+      <span><b>ثوانٍ</b> · لا برمجة</span>
+    </div>
+
+    <div class="mock">
+      <div class="bar"><i></i><i></i><i></i><span>nexus_smc.pine</span></div>
+<pre><span class="c">//@version=6</span>
+<span class="k">indicator</span>(<span class="s">"Nexus SMC — Structure & Signals"</span>, overlay=<span class="k">true</span>)
+<span class="c">// order blocks · FVG · BOS / CHOCH · alerts</span>
+swingLen = <span class="k">input.int</span>(8, <span class="s">"Swing length"</span>)
+ph = <span class="k">ta.pivothigh</span>(high, swingLen, swingLen)
+<span class="k">alertcondition</span>(bosUp, <span class="s">"Bullish BOS"</span>, <span class="s">"Nexus: صعود"</span>)
+<span class="c">// ... كامل وجاهز للصق في TradingView</span></pre>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="kick">المزايا</div>
+    <div class="sh">كل اللي بتحتاجه لبناء مؤشّر</div>
+    <div class="grid">
+      <div class="card"><div class="ic">🤖</div><h3>مصمّم ذكي</h3><p>صِف فكرتك بالعربي، وNexus بتكتبلك كود Pine Script كامل وجاهز.</p></div>
+      <div class="card"><div class="ic">📦</div><h3>SMC & Price Action</h3><p>Order Blocks، FVG، BOS/CHOCH، سيولة — مفاهيم السمارت موني جاهزة.</p></div>
+      <div class="card"><div class="ic">🔔</div><h3>إشارات وتنبيهات</h3><p>أسهم Buy/Sell على الشارت مع alertcondition جاهزة توصلك فوراً.</p></div>
+      <div class="card"><div class="ic">🧪</div><h3>باك-تست</h3><p>حوّل أي مؤشّر لستراتيجية strategy() مع دخول/خروج وإدارة مخاطرة.</p></div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top:0">
+    <div class="kick">كيف بيشتغل</div>
+    <div class="sh">من فكرة لمؤشّر بـ ٣ خطوات</div>
+    <div class="steps">
+      <div class="step"><b class="n">1</b><h4>احكي فكرتك</h4><p>اكتب أو احكي بالصوت: "مؤشر EMA كروس مع تنبيه" — بالعربي.</p></div>
+      <div class="step"><b class="n">2</b><h4>Nexus بتكتب الكود</h4><p>بتطلعلك نسخة Pine v6 كاملة، بتتولّد قدّامك مباشرةً.</p></div>
+      <div class="step"><b class="n">3</b><h4>الصق بـ TradingView</h4><p>انسخ أو نزّل ملف .pine، والصقه بالـ Pine Editor — وخلص.</p></div>
+    </div>
+  </section>
+
+  <div class="lwrap"><div class="bigcta">
+    <h2>جاهز تبني مؤشّرك الأول؟</h2>
+    <p>بدون برمجة. بدون تعقيد. بس فكرة.</p>
+    <div class="hcta"><button class="btn btn-p" onclick="launch()">ابدأ الآن ↗</button></div>
+  </div></div>
+
+  <div class="lwrap"><div class="lfoot">
+    <span class="mk">∿</span><span>© <span id="yr"></span> Nexus — مصمّم مؤشرات التداول</span>
+    <span class="r">مؤشرات أصلية · أداة تعليمية، مو نصيحة مالية</span>
+  </div></div>
+</div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="appview">
 <header>
-<button class="icbtn" id="menu" title="Menu">☰</button>
+<button class="icbtn" id="menu" title="القائمة">☰</button>
 <div class="logo">∿</div>
-<div class="brand"><b>Brain Indicators</b><small>Pine Script designer</small></div>
+<div class="hbrand"><b>NEXUS</b><small>Indicator Designer</small></div>
 <div class="hright">
-<button id="newchat" title="New">+ جديد</button>
+<button id="home" title="الرئيسية">⌂</button>
+<button id="newchat" title="محادثة جديدة">+ جديد</button>
 <div class="status"><span class="dot" id="dot"></span><span id="stat">…</span></div>
 </div>
 </header>
 
 <div class="scrim" id="scrim"></div>
 <nav class="drawer" id="drawer">
-<h2>∿ مصمّم المؤشرات</h2>
-
+<h2>∿ Nexus — بناء المؤشرات</h2>
 <div class="dsec"><div class="t">مؤشرات جاهزة (ابنِ)</div>
 <button data-p="صمّملي مؤشر SMC كامل (Smart Money Concepts): order blocks، FVG، BOS و CHOCH، ومناطق السيولة. overlay على الشارت، ألوان واضحة، وinputs للتحكّم."><span class="em">📦</span> مؤشر SMC كامل</button>
 <button data-p="صمّملي مؤشر اتجاه (trend) واضح: يحدّد الاتجاه بالألوان (صاعد/هابط/محايد) مع تنبيه عند تغيّر الاتجاه. استخدم EMA + ATR، بدون إعادة رسم."><span class="em">📈</span> مؤشر اتجاه + تنبيه</button>
 <button data-p="صمّملي مؤشر إشارات buy/sell على الشارت مع تنبيهات alertcondition جاهزة، ومرشّح اتجاه عشان يقلّل الإشارات الخاطئة."><span class="em">🔔</span> إشارات Buy/Sell + Alerts</button>
-<button data-p="صمّملي مؤشر دعوم ومقاومات تلقائي (support/resistance) يرسم المستويات القوية ويحدّثها، مع خطوط نظيفة وحذف القديمة."><span class="em">📐</span> دعوم ومقاومات تلقائية</button>
+<button data-p="صمّملي مؤشر دعوم ومقاومات تلقائي يرسم المستويات القوية ويحدّثها، مع خطوط نظيفة وحذف القديمة."><span class="em">📐</span> دعوم ومقاومات</button>
 <button data-p="صمّملي مؤشر زخم للسكالبينغ على فريمات صغيرة (1m-5m): RSI + حجم + شموع، مع إشارات دخول سريعة وتنبيهات."><span class="em">⚡</span> سكالبينغ/زخم</button>
 </div>
-
 <div class="dsec"><div class="t">أدوات Pine</div>
 <button data-p="بدي احكيلك فكرة مؤشر وتحوّلها لكود Pine كامل جاهز. الفكرة هي: "><span class="em">💡</span> حوّل فكرتي لكود</button>
 <button data-p="بدي الصق كود Pine فيه مشكلة وتصلّحه وتشرحلي الغلط. الكود هو:\n\n"><span class="em">🛠️</span> صلّح كود Pine</button>
-<button data-p="حوّل هالمؤشر لستراتيجي strategy() قابلة للباك-تست مع دخول/خروج وإدارة مخاطرة (stop/target). المؤشر/الفكرة: "><span class="em">🧪</span> حوّل لستراتيجي/باك-تست</button>
+<button data-p="حوّل هالمؤشر لستراتيجي strategy() قابلة للباك-تست مع دخول/خروج وإدارة مخاطرة (stop/target). المؤشر/الفكرة: "><span class="em">🧪</span> حوّل لستراتيجي</button>
 <button data-p="اشرحلي شو بيعمل هالكود Pine سطر بسطر وكيف استعمله. الكود:\n\n"><span class="em">📖</span> اشرحلي كود</button>
 <button data-img="1" data-p="هاي صورة مؤشر/شارت. حلّل المنطق اللي فيها وصمّملي مؤشر Pine يعيد نفس الفكرة."><span class="em">🖼️</span> صمّم من صورة</button>
 </div>
-
-<div class="dsec"><div class="t">أدوات</div>
+<div class="dsec"><div class="t">ملفات</div>
 <button data-file="1" data-p="هاد ملف فيه كود أو مواصفات مؤشر. اقرأه وصمّملي/صلّحلي المؤشر على أساسه."><span class="em">📎</span> ارفع ملف Pine/مواصفات</button>
 </div>
 <div style="color:var(--mut);font-size:11px;padding:6px 2px 10px">الكود بينزل كملف .pine — انسخه أو نزّله والصقه في Pine Editor بـ TradingView.</div>
@@ -122,8 +224,8 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 
 <div class="wrap"><div class="thread" id="thread">
 <div class="intro">
-<h1>مصمّم المؤشرات ∿</h1>
-<p>وصّفلي المؤشر اللي بدك — أو افتح ☰ لمؤشرات جاهزة. بطلعلك كود Pine Script كامل جاهز لـ TradingView.</p>
+<h1>مصمّم مؤشرات Nexus ∿</h1>
+<p>وصّف المؤشر اللي بدك — أو افتح ☰ لمؤشرات جاهزة. بطلعلك كود Pine Script كامل جاهز.</p>
 <div class="sug" id="sug"></div>
 </div>
 </div></div>
@@ -134,33 +236,33 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 <button class="attbtn" id="att" title="ارفع صورة أو ملف">📎</button>
 <button class="micbtn" id="mic" title="تكلّم">🎤</button>
 <textarea id="in" rows="1" placeholder="وصّف المؤشر… أو اضغط 🎤 واحكي"></textarea>
-<button class="send" id="send" title="Send">➤</button>
+<button class="send" id="send" title="إرسال">➤</button>
 </div>
-<div class="hint">Pine Script v6 · الكود بيشتغل على TradingView · مو نصيحة مالية</div>
+<div class="hint">Nexus · Pine Script v6 · أداة تعليمية، مو نصيحة مالية</div>
 </div>
 <input type="file" id="file" accept="image/*,.pine,.txt,.pdf" style="display:none">
-
+</div>
 
 <script>
+document.getElementById('yr').textContent=new Date().getFullYear();
+var started0=false;
+function launch(){document.getElementById('appview').classList.add('on');document.getElementById('in').focus();}
+function goHome(){document.getElementById('appview').classList.remove('on');}
+function demo(){launch();setTimeout(function(){input.value='صمّملي مؤشر SMC كامل: order blocks، FVG، BOS/CHOCH وتنبيهات';submit();},200);}
+
 var thread=document.getElementById('thread'),input=document.getElementById('in'),send=document.getElementById('send'),dot=document.getElementById('dot'),stat=document.getElementById('stat');
 var drawer=document.getElementById('drawer'),scrim=document.getElementById('scrim'),fileInput=document.getElementById('file'),chipsEl=document.getElementById('chips');
 var convo=[],busy=false,started=false,pending=[];
-var ENDPOINT='https://brain-ahmad-93cb.vercel.app/api/indicator',STORE='brain_ind_convo';
+var ENDPOINT='https://brain-ahmad-93cb.vercel.app/api/indicator',STORE='nexus_convo';
 
 function openDrawer(){drawer.classList.add('on');scrim.classList.add('on');}
 function closeDrawer(){drawer.classList.remove('on');scrim.classList.remove('on');}
 document.getElementById('menu').onclick=openDrawer;
+document.getElementById('home').onclick=goHome;
 scrim.onclick=function(){closeDrawer();};
-drawer.addEventListener('click',function(e){
-  var b=e.target.closest('button');if(!b)return;
-  var p=b.getAttribute('data-p');if(!p)return;
-  closeDrawer();
-  if(b.getAttribute('data-img')){pickFile();input.value=p;input.focus();return;}
-  if(b.getAttribute('data-file')){pickFile();input.value=p;input.focus();return;}
-  input.value=p;input.focus();input.dispatchEvent(new Event('input'));
-});
+drawer.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var p=b.getAttribute('data-p');if(!p)return;closeDrawer();if(b.getAttribute('data-img')||b.getAttribute('data-file')){pickFile();}input.value=p;input.focus();input.dispatchEvent(new Event('input'));});
 
-var SUG=["مؤشر SMC كامل","مؤشر اتجاه مع تنبيه","إشارات Buy/Sell + Alerts","دعوم ومقاومات تلقائية"];
+var SUG=["مؤشر SMC كامل","مؤشر اتجاه مع تنبيه","إشارات Buy/Sell + Alerts","دعوم ومقاومات"];
 var sug=document.getElementById('sug');
 SUG.forEach(function(s){var b=document.createElement('button');b.textContent=s;b.onclick=function(){input.value=s;submit();};sug.appendChild(b);});
 
@@ -169,29 +271,20 @@ input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.
 send.onclick=function(){submit();};
 document.getElementById('att').onclick=function(){pickFile();};
 function pickFile(){fileInput.value='';fileInput.click();}
-(function(){
-  var mic=document.getElementById('mic');var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR||!mic){if(mic)mic.style.display='none';return;}
+fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)handleFile(f);};
+(function(){var mic=document.getElementById('mic');var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR||!mic){if(mic)mic.style.display='none';return;}
   var rec=new SR();rec.lang='ar-SA';rec.interimResults=true;rec.continuous=true;var on=false,base='';
   rec.onresult=function(e){var t='';for(var i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;input.value=(base+' '+t).trim();input.dispatchEvent(new Event('input'));};
-  rec.onend=function(){on=false;mic.classList.remove('rec');};
-  rec.onerror=function(){on=false;mic.classList.remove('rec');};
-  mic.onclick=function(){if(on){rec.stop();return;}base=input.value;try{rec.start();on=true;mic.classList.add('rec');input.focus();}catch(e){}};
-})();
-fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)handleFile(f);};
+  rec.onend=function(){on=false;mic.classList.remove('rec');};rec.onerror=function(){on=false;mic.classList.remove('rec');};
+  mic.onclick=function(){if(on){rec.stop();return;}base=input.value;try{rec.start();on=true;mic.classList.add('rec');input.focus();}catch(e){}};})();
 
-function handleFile(f){
-  if(f.size>8*1024*1024){alert('الملف كبير (أقصى 8MB).');return;}
+function handleFile(f){if(f.size>8*1024*1024){alert('الملف كبير (أقصى 8MB).');return;}
   if(/^image\//.test(f.type)){resizeImage(f,1280,function(b64){pending.push({kind:'image',media_type:'image/jpeg',data:b64,name:f.name,preview:'data:image/jpeg;base64,'+b64});renderChips();});}
   else if(f.type==='application/pdf'){readB64(f,function(b64){pending.push({kind:'document',media_type:'application/pdf',data:b64,name:f.name});renderChips();});}
-  else {var r=new FileReader();r.onload=function(){pending.push({kind:'text',name:f.name,text:String(r.result).slice(0,30000)});renderChips();};r.readAsText(f);}
-}
-function resizeImage(f,maxDim,cb){var img=new Image(),url=URL.createObjectURL(f);
-  img.onload=function(){var w=img.width,h=img.height,s=Math.min(1,maxDim/Math.max(w,h));var cw=Math.round(w*s),ch=Math.round(h*s),c=document.createElement('canvas');c.width=cw;c.height=ch;c.getContext('2d').drawImage(img,0,0,cw,ch);var du=c.toDataURL('image/jpeg',.82);URL.revokeObjectURL(url);cb(du.split(',')[1]);};
-  img.onerror=function(){URL.revokeObjectURL(url);alert('تعذّر قراءة الصورة.');};img.src=url;}
+  else {var r=new FileReader();r.onload=function(){pending.push({kind:'text',name:f.name,text:String(r.result).slice(0,30000)});renderChips();};r.readAsText(f);}}
+function resizeImage(f,maxDim,cb){var img=new Image(),url=URL.createObjectURL(f);img.onload=function(){var w=img.width,h=img.height,s=Math.min(1,maxDim/Math.max(w,h));var cw=Math.round(w*s),ch=Math.round(h*s),c=document.createElement('canvas');c.width=cw;c.height=ch;c.getContext('2d').drawImage(img,0,0,cw,ch);var du=c.toDataURL('image/jpeg',.82);URL.revokeObjectURL(url);cb(du.split(',')[1]);};img.onerror=function(){URL.revokeObjectURL(url);alert('تعذّر قراءة الصورة.');};img.src=url;}
 function readB64(f,cb){var r=new FileReader();r.onload=function(){cb(String(r.result).split(',')[1]);};r.readAsDataURL(f);}
-function renderChips(){chipsEl.innerHTML='';pending.forEach(function(p,i){var c=document.createElement('div');c.className='chip';c.innerHTML=(p.kind==='image'?'<img src="'+p.preview+'">':'<span>'+(p.kind==='document'?'📄':'📝')+'</span>')+'<span>'+(p.name||'مرفق')+'</span><span class="x" data-i="'+i+'">✕</span>';chipsEl.appendChild(c);});
-  chipsEl.querySelectorAll('.x').forEach(function(x){x.onclick=function(){pending.splice(+x.getAttribute('data-i'),1);renderChips();};});}
+function renderChips(){chipsEl.innerHTML='';pending.forEach(function(p,i){var c=document.createElement('div');c.className='chip';c.innerHTML=(p.kind==='image'?'<img src="'+p.preview+'">':'<span>'+(p.kind==='document'?'📄':'📝')+'</span>')+'<span>'+(p.name||'مرفق')+'</span><span class="x" data-i="'+i+'">✕</span>';chipsEl.appendChild(c);});chipsEl.querySelectorAll('.x').forEach(function(x){x.onclick=function(){pending.splice(+x.getAttribute('data-i'),1);renderChips();};});}
 function clearPending(){pending=[];renderChips();}
 
 function lightConvo(){return convo.map(function(m){if(Array.isArray(m.content)){var t=m.content.filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join(' ');var n=m.content.filter(function(b){return b.type!=='text';}).length;return {role:m.role,content:(t||'')+(n?'  📎('+n+')':'')};}return {role:m.role,content:m.content};});}
@@ -199,105 +292,48 @@ function saveConvo(){try{localStorage.setItem(STORE,JSON.stringify(lightConvo().
 function newChat(){convo=[];clearPending();try{localStorage.removeItem(STORE);}catch(e){}location.reload();}
 document.getElementById('newchat').onclick=newChat;
 
-function scroll(){var w=document.querySelector('.wrap');w.scrollTop=w.scrollHeight;}
-function addMsg(role,text,imgs){
-  if(!started){started=true;var i=thread.querySelector('.intro');if(i)i.remove();}
+function scroll(){var w=document.querySelector('#appview .wrap');w.scrollTop=w.scrollHeight;}
+function addMsg(role,text,imgs){if(!started){started=true;var i=thread.querySelector('.intro');if(i)i.remove();}
   var m=document.createElement('div');m.className='msg '+(role==='user'?'u':'b');
   var av=document.createElement('div');av.className='av '+(role==='user'?'u':'b');av.textContent=role==='user'?'You':'∿';
   var col=document.createElement('div');col.style.cssText='min-width:0;flex:1';
   var bub=document.createElement('div');bub.className='bub';bub.textContent=text||'';
   if(imgs&&imgs.length){imgs.forEach(function(src){var im=document.createElement('img');im.className='att';im.src=src;bub.appendChild(im);});}
-  col.appendChild(bub);m.appendChild(av);m.appendChild(col);thread.appendChild(m);scroll();
-  return {m:m,bub:bub,col:col};
-}
-function addThinking(){var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> عم اصمّم المؤشر…';return r;}
-function extractArtifacts(text){
-  var arts=[],out=text,re=/```([a-zA-Z0-9]+)?[ \t]*\n([\s\S]*?)```/g,m,reps=[];
+  col.appendChild(bub);m.appendChild(av);m.appendChild(col);thread.appendChild(m);scroll();return {m:m,bub:bub,col:col};}
+function addThinking(){var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> Nexus عم تصمّم المؤشر…';return r;}
+function mdToHtml(t){var e=(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');e=e.replace(/^\s*#{1,6}\s?(.*)$/gm,'<b style="font-size:16px">$1</b>');e=e.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');e=e.replace(/`([^`]+)`/g,'<code style="background:#0e2016;padding:1px 5px;border-radius:5px">$1</code>');return e;}
+function extractArtifacts(text){var arts=[],out=text,re=/```([a-zA-Z0-9]+)?[ \t]*\n([\s\S]*?)```/g,m,reps=[];
   var FILELANGS=['pine','pinescript','html','css','js','javascript','python','py','json','csv','txt'];
-  while((m=re.exec(text))!==null){
-    var lang=(m[1]||'text').toLowerCase(),content=m[2],fn=null;
+  while((m=re.exec(text))!==null){var lang=(m[1]||'text').toLowerCase(),content=m[2],fn=null;
     var fm=content.match(/^\s*(?:\/\/|<!--|#)\s*FILE:\s*(.+?)\s*(?:-->)?\s*$/im);
     if(fm){fn=fm[1].trim();content=content.replace(fm[0],'').replace(/^\n/,'');}
     else if(FILELANGS.indexOf(lang)===-1){reps.push([m[0],content.replace(/\s+$/,'')]);continue;}
-    if(!fn)fn=(lang==='pine'||lang==='pinescript')?'indicator.pine':(lang==='html'?'index.html':(lang==='python'||lang==='py'?'app.py':(lang==='js'||lang==='javascript'?'script.js':'code.txt')));
-    arts.push({filename:fn,content:content.replace(/\s+$/,'')});
-    reps.push([m[0],'📄 '+fn+' — تحت']);
-  }
-  reps.forEach(function(p){out=out.replace(p[0],p[1]);});
-  return {text:out.trim(),artifacts:arts};
-}
-function mdToHtml(t){
-  var e=(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  e=e.replace(/^\s*#{1,6}\s?(.*)$/gm,'<b style="font-size:16px">$1</b>');
-  e=e.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
-  e=e.replace(/`([^`]+)`/g,'<code style="background:#0e2016;padding:1px 5px;border-radius:5px">$1</code>');
-  return e;
-}
-function renderArtifact(container,a){
-  var wrap=document.createElement('div');wrap.className='art';
+    if(!fn)fn=(lang==='pine'||lang==='pinescript')?'nexus_indicator.pine':(lang==='html'?'index.html':(lang==='python'||lang==='py'?'app.py':(lang==='js'||lang==='javascript'?'script.js':'code.txt')));
+    arts.push({filename:fn,content:content.replace(/\s+$/,'')});reps.push([m[0],'📄 '+fn+' — تحت']);}
+  reps.forEach(function(p){out=out.replace(p[0],p[1]);});return {text:out.trim(),artifacts:arts};}
+function renderArtifact(container,a){var wrap=document.createElement('div');wrap.className='art';
   wrap.innerHTML='<div class="bar"><span class="fn">'+a.filename+'</span><span class="sp"><button data-act="copy">نسخ الكود</button><button data-act="dl">تنزيل</button></span></div>';
   var pre=document.createElement('pre');pre.textContent=a.content;wrap.appendChild(pre);
   wrap.addEventListener('click',function(e){var act=e.target.getAttribute('data-act');if(!act)return;
     if(act==='copy'){navigator.clipboard.writeText(a.content);e.target.textContent='تم ✓';setTimeout(function(){e.target.textContent='نسخ الكود';},1200);}
-    if(act==='dl'){var bl=new Blob([a.content],{type:'text/plain'});var u=URL.createObjectURL(bl);var x=document.createElement('a');x.href=u;x.download=a.filename;x.click();URL.revokeObjectURL(u);}
-  });
-  container.appendChild(wrap);scroll();
-}
+    if(act==='dl'){var bl=new Blob([a.content],{type:'text/plain'});var u=URL.createObjectURL(bl);var x=document.createElement('a');x.href=u;x.download=a.filename;x.click();URL.revokeObjectURL(u);}});
+  container.appendChild(wrap);scroll();}
 
-async function submit(){
-  var text=input.value.trim();
-  if((!text&&!pending.length)||busy)return;
-  busy=true;send.disabled=true;
-  var atts=pending.slice();
-  var previews=atts.filter(function(a){return a.kind==='image';}).map(function(a){return a.preview;});
-  var content;
-  if(atts.length){
-    content=[];
-    atts.forEach(function(a){
-      if(a.kind==='image')content.push({type:'image',source:{type:'base64',media_type:a.media_type,data:a.data}});
-      else if(a.kind==='document')content.push({type:'document',source:{type:'base64',media_type:a.media_type,data:a.data}});
-      else if(a.kind==='text')content.push({type:'text',text:'محتوى الملف "'+a.name+'":\n'+a.text});
-    });
-    content.push({type:'text',text:text||'صمّم مؤشر من المرفق.'});
-  } else { content=text; }
-  input.value='';input.style.height='auto';clearPending();
-  addMsg('user',text||'(مرفق)',previews);
-  convo.push({role:'user',content:content});saveConvo();
-  var th=addThinking();
-  var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},32000);
-  try{
-    var r=await fetch(ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:convo}),signal:ac.signal});
-    clearTimeout(tmo);
-    var ct=r.headers.get('content-type')||'';
-    var full='';
-    if(ct.indexOf('application/json')>=0){
-      var d=await r.json();full=d.reply||'…';
-    }else{
-      th.bub.className='bub';th.bub.textContent='';
-      var reader=r.body.getReader(),dcd=new TextDecoder();
-      while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});th.bub.textContent=full;scroll();}
-    }
-    var ex=extractArtifacts(full);
-    th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||'تم.');
-    ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
-    convo.push({role:'assistant',content:full});saveConvo();
-    dot.className='dot live';stat.textContent='active';
-  }catch(e){
-    clearTimeout(tmo);th.bub.className='bub';
-    th.bub.textContent=(e&&e.name==='AbortError')?'⚠️ تأخّر الاتصال — جرّب مرة ثانية.':'⚠️ خطأ اتصال: '+(e&&e.message||e);
-  }
-  busy=false;send.disabled=false;input.focus();
-}
+async function submit(){var text=input.value.trim();if((!text&&!pending.length)||busy)return;busy=true;send.disabled=true;
+  var atts=pending.slice();var previews=atts.filter(function(a){return a.kind==='image';}).map(function(a){return a.preview;});
+  var content;if(atts.length){content=[];atts.forEach(function(a){if(a.kind==='image')content.push({type:'image',source:{type:'base64',media_type:a.media_type,data:a.data}});else if(a.kind==='document')content.push({type:'document',source:{type:'base64',media_type:a.media_type,data:a.data}});else if(a.kind==='text')content.push({type:'text',text:'محتوى الملف "'+a.name+'":\n'+a.text});});content.push({type:'text',text:text||'صمّم مؤشر من المرفق.'});}else{content=text;}
+  input.value='';input.style.height='auto';clearPending();addMsg('user',text||'(مرفق)',previews);convo.push({role:'user',content:content});saveConvo();
+  var th=addThinking();var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},32000);
+  try{var r=await fetch(ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:convo}),signal:ac.signal});clearTimeout(tmo);
+    var ct=r.headers.get('content-type')||'';var full='';
+    if(ct.indexOf('application/json')>=0){var d=await r.json();full=d.reply||'…';}
+    else{th.bub.className='bub';th.bub.textContent='';var reader=r.body.getReader(),dcd=new TextDecoder();while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});th.bub.textContent=full;scroll();}}
+    var ex=extractArtifacts(full);th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||'تم.');ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});convo.push({role:'assistant',content:full});saveConvo();dot.className='dot live';stat.textContent='active';
+  }catch(e){clearTimeout(tmo);th.bub.className='bub';th.bub.textContent=(e&&e.name==='AbortError')?'⚠️ تأخّر الاتصال — جرّب مرة ثانية.':'⚠️ خطأ اتصال: '+(e&&e.message||e);}
+  busy=false;send.disabled=false;input.focus();}
 
-
-fetch(ENDPOINT,{method:'GET'}).then(function(r){return r.json();}).then(function(d){
-  if(d&&d.hasKey===false){dot.className='dot';stat.textContent='needs API key';}else{dot.className='dot live';stat.textContent='active';}
-}).catch(function(){dot.className='dot live';stat.textContent='ready';});
-try{
-  var saved=JSON.parse(localStorage.getItem(STORE)||'[]');
-  if(saved&&saved.length){convo=saved;saved.forEach(function(msg){var t=typeof msg.content==='string'?msg.content:'';
-    if(msg.role==='user'){addMsg('user',t);}else{var r=addMsg('assistant','');var ex=extractArtifacts(t);r.bub.innerHTML=mdToHtml(ex.text||'…');ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}});scroll();}
-}catch(e){}
+fetch(ENDPOINT,{method:'GET'}).then(function(r){return r.json();}).then(function(d){if(d&&d.hasKey===false){dot.className='dot';stat.textContent='needs key';}else{dot.className='dot live';stat.textContent='active';}}).catch(function(){dot.className='dot live';stat.textContent='ready';});
+try{var saved=JSON.parse(localStorage.getItem(STORE)||'[]');if(saved&&saved.length){convo=saved;saved.forEach(function(msg){var t=typeof msg.content==='string'?msg.content:'';if(msg.role==='user'){addMsg('user',t);}else{var r=addMsg('assistant','');var ex=extractArtifacts(t);r.bub.innerHTML=mdToHtml(ex.text||'…');ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}});}}catch(e){}
 </script>
 </body>
 </html>
