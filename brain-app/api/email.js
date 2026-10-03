@@ -25,7 +25,8 @@ const SYSTEM = `You are Brain, doing a quick WORK EMAIL check-up for Ahmad's lan
 function send(res, obj) { res.setHeader("content-type", "application/json; charset=utf-8"); res.statusCode = 200; res.end(JSON.stringify(obj)); }
 
 export default async function handler(req, res) {
-  const ready = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+  const GPASS = process.env.GMAIL_APP_PASSWORD || process.env.APP_PASSWORD;
+  const ready = !!(process.env.GMAIL_USER && GPASS);
   if (req.method === "GET") return send(res, { ok: true, connected: ready });
   if (req.method !== "POST") { res.statusCode = 405; return res.end("POST only"); }
 
@@ -39,7 +40,7 @@ export default async function handler(req, res) {
   let mails = [];
   let client;
   try {
-    client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }, logger: false });
+    client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user: process.env.GMAIL_USER, pass: (GPASS || "").replace(/\s+/g, "") }, logger: false });
     await client.connect();
     const lock = await client.getMailboxLock("INBOX");
     try {
