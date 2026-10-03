@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -18,6 +18,8 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 .brand b{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:.02em;display:block;line-height:1}
 .brand small{color:var(--mut);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
 .hright{margin-inline-start:auto;display:flex;align-items:center;gap:10px}
+.langbtn{font:inherit;font-size:13px;font-weight:700;color:var(--acc);background:var(--panel);border:1.5px solid var(--line2);border-radius:999px;padding:6px 13px;cursor:pointer;flex:none}
+.langbtn:hover{border-color:var(--acc)}
 #newchat{font:inherit;font-size:12.5px;font-weight:600;color:var(--acc);background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:6px 13px;cursor:pointer}
 #newchat:hover{border-color:var(--acc)}
 .status{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
@@ -26,7 +28,9 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 /* drawer */
 .scrim{position:fixed;inset:0;background:rgba(2,6,10,.6);backdrop-filter:blur(2px);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
 .scrim.on{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;bottom:0;inset-inline-start:0;width:300px;max-width:85vw;background:var(--panel2);border-inline-end:1px solid var(--line);z-index:50;transform:translateX(-102%);transition:transform .22s ease;overflow-y:auto;padding:16px}
+.drawer{position:fixed;top:0;bottom:0;inset-inline-start:0;width:300px;max-width:85vw;background:var(--panel2);border-inline-end:1px solid var(--line);z-index:50;transition:transform .22s ease;overflow-y:auto;padding:16px}
+html[dir="rtl"] .drawer{transform:translateX(102%)}
+html[dir="ltr"] .drawer{transform:translateX(-102%)}
 .drawer.on{transform:none}
 .drawer h2{font-family:var(--disp);font-size:16px;margin:4px 2px 14px;color:var(--acc)}
 .dsec{margin-bottom:16px}
@@ -88,50 +92,51 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 </head>
 <body>
 <header>
-<button class="icbtn" id="menu" title="Menu">☰</button>
+<button class="icbtn" id="menu" data-i18n-title="t_menu" title="القائمة">☰</button>
 <div class="logo">◇</div>
-<div class="brand"><b>Brain</b><small>Your assistant</small></div>
+<div class="brand"><b>Brain</b><small data-i18n="brand_sub">Your assistant</small></div>
 <div class="hright">
-<button id="newchat" title="New chat">+ New</button>
+<button class="langbtn" id="langA" onclick="toggleLang()">EN</button>
+<button id="newchat" data-i18n="btn_new" data-i18n-title="t_new" title="محادثة جديدة">+ جديد</button>
 <div class="status"><span class="dot" id="dot"></span><span id="stat">…</span></div>
 </div>
 </header>
 
 <div class="scrim" id="scrim"></div>
 <nav class="drawer" id="drawer">
-<h2>◇ Brain — كل شي بمكان واحد</h2>
+<h2 data-i18n="dw_title">◇ Brain — كل شي بمكان واحد</h2>
 
-<div class="dsec"><div class="t">الزباين والواتساب</div>
-<button data-p="اكتبلي رد واتساب احترافي وجاهز للإرسال لزبون سأل عن سعر. اسألني عن التفاصيل الناقصة باختصار."><span class="em">💬</span> رد على زبون</button>
-<button data-p="اكتبلي نص عرض سعر (quote) مرتّب وواضح لزبون landscaping. خليه احترافي وفيه خطوة تالية."><span class="em">🧾</span> عرض سعر</button>
-<button data-p="اكتبلي رسالة متابعة لطيفة لزبون ما رد من كم يوم على عرض السعر."><span class="em">🔁</span> رسالة متابعة</button>
+<div class="dsec"><div class="t" data-i18n="dw_cust">الزباين والواتساب</div>
+<button data-p="اكتبلي رد واتساب احترافي وجاهز للإرسال لزبون سأل عن سعر. اسألني عن التفاصيل الناقصة باختصار." data-pen="Write a professional, ready-to-send WhatsApp reply for a customer who asked about a price. Briefly ask me for any missing details."><span class="em">💬</span> <span data-i18n="dw_reply">رد على زبون</span></button>
+<button data-p="اكتبلي نص عرض سعر (quote) مرتّب وواضح لزبون landscaping. خليه احترافي وفيه خطوة تالية." data-pen="Write a tidy, clear quote for a landscaping customer. Keep it professional with a clear next step."><span class="em">🧾</span> <span data-i18n="dw_quote">عرض سعر</span></button>
+<button data-p="اكتبلي رسالة متابعة لطيفة لزبون ما رد من كم يوم على عرض السعر." data-pen="Write a friendly follow-up message for a customer who hasn't replied to the quote in a few days."><span class="em">🔁</span> <span data-i18n="dw_follow">رسالة متابعة</span></button>
 </div>
 
-<div class="dsec"><div class="t">التداول</div>
-<button data-p="اعملي شيك ليست SMC كاملة قبل ما افتح صفقة (سيولة، BOS/CHOCH، order block، FVG، إدارة مخاطرة)."><span class="em">📈</span> شيك ليست SMC</button>
-<button data-p="ساعدني ابني خطة صفقة: اسألني عن الزوج، الاتجاه، نقطة الدخول، الستوب والتارجت، وقيّم الـ R:R."><span class="em">🎯</span> خطة صفقة</button>
-<button data-img="1" data-p="هاي صورة شارت. حلّلها بمنهج SMC: الاتجاه، السيولة، مناطق الاهتمام، وسيناريو محتمل. مو نصيحة مالية."><span class="em">🖼️</span> حلّل صورة شارت</button>
-<button data-tv="1"><span class="em">📊</span> شارت TradingView مباشر</button>
-<button data-p="شو أسعار الذهب والفضة والبيتكوين هلأ؟"><span class="em">💹</span> أسعار حيّة الآن</button>
+<div class="dsec"><div class="t" data-i18n="dw_trade">التداول</div>
+<button data-p="اعملي شيك ليست SMC كاملة قبل ما افتح صفقة (سيولة، BOS/CHOCH، order block، FVG، إدارة مخاطرة)." data-pen="Make me a full SMC checklist before I open a trade (liquidity, BOS/CHOCH, order block, FVG, risk management)."><span class="em">📈</span> <span data-i18n="dw_smc">شيك ليست SMC</span></button>
+<button data-p="ساعدني ابني خطة صفقة: اسألني عن الزوج، الاتجاه، نقطة الدخول، الستوب والتارجت، وقيّم الـ R:R." data-pen="Help me build a trade plan: ask me the pair, direction, entry, stop and target, and assess the R:R."><span class="em">🎯</span> <span data-i18n="dw_plan">خطة صفقة</span></button>
+<button data-img="1" data-p="هاي صورة شارت. حلّلها بمنهج SMC: الاتجاه، السيولة، مناطق الاهتمام، وسيناريو محتمل. مو نصيحة مالية." data-pen="This is a chart image. Analyze it with SMC: trend, liquidity, points of interest, and a likely scenario. Not financial advice."><span class="em">🖼️</span> <span data-i18n="dw_chartimg">حلّل صورة شارت</span></button>
+<button data-tv="1"><span class="em">📊</span> <span data-i18n="dw_tv">شارت TradingView مباشر</span></button>
+<button data-p="شو أسعار الذهب والفضة والبيتكوين هلأ؟" data-pen="What are the gold, silver and Bitcoin prices right now?"><span class="em">💹</span> <span data-i18n="dw_prices">أسعار حيّة الآن</span></button>
 </div>
 
-<div class="dsec"><div class="t">بناء ومحتوى</div>
-<button data-p="ابنيلي أداة ويب صغيرة جاهزة (صفحة HTML كاملة self-contained). اسألني شو بدي بالضبط إذا مو واضح."><span class="em">🔨</span> ابنيلي أداة/صفحة</button>
-<button data-p="اكتبلي سكربت فيديو يوتيوب للأطفال (hook + مشاهد + خاتمة). اسألني عن الموضوع والعمر المستهدف."><span class="em">🎬</span> سكربت فيديو يوتيوب</button>
-<button data-p="اكتبلي بوست سوشيال ميديا قصير وجذّاب لشغل landscaping مع كابشن وهاشتاغات."><span class="em">📱</span> بوست سوشيال</button>
+<div class="dsec"><div class="t" data-i18n="dw_build">بناء ومحتوى</div>
+<button data-p="ابنيلي أداة ويب صغيرة جاهزة (صفحة HTML كاملة self-contained). اسألني شو بدي بالضبط إذا مو واضح." data-pen="Build me a small ready-to-use web tool (a complete self-contained HTML page). Ask me exactly what I want if it's unclear."><span class="em">🔨</span> <span data-i18n="dw_tool">ابنيلي أداة/صفحة</span></button>
+<button data-p="اكتبلي سكربت فيديو يوتيوب للأطفال (hook + مشاهد + خاتمة). اسألني عن الموضوع والعمر المستهدف." data-pen="Write me a kids' YouTube video script (hook + scenes + ending). Ask me the topic and target age."><span class="em">🎬</span> <span data-i18n="dw_script">سكربت فيديو يوتيوب</span></button>
+<button data-p="اكتبلي بوست سوشيال ميديا قصير وجذّاب لشغل landscaping مع كابشن وهاشتاغات." data-pen="Write me a short, catchy social media post for landscaping work with a caption and hashtags."><span class="em">📱</span> <span data-i18n="dw_social">بوست سوشيال</span></button>
 </div>
 
-<div class="dsec"><div class="t">تشيك أب ومهام</div>
-<button data-p="اعملي تشيك أب سريع ومرتّب: شو لازم اراجع هالاسبوع بشغلي (الموقع، إعلانات جوجل، التقييمات، العروض، المتابعات)؟ رتّبها كقائمة أعملها."><span class="em">✅</span> تشيك أب الشغل</button>
-<button data-file="1" data-p="هاد ملف. اقرأه ولخّصلي أهم النقاط وشو لازم اعمل."><span class="em">📎</span> ارفع ملف وحلّله</button>
+<div class="dsec"><div class="t" data-i18n="dw_checkup">تشيك أب ومهام</div>
+<button data-p="اعملي تشيك أب سريع ومرتّب: شو لازم اراجع هالاسبوع بشغلي (الموقع، إعلانات جوجل، التقييمات، العروض، المتابعات)؟ رتّبها كقائمة أعملها." data-pen="Do a quick, organized check-up: what should I review in my business this week (website, Google Ads, reviews, quotes, follow-ups)? Lay it out as a to-do list."><span class="em">✅</span> <span data-i18n="dw_biz">تشيك أب الشغل</span></button>
+<button data-file="1" data-p="هاد ملف. اقرأه ولخّصلي أهم النقاط وشو لازم اعمل." data-pen="This is a file. Read it and summarize the key points and what I need to do."><span class="em">📎</span> <span data-i18n="dw_file">ارفع ملف وحلّله</span></button>
 </div>
-<div style="color:var(--mut);font-size:11px;padding:6px 2px 10px">اضغط 📎 بأي وقت لترفع صورة أو ملف · محادثاتك محفوظة على جهازك</div>
+<div style="color:var(--mut);font-size:11px;padding:6px 2px 10px" data-i18n="dw_note">اضغط 📎 بأي وقت لترفع صورة أو ملف · محادثاتك محفوظة على جهازك</div>
 </nav>
 
 <div class="wrap"><div class="thread" id="thread">
 <div class="intro">
-<h1>كيف فيني ساعدك؟</h1>
-<p>رد على زبون، خطّط صفقة، ابنِ أداة، أو ارفعلي صورة/ملف — بس اسأل. افتح ☰ للأقسام السريعة.</p>
+<h1 data-i18n="intro_h">كيف فيني ساعدك؟</h1>
+<p data-i18n="intro_p">رد على زبون، خطّط صفقة، ابنِ أداة، أو ارفعلي صورة/ملف — بس اسأل. افتح ☰ للأقسام السريعة.</p>
 <div class="sug" id="sug"></div>
 </div>
 </div></div>
@@ -139,12 +144,12 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 <div class="composer">
 <div class="chips" id="chips"></div>
 <div class="cform">
-<button class="attbtn" id="att" title="ارفع صورة أو ملف">📎</button>
-<button class="micbtn" id="mic" title="تكلّم">🎤</button>
-<textarea id="in" rows="1" placeholder="اسأل Brain… أو اضغط 🎤 واحكي"></textarea>
-<button class="send" id="send" title="Send">➤</button>
+<button class="attbtn" id="att" data-i18n-title="t_att" title="ارفع صورة أو ملف">📎</button>
+<button class="micbtn" id="mic" data-i18n-title="t_mic" title="تكلّم">🎤</button>
+<textarea id="in" rows="1" data-i18n-ph="ph_in" placeholder="اسأل Brain… أو اضغط 🎤 واحكي"></textarea>
+<button class="send" id="send" data-i18n-title="t_send" title="إرسال">➤</button>
 </div>
-<div class="hint">Powered by Claude · مفتاحك محفوظ على الخادم</div>
+<div class="hint" data-i18n="hint">Powered by Claude · مفتاحك محفوظ على الخادم</div>
 </div>
 <input type="file" id="file" accept="image/*,.pdf,.txt,.csv,.md" style="display:none">
 
@@ -152,8 +157,8 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 <div class="mcard">
 <div class="mhead"><b>📊 TradingView</b>
 <input id="tvsym" value="OANDA:XAUUSD" title="الرمز (مثال: OANDA:XAUUSD, BINANCE:BTCUSDT)">
-<button class="icbtn" id="tvgo" style="width:auto;padding:0 12px" title="عرض">عرض</button>
-<button class="icbtn open" id="tvopen" style="width:auto;padding:0 12px" title="افتح TradingView كامل وسجّل دخول">↗ دخول</button>
+<button class="icbtn" id="tvgo" style="width:auto;padding:0 12px" data-i18n="tv_go" title="عرض">عرض</button>
+<button class="icbtn open" id="tvopen" style="width:auto;padding:0 12px" data-i18n="tv_open" title="افتح TradingView كامل وسجّل دخول">↗ دخول</button>
 <button class="icbtn close" id="tvclose" style="width:auto;padding:0 12px">✕</button>
 </div>
 <iframe id="tvframe" src="about:blank" allowtransparency="true"></iframe>
@@ -161,6 +166,69 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 </div>
 
 <script>
+/* ===================== i18n ===================== */
+var I18N={
+ brand_sub:["مساعدك","Your assistant"],
+ btn_new:["+ جديد","+ New"],
+ dw_title:["◇ Brain — كل شي بمكان واحد","◇ Brain — everything in one place"],
+ dw_cust:["الزباين والواتساب","Customers & WhatsApp"],
+ dw_reply:["رد على زبون","Reply to a customer"],
+ dw_quote:["عرض سعر","Quote"],
+ dw_follow:["رسالة متابعة","Follow-up message"],
+ dw_trade:["التداول","Trading"],
+ dw_smc:["شيك ليست SMC","SMC checklist"],
+ dw_plan:["خطة صفقة","Trade plan"],
+ dw_chartimg:["حلّل صورة شارت","Analyze chart image"],
+ dw_tv:["شارت TradingView مباشر","Live TradingView chart"],
+ dw_prices:["أسعار حيّة الآن","Live prices now"],
+ dw_build:["بناء ومحتوى","Build & content"],
+ dw_tool:["ابنيلي أداة/صفحة","Build a tool/page"],
+ dw_script:["سكربت فيديو يوتيوب","YouTube video script"],
+ dw_social:["بوست سوشيال","Social post"],
+ dw_checkup:["تشيك أب ومهام","Check-up & tasks"],
+ dw_biz:["تشيك أب الشغل","Business check-up"],
+ dw_file:["ارفع ملف وحلّله","Upload & analyze a file"],
+ dw_note:["اضغط 📎 بأي وقت لترفع صورة أو ملف · محادثاتك محفوظة على جهازك","Tap 📎 anytime to upload an image or file · your chats are saved on your device"],
+ intro_h:["كيف فيني ساعدك؟","How can I help you?"],
+ intro_p:["رد على زبون، خطّط صفقة، ابنِ أداة، أو ارفعلي صورة/ملف — بس اسأل. افتح ☰ للأقسام السريعة.","Reply to a customer, plan a trade, build a tool, or upload an image/file — just ask. Open ☰ for the quick sections."],
+ hint:["Powered by Claude · مفتاحك محفوظ على الخادم","Powered by Claude · your key is stored on the server"],
+ tv_go:["عرض","View"],
+ tv_open:["↗ دخول","↗ Sign in"],
+ t_menu:["القائمة","Menu"],t_new:["محادثة جديدة","New chat"],
+ t_att:["ارفع صورة أو ملف","Upload image or file"],t_mic:["تكلّم","Speak"],t_send:["إرسال","Send"],
+ ph_in:["اسأل Brain… أو اضغط 🎤 واحكي","Ask Brain… or tap 🎤 and speak"],
+ /* dynamic */
+ thinking:["Brain عم يفكّر…","Brain is thinking…"],
+ copy:["نسخ","Copy"],copied:["تم","Copied"],dl:["تنزيل","Download"],
+ below:["تحت","below"],attach:["مرفق","attachment"],
+ fromAtt:["حلّل المرفق.","Analyze the attachment."],
+ fileContent:["محتوى الملف","File"],
+ done:["تم.","Done."],
+ big:["الملف كبير (أقصى 8MB).","File is too large (max 8MB)."],
+ noimg:["تعذّر قراءة الصورة.","Could not read the image."],
+ errTimeout:["⚠️ الرد تأخّر — جرّب مرة ثانية أو سؤال أقصر.","⚠️ The reply timed out — try again or a shorter question."],
+ errConn:["⚠️ خطأ اتصال: ","⚠️ Connection error: "]
+};
+var SUG=[
+ ["رد على زبون سأل عن سعر تبليط","Reply to a customer asking about a paving price"],
+ ["شيك ليست SMC للتداول","SMC checklist for trading"],
+ ["ابنيلي حاسبة تكلفة ديك","Build me a decking cost calculator"],
+ ["شو سعر الذهب هلأ؟","What's the gold price right now?"]
+];
+var L=0; try{if(localStorage.getItem('brain_lang')==='en')L=1;}catch(e){}
+function t(k){var v=I18N[k];return v?v[L]:k;}
+function applyLang(){
+  document.documentElement.lang=L?'en':'ar';
+  document.documentElement.dir=L?'ltr':'rtl';
+  document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(I18N[k])el.textContent=t(k);});
+  document.querySelectorAll('[data-i18n-title]').forEach(function(el){var k=el.getAttribute('data-i18n-title');if(I18N[k])el.title=t(k);});
+  document.querySelectorAll('[data-i18n-ph]').forEach(function(el){var k=el.getAttribute('data-i18n-ph');if(I18N[k])el.placeholder=t(k);});
+  var b=document.getElementById('langA');if(b)b.textContent=L?'ع':'EN';
+  if(typeof rebuildSug==='function')rebuildSug();
+  if(typeof recRef!=='undefined'&&recRef){try{recRef.lang=L?'en-US':'ar-SA';}catch(e){}}
+}
+function toggleLang(){L=L?0:1;try{localStorage.setItem('brain_lang',L?'en':'ar');}catch(e){}applyLang();}
+
 var thread=document.getElementById('thread'),input=document.getElementById('in'),send=document.getElementById('send'),dot=document.getElementById('dot'),stat=document.getElementById('stat');
 var drawer=document.getElementById('drawer'),scrim=document.getElementById('scrim'),fileInput=document.getElementById('file'),chipsEl=document.getElementById('chips');
 var convo=[],busy=false,started=false,pending=[],attachMode=null;
@@ -173,7 +241,7 @@ scrim.onclick=function(){closeDrawer();};
 drawer.addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
   if(b.getAttribute('data-tv')){closeDrawer();openTV();return;}
-  var p=b.getAttribute('data-p');if(!p)return;
+  var p=L?(b.getAttribute('data-pen')||b.getAttribute('data-p')):b.getAttribute('data-p');if(!p)return;
   closeDrawer();
   if(b.getAttribute('data-img')){attachMode='image';pickFile();input.value=p;input.focus();return;}
   if(b.getAttribute('data-file')){attachMode='file';pickFile();input.value=p;input.focus();return;}
@@ -181,9 +249,8 @@ drawer.addEventListener('click',function(e){
 });
 
 /* ---- suggestions ---- */
-var SUG=["رد على زبون سأل عن سعر تبليط","شيك ليست SMC للتداول","ابنيلي حاسبة تكلفة ديك","شو سعر الذهب هلأ؟"];
 var sug=document.getElementById('sug');
-SUG.forEach(function(s){var b=document.createElement('button');b.textContent=s;b.onclick=function(){input.value=s;submit();};sug.appendChild(b);});
+function rebuildSug(){sug.innerHTML='';SUG.forEach(function(s){var b=document.createElement('button');b.textContent=s[L];b.onclick=function(){input.value=s[L];submit();};sug.appendChild(b);});}
 
 /* ---- composer ---- */
 input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px';});
@@ -192,11 +259,12 @@ send.onclick=function(){submit();};
 document.getElementById('att').onclick=function(){attachMode=null;pickFile();};
 function pickFile(){fileInput.value='';fileInput.click();}
 /* voice input */
+var recRef=null;
 (function(){
   var mic=document.getElementById('mic');var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR||!mic){if(mic)mic.style.display='none';return;}
-  var rec=new SR();rec.lang='ar-SA';rec.interimResults=true;rec.continuous=true;var on=false,base='';
-  rec.onresult=function(e){var t='';for(var i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;input.value=(base+' '+t).trim();input.dispatchEvent(new Event('input'));};
+  var rec=new SR();recRef=rec;rec.lang=L?'en-US':'ar-SA';rec.interimResults=true;rec.continuous=true;var on=false,base='';
+  rec.onresult=function(e){var tx='';for(var i=e.resultIndex;i<e.results.length;i++)tx+=e.results[i][0].transcript;input.value=(base+' '+tx).trim();input.dispatchEvent(new Event('input'));};
   rec.onend=function(){on=false;mic.classList.remove('rec');};
   rec.onerror=function(){on=false;mic.classList.remove('rec');};
   mic.onclick=function(){if(on){rec.stop();return;}base=input.value;try{rec.start();on=true;mic.classList.add('rec');input.focus();}catch(e){}};
@@ -205,7 +273,7 @@ function pickFile(){fileInput.value='';fileInput.click();}
 fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)handleFile(f);};
 
 function handleFile(f){
-  if(f.size>8*1024*1024){alert('الملف كبير (أقصى 8MB).');return;}
+  if(f.size>8*1024*1024){alert(t('big'));return;}
   if(/^image\//.test(f.type)){
     resizeImage(f,1280,function(b64){pending.push({kind:'image',media_type:'image/jpeg',data:b64,name:f.name,preview:'data:image/jpeg;base64,'+b64});renderChips();});
   } else if(f.type==='application/pdf'){
@@ -219,7 +287,7 @@ function resizeImage(f,maxDim,cb){
   img.onload=function(){var w=img.width,h=img.height,s=Math.min(1,maxDim/Math.max(w,h));
     var cw=Math.round(w*s),ch=Math.round(h*s),c=document.createElement('canvas');c.width=cw;c.height=ch;
     c.getContext('2d').drawImage(img,0,0,cw,ch);var du=c.toDataURL('image/jpeg',.82);URL.revokeObjectURL(url);cb(du.split(',')[1]);};
-  img.onerror=function(){URL.revokeObjectURL(url);alert('تعذّر قراءة الصورة.');};
+  img.onerror=function(){URL.revokeObjectURL(url);alert(t('noimg'));};
   img.src=url;
 }
 function readB64(f,cb){var r=new FileReader();r.onload=function(){cb(String(r.result).split(',')[1]);};r.readAsDataURL(f);}
@@ -227,7 +295,7 @@ function renderChips(){
   chipsEl.innerHTML='';
   pending.forEach(function(p,i){
     var c=document.createElement('div');c.className='chip';
-    c.innerHTML=(p.kind==='image'?'<img src="'+p.preview+'">':'<span>'+(p.kind==='document'?'📄':'📝')+'</span>')+'<span>'+(p.name||'مرفق')+'</span><span class="x" data-i="'+i+'">✕</span>';
+    c.innerHTML=(p.kind==='image'?'<img src="'+p.preview+'">':'<span>'+(p.kind==='document'?'📄':'📝')+'</span>')+'<span>'+(p.name||t('attach'))+'</span><span class="x" data-i="'+i+'">✕</span>';
     chipsEl.appendChild(c);
   });
   chipsEl.querySelectorAll('.x').forEach(function(x){x.onclick=function(){pending.splice(+x.getAttribute('data-i'),1);renderChips();};});
@@ -236,8 +304,8 @@ function clearPending(){pending=[];renderChips();}
 
 /* ---- persistence ---- */
 function lightConvo(){return convo.map(function(m){
-  if(Array.isArray(m.content)){var t=m.content.filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join(' ');
-    var n=m.content.filter(function(b){return b.type!=='text';}).length;return {role:m.role,content:(t||'')+(n?'  📎('+n+')':'')};}
+  if(Array.isArray(m.content)){var tx=m.content.filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join(' ');
+    var n=m.content.filter(function(b){return b.type!=='text';}).length;return {role:m.role,content:(tx||'')+(n?'  📎('+n+')':'')};}
   return {role:m.role,content:m.content};});}
 function saveConvo(){try{localStorage.setItem('brain_convo',JSON.stringify(lightConvo().slice(-40)));}catch(e){}}
 function newChat(){convo=[];clearPending();try{localStorage.removeItem('brain_convo');}catch(e){}location.reload();}
@@ -255,7 +323,7 @@ function addMsg(role,text,imgs){
   col.appendChild(bub);m.appendChild(av);m.appendChild(col);thread.appendChild(m);scroll();
   return {m:m,bub:bub,col:col};
 }
-function addThinking(){var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> Brain عم يفكّر…';return r;}
+function addThinking(){var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> '+t('thinking');return r;}
 function extractArtifacts(text){
   var arts=[],out=text,re=/```([a-zA-Z0-9]+)?[ \t]*\n([\s\S]*?)```/g,m,reps=[];
   var FILELANGS=['html','css','js','javascript','ts','typescript','python','py','json','csv','xml','svg','sql','sh','bash','yaml','yml','php','jsx','tsx'];
@@ -267,13 +335,13 @@ function extractArtifacts(text){
     if(!fn)fn=lang==='html'?'index.html':(lang==='css'?'style.css':(lang==='js'||lang==='javascript'?'script.js':(lang==='python'||lang==='py'?'app.py':(lang==='csv'?'data.csv':'file.txt'))));
     var type=lang==='html'?'html':(lang==='csv'?'csv':'code');
     arts.push({filename:fn,type:type,content:content.replace(/\s+$/,'')});
-    reps.push([m[0],'📄 '+fn+' — تحت']);
+    reps.push([m[0],'📄 '+fn+' — '+t('below')]);
   }
   reps.forEach(function(p){out=out.replace(p[0],p[1]);});
   return {text:out.trim(),artifacts:arts};
 }
-function mdToHtml(t){
-  var e=(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function mdToHtml(tx){
+  var e=(tx||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   e=e.replace(/^\s*######\s?(.*)$/gm,'<b>$1</b>').replace(/^\s*#{1,5}\s?(.*)$/gm,'<b style="font-size:16px">$1</b>');
   e=e.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*(?!\s)([^*\n]+?)\*(?!\*)/g,'$1<i>$2</i>');
   e=e.replace(/`([^`]+)`/g,'<code style="background:#0e1830;padding:1px 5px;border-radius:5px">$1</code>');
@@ -283,13 +351,13 @@ function renderArtifact(container,a){
   var wrap=document.createElement('div');wrap.className='art';var isHtml=a.type==='html';
   var bar='<div class="bar"><span class="fn">'+a.filename+'</span><span class="sp">';
   if(isHtml)bar+='<button data-act="toggle">Code</button>';
-  bar+='<button data-act="copy">نسخ</button><button data-act="dl">تنزيل</button></span></div>';
+  bar+='<button data-act="copy">'+t('copy')+'</button><button data-act="dl">'+t('dl')+'</button></span></div>';
   wrap.innerHTML=bar;var view=document.createElement('div');
   if(isHtml){var f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts');f.srcdoc=a.content;view.appendChild(f);}
   else{var pre=document.createElement('pre');pre.textContent=a.content;view.appendChild(pre);}
   wrap.appendChild(view);var shown=false;
   wrap.addEventListener('click',function(e){var act=e.target.getAttribute('data-act');if(!act)return;
-    if(act==='copy'){navigator.clipboard.writeText(a.content);e.target.textContent='تم';setTimeout(function(){e.target.textContent='نسخ';},1200);}
+    if(act==='copy'){navigator.clipboard.writeText(a.content);e.target.textContent=t('copied');setTimeout(function(){e.target.textContent=t('copy');},1200);}
     if(act==='dl'){var bl=new Blob([a.content],{type:'text/plain'});var u=URL.createObjectURL(bl);var x=document.createElement('a');x.href=u;x.download=a.filename;x.click();URL.revokeObjectURL(u);}
     if(act==='toggle'){shown=!shown;view.innerHTML='';if(shown){var pre=document.createElement('pre');pre.textContent=a.content;view.appendChild(pre);e.target.textContent='Preview';}else{var f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts');f.srcdoc=a.content;view.appendChild(f);e.target.textContent='Code';}}
   });
@@ -303,19 +371,18 @@ async function submit(){
   busy=true;send.disabled=true;
   var atts=pending.slice();
   var previews=atts.filter(function(a){return a.kind==='image';}).map(function(a){return a.preview;});
-  // build API content
   var content;
   if(atts.length){
     content=[];
     atts.forEach(function(a){
       if(a.kind==='image')content.push({type:'image',source:{type:'base64',media_type:a.media_type,data:a.data}});
       else if(a.kind==='document')content.push({type:'document',source:{type:'base64',media_type:a.media_type,data:a.data}});
-      else if(a.kind==='text')content.push({type:'text',text:'محتوى الملف "'+a.name+'":\n'+a.text});
+      else if(a.kind==='text')content.push({type:'text',text:t('fileContent')+' "'+a.name+'":\n'+a.text});
     });
-    content.push({type:'text',text:text||'حلّل المرفق.'});
+    content.push({type:'text',text:text||t('fromAtt')});
   } else { content=text; }
   input.value='';input.style.height='auto';clearPending();
-  addMsg('user',text||'(مرفق)',previews);
+  addMsg('user',text||'('+t('attach')+')',previews);
   convo.push({role:'user',content:content});saveConvo();
   var th=addThinking();
   var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},30000);
@@ -326,14 +393,14 @@ async function submit(){
     if(ct.indexOf('application/json')>=0){var d=await r.json();full=d.reply||'…';}
     else{th.bub.className='bub';th.bub.textContent='';var reader=r.body.getReader(),dcd=new TextDecoder();while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});th.bub.textContent=full;scroll();}}
     var ex=extractArtifacts(full);
-    th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||'تم.');
+    th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||t('done'));
     ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
     convo.push({role:'assistant',content:full});saveConvo();
     dot.className='dot live';stat.textContent='active';
   }catch(e){
     clearTimeout(tmo);
     th.bub.className='bub';
-    th.bub.textContent=(e&&e.name==='AbortError')?'⚠️ الرد تأخّر — جرّب مرة ثانية أو سؤال أقصر.':'⚠️ خطأ اتصال: '+(e&&e.message||e);
+    th.bub.textContent=(e&&e.name==='AbortError')?t('errTimeout'):t('errConn')+(e&&e.message||e);
   }
   busy=false;send.disabled=false;input.focus();
 }
@@ -356,13 +423,15 @@ try{
   if(saved&&saved.length){
     convo=saved;
     saved.forEach(function(msg){
-      var t=typeof msg.content==='string'?msg.content:'';
-      if(msg.role==='user'){addMsg('user',t);}
-      else{var r=addMsg('assistant','');var ex=extractArtifacts(t);r.bub.innerHTML=mdToHtml(ex.text||'…');ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}
+      var tx=typeof msg.content==='string'?msg.content:'';
+      if(msg.role==='user'){addMsg('user',tx);}
+      else{var r=addMsg('assistant','');var ex=extractArtifacts(tx);r.bub.innerHTML=mdToHtml(ex.text||'…');ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}
     });
     scroll();
   }
 }catch(e){}
+
+applyLang();
 </script>
 </body>
 </html>
