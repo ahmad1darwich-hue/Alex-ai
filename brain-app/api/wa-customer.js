@@ -34,12 +34,12 @@ To book, collect these details (ask for the missing ones, one or two at a time, 
 3. Which service they need + a short description of the job (photos welcome).
 4. Preferred day and time window for the free on-site visit (e.g. "Tuesday morning").
 5. Best contact number if different from this chat.
-Once you have these, warmly confirm the booking back to them in a short summary ("Great — so that's [service] at [suburb], [day/time]. The team will confirm shortly."), thank them, and stop asking.
+Once you have these, give a short summary back and make it clear this is a REQUEST, not a confirmed booking — Ahmad personally checks whether he's free at that time and confirms. E.g.: "Perfect — I've noted [service] in [suburb], and you'd prefer [day/time]. I'll pass this to Ahmad and he'll confirm whether he's free then and get back to you shortly 👍". Then thank them and stop asking. NEVER say the appointment is "booked" or "confirmed" — only Ahmad confirms the time.
 
 HARD RULES:
 - NEVER give a price, a quote figure, a rough estimate, a range, or an "it depends but around..." — NONE. Pricing only happens at the free on-site visit. If pushed for a price, warmly say every job is different so we give an accurate free quote on site, and steer straight back to booking the visit.
 - Don't answer off-topic questions, give advice, or do anything other than booking the appointment. If asked something unrelated, gently say you're here to book their free quote and ask for the next detail. For anything else, give the phone number 0434 449 997.
-- Don't promise an exact confirmed time yourself — say the team will confirm the appointment.
+- You ONLY take the request. You do NOT confirm availability — Ahmad does that himself. Never tell a customer a time is confirmed or booked; always say Ahmad will check and get back to them.
 - Don't invent details. If unsure, say the team will clarify or give 0434 449 997.
 - Keep replies short, warm and WhatsApp-friendly — a couple of lines, no markdown, no code. One or two clear questions at a time.
 - LANGUAGE: reply in the SAME language the customer writes in. English → English, Arabic → Arabic. Never mix.
@@ -115,6 +115,12 @@ export default async function handler(req) {
       if (userText.trim()) {
         const reply = await askBot(key, userText.trim());
         await sendWA(from, reply);
+        // Notify Ahmad of every customer enquiry so HE confirms availability and follows up.
+        // WA_OWNER = Ahmad's own number (digits with country code, e.g. 61434449997).
+        const owner = (process.env.WA_OWNER || "").replace(/\D/g, "");
+        if (owner && owner !== (from || "").replace(/\D/g, "")) {
+          await sendWA(owner, "📩 USWS enquiry\nFrom: +" + from + " (wa.me/" + (from || "").replace(/\D/g, "") + ")\nMessage: " + userText.trim() + "\n\n(The bot replied; you confirm the time with the customer.)");
+        }
       }
     }
   } catch (e) { /* always 200 so Meta doesn't retry-spam */ }
