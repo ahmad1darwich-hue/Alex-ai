@@ -51,6 +51,20 @@ export const strings = {
     edited: "معدّلة يدوياً",
     fresh: "طازجة",
     refresh: "حدّث",
+    watchTitle: "قناة Allan المباشرة",
+    watchStart: "ابدأ المراقبة",
+    watchStop: "أوقف المراقبة",
+    watchEvery: "كل",
+    minutes: "دقيقة",
+    watchLastRead: "آخر قراءة قبل",
+    ago: "ثانية",
+    watchCaveat:
+      "تعمل المراقبة فقط بينما هذه الصفحة مفتوحة في متصفحك. أغلق التبويب فتتوقف — هذا ليس خدمة تعمل في الخلفية.",
+    watchSparkNote: "مسار الأسعار خلال جلستك الحالية — من أول قراءة إلى آخرها.",
+    copySummary: "انسخ القراءة",
+    deployHint: "البناء والنشر",
+    deployBody:
+      "المستودع مربوط بـ Vercel. إن لم يبنِ تلقائياً، أنشئ مشروعاً جديداً من نفس المستودع واجعل مجلد الجذر trading-desk-ai.",
   },
   en: {
     appName: "Allan",
@@ -98,6 +112,20 @@ export const strings = {
     edited: "Edited manually",
     fresh: "Live",
     refresh: "Refresh",
+    watchTitle: "Allan's live channel",
+    watchStart: "Start watching",
+    watchStop: "Stop watching",
+    watchEvery: "Every",
+    minutes: "min",
+    watchLastRead: "Last read",
+    ago: "ago",
+    watchCaveat:
+      "Watching runs only while this page is open in your browser. Close the tab and it stops — this is not a background service.",
+    watchSparkNote: "Price path over your current session — first read to latest.",
+    copySummary: "Copy the read",
+    deployHint: "Build and deploy",
+    deployBody:
+      "The repo is linked to Vercel. If it does not build automatically, create a new project from the same repo and set the root directory to trading-desk-ai.",
   },
 } as const;
 
