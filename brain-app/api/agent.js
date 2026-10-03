@@ -19,6 +19,7 @@ WHAT YOU DO:
 - Reply to customers: professional, warm, ready-to-send emails/WhatsApp messages and quote wording. Always include the phone/WhatsApp and a clear next step.
 - Trading: analysis, SMC checklists, trade plans (entry/stop/target + R:R), risk rules, journaling templates. You are NOT a licensed financial advisor — give frameworks and education, not guaranteed calls. Never claim to place real trades.
 - Build things: complete, self-contained web pages, calculators, scripts, templates, content, plans and step-by-step workflows.
+- Search the web: you CAN search the internet (web_search tool) for current, real information — news, live prices, facts, people, products, how-tos, anything after your training. Use it whenever the answer needs up-to-date or external info, or when you're not certain, then answer with what you found and mention the source briefly. Don't claim you can't access the internet.
 
 RULES:
 - LANGUAGE (critical): Mirror the user's language EXACTLY, every single message. If their latest message is in English, reply ONLY in English. If it is in Arabic, reply in Levantine Arabic. Judge by the language of the CURRENT message, not earlier ones — if they switch, you switch with them. Never mix the two languages in one reply and never answer in a language they did not just use. Match their tone.
@@ -89,25 +90,38 @@ export default async function handler(req) {
   let sys = SYSTEM;
   try { const lu = [...messages].reverse().find(m => m.role === "user"); if (lu) { const ld = await liveData(textOf(lu.content)); if (ld) sys += ld; } } catch (e) {}
 
-  let upstream;
-  try {
-    upstream = await fetch(API, {
+  const TOOLS = [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }];
+  function reqBody(useTools) { return JSON.stringify(Object.assign({ model: MODEL, max_tokens: 4000, system: sys, messages, stream: true }, useTools ? { tools: TOOLS } : {})); }
+  function call(useTools) {
+    return fetch(API, {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 4000, system: sys, messages, stream: true })
+      body: reqBody(useTools)
     });
-  } catch (e) {
-    return jsonResp({ reply: "⚠️ تعذّر الاتصال: " + String(e && e.message || e) });
   }
-  if (!upstream.ok || !upstream.body) {
+
+  let upstream;
+  try { upstream = await call(true); }
+  catch (e) { return jsonResp({ reply: "⚠️ تعذّر الاتصال: " + String(e && e.message || e) }); }
+
+  // If web search isn't available on this account/model, transparently retry without tools.
+  if (!upstream.ok) {
     let t = ""; try { t = await upstream.text(); } catch (e) {}
-    let hint = "";
-    if (/401|authentication|invalid x-api-key/i.test(t)) hint = " (مفتاح API غير صالح)";
-    else if (/credit|billing|quota|insufficient|402/i.test(t)) hint = " (نفد الرصيد — اشحن حساب Anthropic)";
-    else if (/429|rate|overloaded|529/i.test(t)) hint = " (ضغط مؤقت — جرّب بعد دقيقة)";
-    else if (/404|model|not_found/i.test(t)) hint = " (اسم الموديل غير متاح)";
-    return jsonResp({ reply: "⚠️ Brain error " + upstream.status + hint + "\n" + t.slice(0, 200) });
+    if (/web_search|tool|unsupported|not[_ ]?support|invalid.*tool/i.test(t)) {
+      try { upstream = await call(false); }
+      catch (e) { return jsonResp({ reply: "⚠️ تعذّر الاتصال: " + String(e && e.message || e) }); }
+    }
+    if (!upstream.ok) {
+      let t2 = ""; try { t2 = await upstream.text(); } catch (e) { t2 = t; }
+      let hint = "";
+      if (/401|authentication|invalid x-api-key/i.test(t2)) hint = " (مفتاح API غير صالح)";
+      else if (/credit|billing|quota|insufficient|402/i.test(t2)) hint = " (نفد الرصيد — اشحن حساب Anthropic)";
+      else if (/429|rate|overloaded|529/i.test(t2)) hint = " (ضغط مؤقت — جرّب بعد دقيقة)";
+      else if (/404|model|not_found/i.test(t2)) hint = " (اسم الموديل غير متاح)";
+      return jsonResp({ reply: "⚠️ Brain error " + upstream.status + hint + "\n" + t2.slice(0, 200) });
+    }
   }
+  if (!upstream.body) { return jsonResp({ reply: "⚠️ Brain error — no response stream." }); }
 
   const reader = upstream.body.getReader();
   const dec = new TextDecoder();
