@@ -1,6 +1,6 @@
-# Pending Trading Desk / منصة التداول المعلّق
+# Allan / آلان
 
-An **assisted**, never automatic, crypto trading desk.
+An **assisted**, never automatic, crypto trading desk named **Allan**.
 
 It reads the live internet (prices, candles, headlines), computes indicators with a
 transparent rule engine, and produces a **pending signal**. The signal does nothing
@@ -27,8 +27,17 @@ There is no `EXECUTED`. See `lib/no-execution.ts`.
 - **Live headlines** — Google News RSS headlines for context
 - **Editable plan** — entry / stop / target are inputs, not gospel. Edit them; R:R recalculates live.
 - **Bilingual UI** — Arabic (RTL) and English, switchable in-app
+- **Allan's live channel** — pin one symbol and re-read it on an interval while the page is open
 - **Video kit** — generates a YouTube-ready title, description and tags from the current read
 - **Optional AI layer** — if you set an OpenAI-compatible endpoint, you get plain-language commentary. Without it, the app is fully functional.
+
+## Endpoints
+
+| Route | Purpose |
+|---|---|
+| `POST /api/market` | Full read: snapshot + plan + reasoning + news, returns a PENDING signal |
+| `POST /api/watch` | Flat read for the live channel. **No id, no state** — nothing here can be approved |
+| `POST /api/ask` | Optional AI commentary. Returns `configured: false` when no endpoint is set |
 
 ## Setup
 
@@ -54,7 +63,7 @@ and the rule engine output stands on its own.
 
 - ❌ Place, sign, or relay any order
 - ❌ Hold exchange API keys, wallets, or withdrawal capability
-- ❌ Run unattended in the background
+- ❌ Run unattended in the background (the live channel stops when you close the tab)
 - ❌ Upload to YouTube (it generates the script; you publish)
 - ❌ Promise returns
 
