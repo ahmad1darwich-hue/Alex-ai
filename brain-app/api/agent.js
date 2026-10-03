@@ -70,13 +70,20 @@ export default async function handler(req, res) {
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
   const history = Array.isArray(body && body.messages) ? body.messages : [];
-  const messages = history.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: typeof m.content === "string" ? m.content : (m.text || "") })).filter(m => m.content);
+  const messages = history.map(m => {
+    const role = m.role === "assistant" ? "assistant" : "user";
+    if (Array.isArray(m.content)) return { role, content: m.content };
+    if (typeof m.content === "string") return { role, content: m.content };
+    return { role, content: m.text || "" };
+  }).filter(m => Array.isArray(m.content) ? m.content.length : m.content);
+
+  function textOf(c){ if (typeof c === "string") return c; if (Array.isArray(c)) return c.filter(b => b && b.type === "text").map(b => b.text).join(" "); return ""; }
 
   if (!key) { res.status(200).json({ reply: "🔌 Brain is installed but not activated. Add ANTHROPIC_API_KEY in Vercel → project \"brain\" → Settings → Environment Variables → Redeploy." }); return; }
   if (!messages.length) { res.status(200).json({ reply: "Ask Brain something 👇" }); return; }
 
   let sys = SYSTEM;
-  try { const lu = [...messages].reverse().find(m => m.role === "user"); if (lu) { const ld = await liveData(lu.content); if (ld) sys += ld; } } catch (e) {}
+  try { const lu = [...messages].reverse().find(m => m.role === "user"); if (lu) { const ld = await liveData(textOf(lu.content)); if (ld) sys += ld; } } catch (e) {}
 
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 9300);
