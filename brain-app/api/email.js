@@ -61,9 +61,13 @@ export default async function handler(req, res) {
   } catch (e) {
     try { if (client) await client.logout(); } catch (e2) {}
     let hint = "";
-    const m = String(e && e.message || e);
-    if (/auth|invalid cred|login|AUTHENTICATIONFAILED/i.test(m)) hint = " (تأكّد من App Password وإنه التحقّق بخطوتين مفعّل، وإنه IMAP مفعّل بإعدادات Gmail)";
-    return send(res, { reply: "⚠️ تعذّر الاتصال بالبريد: " + m.slice(0, 140) + hint });
+    const detail = (e && (e.responseText || e.response)) ? String(e.responseText || e.response) : String(e && e.message || e);
+    if (e && e.authenticationFailed || /AUTHENTICATIONFAILED|invalid cred|username and password|BadCredentials/i.test(detail)) {
+      hint = " — فشل تسجيل الدخول. الأرجح: (1) لازم App Password مش كلمة سر الإيميل العادية، (2) التحقّق بخطوتين لازم يكون مفعّل، (3) فعّل IMAP من إعدادات Gmail (Settings ▸ Forwarding and POP/IMAP ▸ Enable IMAP).";
+    } else if (/IMAP.*disabled|not enabled|\[ALERT\]|lsub|service not enabled/i.test(detail)) {
+      hint = " — لازم تفعّل IMAP من إعدادات Gmail (Settings ▸ Forwarding and POP/IMAP ▸ Enable IMAP).";
+    }
+    return send(res, { reply: "⚠️ تعذّر الاتصال بالبريد: " + detail.slice(0, 200) + hint });
   }
 
   if (!mails.length) return send(res, { reply: "📭 ما في رسائل بآخر " + days + " يوم بصندوق الوارد. كلشي نظيف ✅" });
