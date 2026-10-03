@@ -3,7 +3,8 @@
   "functions": {
     "api/agent.js": { "maxDuration": 60 },
     "api/whatsapp.js": { "maxDuration": 60 },
-    "api/wa-customer.js": { "maxDuration": 60 }
+    "api/wa-customer.js": { "maxDuration": 60 },
+    "api/email.js": { "maxDuration": 60 }
   },
   "headers": [
     {
