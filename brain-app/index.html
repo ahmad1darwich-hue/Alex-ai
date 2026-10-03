@@ -315,11 +315,13 @@ async function submit(){
   try{
     var r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:convo}),signal:ac.signal});
     clearTimeout(tmo);
-    var d=await r.json();
-    var ex=extractArtifacts(d.reply||'…');
+    var ct=r.headers.get('content-type')||'';var full='';
+    if(ct.indexOf('application/json')>=0){var d=await r.json();full=d.reply||'…';}
+    else{th.bub.className='bub';th.bub.textContent='';var reader=r.body.getReader(),dcd=new TextDecoder();while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});th.bub.textContent=full;scroll();}}
+    var ex=extractArtifacts(full);
     th.bub.className='bub';th.bub.textContent=ex.text||'تم.';
     ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
-    convo.push({role:'assistant',content:d.reply||''});saveConvo();
+    convo.push({role:'assistant',content:full});saveConvo();
     dot.className='dot live';stat.textContent='active';
   }catch(e){
     clearTimeout(tmo);
