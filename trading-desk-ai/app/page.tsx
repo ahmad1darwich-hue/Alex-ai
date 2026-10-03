@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Watch from "./watch";
 import { strings } from "@/lib/i18n";
 import type { Lang, Signal } from "@/lib/types";
 
@@ -21,6 +22,7 @@ export default function Home() {
 
   const s = strings[lang];
   const rtl = lang === "ar";
+  const watchStrings = useMemo(() => s as unknown as Record<string, string>, [s]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -138,7 +140,9 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="card mb-6 p-4">
+      <Watch lang={lang} strings={watchStrings} />
+
+      <section className="card my-6 p-4">
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm">
             {s.symbol}
@@ -175,9 +179,7 @@ export default function Home() {
         {error && <p className="mt-3 text-sm text-rose-400">{error}</p>}
       </section>
 
-      {!signal && !loading && (
-        <p className="text-slate-500">{s.tagline}</p>
-      )}
+      {!signal && !loading && <p className="text-slate-500">{s.tagline}</p>}
 
       {signal && (
         <div className="grid gap-6 lg:grid-cols-3">
@@ -364,6 +366,12 @@ export default function Home() {
           )}
         </div>
       )}
+
+      <footer className="mt-10 border-t border-slate-800 pt-4 text-xs text-slate-500">
+        <p className="font-medium text-slate-400">{s.deployHint}</p>
+        <p className="mt-1">{s.deployBody}</p>
+        <p className="mt-2">{s.notAdvice}</p>
+      </footer>
     </main>
   );
 }
