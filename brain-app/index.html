@@ -272,6 +272,13 @@ function extractArtifacts(text){
   reps.forEach(function(p){out=out.replace(p[0],p[1]);});
   return {text:out.trim(),artifacts:arts};
 }
+function mdToHtml(t){
+  var e=(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  e=e.replace(/^\s*######\s?(.*)$/gm,'<b>$1</b>').replace(/^\s*#{1,5}\s?(.*)$/gm,'<b style="font-size:16px">$1</b>');
+  e=e.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*(?!\s)([^*\n]+?)\*(?!\*)/g,'$1<i>$2</i>');
+  e=e.replace(/`([^`]+)`/g,'<code style="background:#0e1830;padding:1px 5px;border-radius:5px">$1</code>');
+  return e;
+}
 function renderArtifact(container,a){
   var wrap=document.createElement('div');wrap.className='art';var isHtml=a.type==='html';
   var bar='<div class="bar"><span class="fn">'+a.filename+'</span><span class="sp">';
@@ -319,7 +326,7 @@ async function submit(){
     if(ct.indexOf('application/json')>=0){var d=await r.json();full=d.reply||'…';}
     else{th.bub.className='bub';th.bub.textContent='';var reader=r.body.getReader(),dcd=new TextDecoder();while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});th.bub.textContent=full;scroll();}}
     var ex=extractArtifacts(full);
-    th.bub.className='bub';th.bub.textContent=ex.text||'تم.';
+    th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||'تم.');
     ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
     convo.push({role:'assistant',content:full});saveConvo();
     dot.className='dot live';stat.textContent='active';
@@ -351,7 +358,7 @@ try{
     saved.forEach(function(msg){
       var t=typeof msg.content==='string'?msg.content:'';
       if(msg.role==='user'){addMsg('user',t);}
-      else{var r=addMsg('assistant','');var ex=extractArtifacts(t);r.bub.textContent=ex.text||'…';ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}
+      else{var r=addMsg('assistant','');var ex=extractArtifacts(t);r.bub.innerHTML=mdToHtml(ex.text||'…');ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}
     });
     scroll();
   }
