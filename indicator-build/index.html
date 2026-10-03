@@ -430,6 +430,12 @@ async function submit(){var text=input.value.trim();if((!text&&!pending.length)|
 fetch(ENDPOINT,{method:'GET'}).then(function(r){return r.json();}).then(function(d){if(d&&d.hasKey===false){dot.className='dot';stat.textContent='needs key';}else{dot.className='dot live';stat.textContent='active';}}).catch(function(){dot.className='dot live';stat.textContent='ready';});
 try{var saved=JSON.parse(localStorage.getItem(STORE)||'[]');if(saved&&saved.length){convo=saved;saved.forEach(function(msg){var tx=typeof msg.content==='string'?msg.content:'';if(msg.role==='user'){addMsg('user',tx);}else{var r=addMsg('assistant','');var ex=extractArtifacts(tx);r.bub.innerHTML=mdToHtml(ex.text||'…');ex.artifacts.forEach(function(a){renderArtifact(r.col,a);});}});}}catch(e){}
 
+/* auto-update: reload to the newest deployed version automatically (never while busy or typing) */
+(function(){var myE=null;
+ function chk(){try{fetch(location.pathname+'?_u='+Date.now(),{method:'HEAD',cache:'no-store'}).then(function(r){var e=r.headers.get('etag')||r.headers.get('last-modified');if(!e)return;if(myE===null){myE=e;return;}if(e!==myE){var typing=document.activeElement===input&&input.value.trim();if(!busy&&!typing){location.reload();}else{myE=e;}}}).catch(function(){});}catch(e){}}
+ document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')chk();});
+ setInterval(chk,180000);chk();})();
+
 applyLang();
 </script>
 </body>
