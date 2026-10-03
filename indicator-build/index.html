@@ -366,6 +366,8 @@ send.onclick=function(){submit();};
 document.getElementById('att').onclick=function(){pickFile();};
 function pickFile(){fileInput.value='';fileInput.click();}
 fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)handleFile(f);};
+/* paste image from clipboard (Ctrl+V / screenshot) */
+document.addEventListener('paste',function(e){var items=(e.clipboardData&&e.clipboardData.items)||[];var got=false;for(var i=0;i<items.length;i++){var it=items[i];if(it.kind==='file'){var f=it.getAsFile();if(f){handleFile(f);got=true;}}}if(got){e.preventDefault();if(document.getElementById('appview'))document.getElementById('appview').classList.add('on');input.focus();}});
 var recRef=null;
 (function(){var mic=document.getElementById('mic');var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR||!mic){if(mic)mic.style.display='none';return;}
   var rec=new SR();recRef=rec;rec.lang=L?'en-US':'ar-SA';rec.interimResults=true;rec.continuous=true;var on=false,base='';

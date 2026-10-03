@@ -271,6 +271,8 @@ var recRef=null;
 })();
 
 fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)handleFile(f);};
+/* paste image from clipboard (Ctrl+V / screenshot) */
+document.addEventListener('paste',function(e){var items=(e.clipboardData&&e.clipboardData.items)||[];var got=false;for(var i=0;i<items.length;i++){var it=items[i];if(it.kind==='file'){var f=it.getAsFile();if(f){handleFile(f);got=true;}}}if(got){e.preventDefault();input.focus();}});
 
 function handleFile(f){
   if(f.size>8*1024*1024){alert(t('big'));return;}
