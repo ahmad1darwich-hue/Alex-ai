@@ -75,7 +75,8 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 .modal{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(2,8,5,.72)}
 .modal.on{display:flex}
 .mcard{width:min(960px,100%);height:min(86vh,720px);background:var(--panel2);border:1px solid var(--line2);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
-.mhead{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.mhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.mhead .open{background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016;border:0;font-weight:700}
 .mhead b{font-family:var(--disp);color:var(--acc)}
 .mhead input{background:#0e1812;border:1px solid var(--line2);color:var(--txt);font:inherit;font-size:13px;border-radius:8px;padding:6px 9px;width:150px}
 .mhead .close{margin-inline-start:auto}
@@ -145,6 +146,7 @@ header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:
 <div class="mhead"><b>📊 TradingView</b>
 <input id="tvsym" value="OANDA:XAUUSD" title="الرمز">
 <button class="icbtn" id="tvgo" style="width:auto;padding:0 12px">عرض</button>
+<button class="icbtn open" id="tvopen" style="width:auto;padding:0 12px" title="افتح TradingView كامل وسجّل دخول">↗ دخول</button>
 <button class="icbtn close" id="tvclose" style="width:auto;padding:0 12px">✕</button>
 </div>
 <iframe id="tvframe" src="about:blank" allowtransparency="true"></iframe>
@@ -298,6 +300,7 @@ function tvURL(sym){return 'https://s.tradingview.com/widgetembed/?frameElementI
 function openTV(){tvframe.src=tvURL(tvsym.value.trim()||'OANDA:XAUUSD');tvmodal.classList.add('on');}
 document.getElementById('tvclose').onclick=function(){tvmodal.classList.remove('on');tvframe.src='about:blank';};
 document.getElementById('tvgo').onclick=function(){tvframe.src=tvURL(tvsym.value.trim()||'OANDA:XAUUSD');};
+document.getElementById('tvopen').onclick=function(){window.open('https://www.tradingview.com/chart/?symbol='+encodeURIComponent(tvsym.value.trim()||'OANDA:XAUUSD'),'_blank');};
 
 fetch(ENDPOINT,{method:'GET'}).then(function(r){return r.json();}).then(function(d){
   if(d&&d.hasKey===false){dot.className='dot';stat.textContent='needs API key';}else{dot.className='dot live';stat.textContent='active';}
