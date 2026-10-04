@@ -1,7 +1,7 @@
 //@version=6
 indicator("Nexus Signals - Buy/Sell with TP & SL", shorttitle = "NX Signals", overlay = true, max_lines_count = 500, max_labels_count = 500)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_S = "Signal"
 int    fastLenInput   = input.int(9, "Fast EMA", minval = 1, group = GRP_S)
 int    slowLenInput   = input.int(21, "Slow EMA", minval = 2, group = GRP_S)
@@ -25,7 +25,7 @@ color  sellColorInput = input.color(#F23645, "Sell", group = GRP_V, inline = "c"
 bool   showEmasInput  = input.bool(true, "Show EMAs", group = GRP_V)
 bool   showDashInput  = input.bool(true, "Show trade table", group = GRP_V)
 
-// ───────────── Calculations ─────────────
+// ---------- Calculations ----------
 float fastEma  = ta.ema(close, fastLenInput)
 float slowEma  = ta.ema(close, slowLenInput)
 float trendEma = ta.ema(close, trendLenInput)
@@ -152,7 +152,7 @@ if pos != 0 and showLevelsInput and not na(entryLine)
     tp2Lbl.set_x(bar_index + 1)
     tp3Lbl.set_x(bar_index + 1)
 
-// ───────────── Visuals ─────────────
+// ---------- Visuals ----------
 plot(showEmasInput ? fastEma : na, "Fast EMA", color = color.new(buyColorInput, 30))
 plot(showEmasInput ? slowEma : na, "Slow EMA", color = color.new(sellColorInput, 30))
 plot(showEmasInput and useTrendInput ? trendEma : na, "Trend EMA", color = color.new(color.gray, 20), linewidth = 2)
@@ -173,7 +173,7 @@ if showDashInput and barstate.islast
     table.cell(dash, 0, 3, "Targets hit", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
     table.cell(dash, 1, 3, pos != 0 ? (hit2 ? "TP1 TP2" : hit1 ? "TP1" : "none") : "-", text_color = color.white, text_size = size.small, bgcolor = color.new(color.gray, 80))
 
-// ───────────── Alerts ─────────────
+// ---------- Alerts ----------
 alertcondition(buySignal,  "Buy signal",  "Nexus Signals: BUY {{ticker}} {{interval}} at {{close}}")
 alertcondition(sellSignal, "Sell signal", "Nexus Signals: SELL {{ticker}} {{interval}} at {{close}}")
 alertcondition(tp1Hit,  "TP1 hit", "Nexus Signals: TP1 hit on {{ticker}} {{interval}}")

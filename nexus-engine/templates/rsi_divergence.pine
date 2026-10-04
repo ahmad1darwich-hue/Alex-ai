@@ -1,7 +1,7 @@
 //@version=6
 indicator("Nexus RSI Divergence", shorttitle = "NX RSI Div", overlay = false, max_lines_count = 200, max_labels_count = 200)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_R = "RSI"
 int    rsiLenInput  = input.int(14, "RSI length", minval = 2, group = GRP_R)
 int    obInput      = input.int(70, "Overbought", minval = 50, maxval = 100, group = GRP_R)
@@ -15,7 +15,7 @@ string GRP_V = "Visuals"
 color  bullColorInput = input.color(#089981, "Bullish", group = GRP_V, inline = "c")
 color  bearColorInput = input.color(#F23645, "Bearish", group = GRP_V, inline = "c")
 
-// ───────────── Calculations ─────────────
+// ---------- Calculations ----------
 float rsi = ta.rsi(close, rsiLenInput)
 float rsiPl = ta.pivotlow(rsi, pivLenInput, pivLenInput)
 float rsiPh = ta.pivothigh(rsi, pivLenInput, pivLenInput)
@@ -65,14 +65,14 @@ if not na(rsiPh)
     prevHighPrice := priceHigh
     prevHighBar   := pivBar
 
-// ───────────── Visuals ─────────────
+// ---------- Visuals ----------
 pRsi = plot(rsi, "RSI", color = #7E57C2, linewidth = 2)
 hOb  = hline(obInput, "Overbought", color = color.new(color.gray, 40), linestyle = hline.style_dashed)
 hMid = hline(50, "Middle", color = color.new(color.gray, 70), linestyle = hline.style_dotted)
 hOs  = hline(osInput, "Oversold", color = color.new(color.gray, 40), linestyle = hline.style_dashed)
 fill(hOb, hOs, color = color.new(#7E57C2, 94), title = "Range fill")
 
-// ───────────── Alerts ─────────────
+// ---------- Alerts ----------
 alertcondition(regBull, "Bullish divergence", "Nexus RSI: bullish divergence on {{ticker}} {{interval}}")
 alertcondition(regBear, "Bearish divergence", "Nexus RSI: bearish divergence on {{ticker}} {{interval}}")
 alertcondition(hidBull, "Hidden bullish divergence", "Nexus RSI: hidden bullish divergence on {{ticker}} {{interval}}")

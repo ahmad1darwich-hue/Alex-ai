@@ -1,7 +1,7 @@
 //@version=6
 strategy("Nexus Strategy Template - EMA Cross with ATR Risk", shorttitle = "NX Strat", overlay = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 10, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 1, process_orders_on_close = false, calc_on_every_tick = false)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_S = "Entries"
 int    fastLenInput  = input.int(20, "Fast EMA", minval = 1, group = GRP_S)
 int    slowLenInput  = input.int(50, "Slow EMA", minval = 2, group = GRP_S)
@@ -14,7 +14,7 @@ float  rrInput       = input.float(2.0, "Reward : risk", minval = 0.5, step = 0.
 string GRP_T = "Backtest window"
 int    startInput    = input.time(timestamp("2020-01-01T00:00:00"), "Start", group = GRP_T)
 
-// ───────────── Calculations ─────────────
+// ---------- Calculations ----------
 float fastEma = ta.ema(close, fastLenInput)
 float slowEma = ta.ema(close, slowLenInput)
 float atr     = ta.atr(atrLenInput)
@@ -43,6 +43,6 @@ if inWindow and not na(qty) and qty > 0
     if crossUp and not allowLong
         strategy.close("Short", comment = "Cross up")
 
-// ───────────── Visuals ─────────────
+// ---------- Visuals ----------
 plot(fastEma, "Fast EMA", color = #089981)
 plot(slowEma, "Slow EMA", color = #F23645)

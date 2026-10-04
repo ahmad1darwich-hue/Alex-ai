@@ -1,7 +1,7 @@
 //@version=6
 indicator("Nexus Sessions & Previous Levels", shorttitle = "NX Session", overlay = true, max_boxes_count = 200, max_lines_count = 100, max_labels_count = 100)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_S = "Sessions (times in the timezone below)"
 string tzInput     = input.string("America/New_York", "Timezone", options = ["America/New_York", "Europe/London", "Asia/Tokyo", "Australia/Sydney", "Asia/Dubai", "UTC"], group = GRP_S, tooltip = "IANA timezone: follows daylight saving automatically.")
 bool   showAsiaInput = input.bool(true, "Asia", group = GRP_S, inline = "a")

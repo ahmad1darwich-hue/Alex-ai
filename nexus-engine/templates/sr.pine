@@ -1,7 +1,7 @@
 //@version=6
 indicator("Nexus Support & Resistance Zones", shorttitle = "Nexus S/R", overlay = true, max_boxes_count = 200, max_labels_count = 200)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_D = "Detection"
 int    pivotLenInput  = input.int(10, "Pivot length", minval = 2, maxval = 50, group = GRP_D, tooltip = "Bars on each side of a swing. Bigger = fewer, stronger levels.")
 float  widthInput     = input.float(0.35, "Zone half-height (x ATR)", minval = 0.05, step = 0.05, group = GRP_D)
@@ -15,7 +15,7 @@ color  resColorInput  = input.color(#F23645, "Resistance", group = GRP_V, inline
 color  midColorInput  = input.color(#787B86, "Price inside", group = GRP_V, inline = "c")
 bool   showLabelInput = input.bool(true, "Show touch count", group = GRP_V)
 
-// ───────────── Types & state ─────────────
+// ---------- Types & state ----------
 type SRZone
     float price
     float half
@@ -113,7 +113,7 @@ if barstate.isconfirmed
                 z.lb.set_text(visible and showLabelInput ? (z.side == 1 ? "S" : z.side == -1 ? "R" : "") + " x" + str.tostring(z.touches) : "")
                 z.lb.set_textcolor(c)
 
-// ───────────── Alerts ─────────────
+// ---------- Alerts ----------
 alertcondition(supportTest, "Support tested",    "Nexus S/R: support tested on {{ticker}} {{interval}} at {{close}}")
 alertcondition(resistTest,  "Resistance tested", "Nexus S/R: resistance tested on {{ticker}} {{interval}} at {{close}}")
 alertcondition(breakUp,     "Zone broken upward",   "Nexus S/R: zone broken upward on {{ticker}} {{interval}} at {{close}}")

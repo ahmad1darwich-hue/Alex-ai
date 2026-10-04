@@ -1,7 +1,7 @@
 //@version=6
 indicator("Nexus MTF Trend Dashboard", shorttitle = "Nexus MTF", overlay = true)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_T = "Timeframes"
 string tf1Input = input.timeframe("15", "Timeframe 1", group = GRP_T)
 string tf2Input = input.timeframe("60", "Timeframe 2", group = GRP_T)

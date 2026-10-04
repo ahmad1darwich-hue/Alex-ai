@@ -1,7 +1,7 @@
 //@version=6
 indicator("Nexus SMC - Structure, Order Blocks, FVG & Liquidity", shorttitle = "Nexus SMC", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_ST = "Market structure"
 int    swingLenInput    = input.int(10, "Swing length", minval = 2, maxval = 100, group = GRP_ST, tooltip = "Bars on each side of a swing high/low. A swing is confirmed this many bars after it forms.")
 bool   showInternalInput = input.bool(true, "Show internal structure", group = GRP_ST, inline = "int")
@@ -31,7 +31,7 @@ color  bearColorInput   = input.color(#F23645, "Bearish", group = GRP_UI, inline
 color  liqColorInput    = input.color(#B8860B, "Liquidity", group = GRP_UI, inline = "c")
 bool   showDashInput    = input.bool(true, "Show bias table", group = GRP_UI)
 
-// ───────────── Types & state ─────────────
+// ---------- Types & state ----------
 type Zone
     box   bx
     float top
@@ -184,7 +184,7 @@ structure(int len, bool show, bool dashed, bool makeObs, bool markLiq) =>
 
     [bullBos, bullChoch, bearBos, bearChoch, trend, sweepHigh, sweepLow, eqHigh, eqLow]
 
-// ───────────── Calculations ─────────────
+// ---------- Calculations ----------
 [sBullBos, sBullChoch, sBearBos, sBearChoch, swingTrend, sweepHigh, sweepLow, eqHigh, eqLow] = structure(swingLenInput, true, false, true, true)
 [iBullBos, iBullChoch, iBearBos, iBearChoch, internalTrend, iSweepH, iSweepL, iEqH, iEqL] = structure(internalLenInput, showInternalInput, true, false, false)
 
@@ -209,7 +209,7 @@ if barstate.isconfirmed
     updateZones(bullFvgs, true)
     updateZones(bearFvgs, true)
 
-// ───────────── Bias table ─────────────
+// ---------- Bias table ----------
 var table dash = table.new(position.top_right, 2, 2, border_width = 1, border_color = color.new(color.gray, 70))
 if showDashInput and barstate.islast
     table.cell(dash, 0, 0, "Swing", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
@@ -217,7 +217,7 @@ if showDashInput and barstate.islast
     table.cell(dash, 0, 1, "Internal", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
     table.cell(dash, 1, 1, internalTrend == 1 ? "Bullish" : internalTrend == -1 ? "Bearish" : "-", text_color = color.white, text_size = size.small, bgcolor = color.new(internalTrend == 1 ? bullColorInput : internalTrend == -1 ? bearColorInput : color.gray, 30))
 
-// ───────────── Alerts ─────────────
+// ---------- Alerts ----------
 alertcondition(sBullBos,   "Bullish BOS",   "Nexus SMC: bullish BOS on {{ticker}} {{interval}} at {{close}}")
 alertcondition(sBearBos,   "Bearish BOS",   "Nexus SMC: bearish BOS on {{ticker}} {{interval}} at {{close}}")
 alertcondition(sBullChoch, "Bullish CHoCH", "Nexus SMC: bullish CHoCH on {{ticker}} {{interval}} at {{close}}")

@@ -1,7 +1,7 @@
 //@version=6
 indicator("Nexus Trend - EMA & ATR Trail", shorttitle = "NX Trend", overlay = true, max_labels_count = 500)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_T = "Trend engine"
 int    emaLenInput    = input.int(50, "Baseline EMA length", minval = 2, group = GRP_T, tooltip = "Price must be on the trend side of this EMA.")
 int    atrLenInput    = input.int(10, "ATR length", minval = 1, group = GRP_T)
@@ -18,7 +18,7 @@ bool   showCloudInput = input.bool(true, "Shade between price and trail", group 
 bool   colorBarsInput = input.bool(false, "Color bars by trend", group = GRP_V)
 bool   showMarksInput = input.bool(true, "Mark trend changes", group = GRP_V)
 
-// ───────────── Calculations ─────────────
+// ---------- Calculations ----------
 float ema = ta.ema(close, emaLenInput)
 [trail, stDir] = ta.supertrend(atrMultInput, atrLenInput)
 // ta.supertrend(): direction < 0 while price is above the trail (uptrend).
@@ -46,7 +46,7 @@ if barstate.isconfirmed and state != 0 and state != lastDir
 
 color stateColor = state == 1 ? upColorInput : state == -1 ? dnColorInput : flatColorInput
 
-// ───────────── Visuals ─────────────
+// ---------- Visuals ----------
 plot(ema, "Baseline EMA", color = stateColor, linewidth = 2)
 pPrice   = plot(showCloudInput ? hl2 : na, "Mid price", color = na, editable = false, display = display.none)
 // Two series so the trail breaks cleanly when it flips sides (no vertical connector).
@@ -58,7 +58,7 @@ barcolor(colorBarsInput ? stateColor : na, title = "Bar color")
 plotshape(showMarksInput and turnedUp, "Trend up", shape.labelup, location.belowbar, color = upColorInput, text = "UP", textcolor = color.white, size = size.tiny)
 plotshape(showMarksInput and turnedDn, "Trend down", shape.labeldown, location.abovebar, color = dnColorInput, text = "DOWN", textcolor = color.white, size = size.tiny)
 
-// ───────────── Alerts ─────────────
+// ---------- Alerts ----------
 alertcondition(turnedUp, "Trend turned up", "Nexus Trend: UP on {{ticker}} {{interval}} at {{close}}")
 alertcondition(turnedDn, "Trend turned down", "Nexus Trend: DOWN on {{ticker}} {{interval}} at {{close}}")
 alertcondition(turnedUp or turnedDn, "Any trend change", "Nexus Trend: trend changed on {{ticker}} {{interval}} at {{close}}")

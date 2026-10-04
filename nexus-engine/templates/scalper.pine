@@ -1,7 +1,7 @@
 //@version=6
 indicator("Nexus Scalper - Momentum Entries", shorttitle = "NX Scalper", overlay = true, max_lines_count = 100, max_labels_count = 100)
 
-// ───────────── Inputs ─────────────
+// ---------- Inputs ----------
 string GRP_S = "Signal"
 int    fastLenInput   = input.int(21, "Fast EMA", minval = 2, group = GRP_S)
 int    slowLenInput   = input.int(50, "Slow EMA", minval = 3, group = GRP_S, tooltip = "Trend is up when the fast EMA is above the slow EMA and price is above both.")
@@ -27,7 +27,7 @@ color  buyColorInput  = input.color(#089981, "Buy", group = GRP_V, inline = "c")
 color  sellColorInput = input.color(#F23645, "Sell", group = GRP_V, inline = "c")
 bool   showEmasInput  = input.bool(true, "Show EMAs", group = GRP_V)
 
-// ───────────── Calculations (all series functions run on every bar) ─────────────
+// ---------- Calculations (all series functions run on every bar) ----------
 float fastEma = ta.ema(close, fastLenInput)
 float slowEma = ta.ema(close, slowLenInput)
 float rsi     = ta.rsi(close, rsiLenInput)
@@ -78,12 +78,12 @@ if barstate.isconfirmed and (rawBuy or rawSell) and (na(lastSignalBar) or bar_in
         stopLbl    := label.new(bar_index + 8, stop, "SL " + str.tostring(stop, format.mintick), style = label.style_label_left, color = color.new(sellColorInput, 100), textcolor = sellColorInput, size = size.tiny)
         targetLbl  := label.new(bar_index + 8, target, "TP " + str.tostring(target, format.mintick), style = label.style_label_left, color = color.new(buyColorInput, 100), textcolor = buyColorInput, size = size.tiny)
 
-// ───────────── Visuals ─────────────
+// ---------- Visuals ----------
 plot(showEmasInput ? fastEma : na, "Fast EMA", color = color.new(trendUp ? buyColorInput : trendDn ? sellColorInput : color.gray, 20))
 plot(showEmasInput ? slowEma : na, "Slow EMA", color = color.new(color.gray, 30), linewidth = 2)
 plotshape(buySignal, "Buy", shape.triangleup, location.belowbar, color = buyColorInput, text = "BUY", textcolor = buyColorInput, size = size.tiny)
 plotshape(sellSignal, "Sell", shape.triangledown, location.abovebar, color = sellColorInput, text = "SELL", textcolor = sellColorInput, size = size.tiny)
 
-// ───────────── Alerts ─────────────
+// ---------- Alerts ----------
 alertcondition(buySignal,  "Scalp buy",  "Nexus Scalper: BUY {{ticker}} {{interval}} at {{close}}")
 alertcondition(sellSignal, "Scalp sell", "Nexus Scalper: SELL {{ticker}} {{interval}} at {{close}}")
