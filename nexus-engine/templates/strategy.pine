@@ -1,0 +1,48 @@
+//@version=6
+strategy("Nexus Strategy Template - EMA Cross with ATR Risk", shorttitle = "NX Strat", overlay = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 10, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 1, process_orders_on_close = false, calc_on_every_tick = false)
+
+// ---------- Inputs ----------
+string GRP_S = "Entries"
+int    fastLenInput  = input.int(20, "Fast EMA", minval = 1, group = GRP_S)
+int    slowLenInput  = input.int(50, "Slow EMA", minval = 2, group = GRP_S)
+string dirInput      = input.string("Both", "Trade direction", options = ["Both", "Long only", "Short only"], group = GRP_S)
+string GRP_R = "Risk"
+float  riskPctInput  = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, maxval = 10, step = 0.1, group = GRP_R)
+int    atrLenInput   = input.int(14, "ATR length", minval = 1, group = GRP_R)
+float  slMultInput   = input.float(2.0, "Stop distance (x ATR)", minval = 0.5, step = 0.1, group = GRP_R)
+float  rrInput       = input.float(2.0, "Reward : risk", minval = 0.5, step = 0.1, group = GRP_R)
+string GRP_T = "Backtest window"
+int    startInput    = input.time(timestamp("2020-01-01T00:00:00"), "Start", group = GRP_T)
+
+// ---------- Calculations ----------
+float fastEma = ta.ema(close, fastLenInput)
+float slowEma = ta.ema(close, slowLenInput)
+float atr     = ta.atr(atrLenInput)
+bool  crossUp = ta.crossover(fastEma, slowEma)
+bool  crossDn = ta.crossunder(fastEma, slowEma)
+bool  inWindow = time >= startInput
+bool  allowLong  = dirInput != "Short only"
+bool  allowShort = dirInput != "Long only"
+
+// Position size from risk: lose `riskPctInput` % of equity if the stop is hit.
+float stopDist = atr * slMultInput
+float riskCash = strategy.equity * riskPctInput / 100
+float qty      = stopDist > 0 ? riskCash / (stopDist * syminfo.pointvalue) : na
+
+// Orders are created on the close of the signal bar and fill on the next bar's open (no lookahead).
+if inWindow and not na(qty) and qty > 0
+    if crossUp and allowLong
+        strategy.entry("Long", strategy.long, qty = qty)
+        strategy.exit("Long exit", from_entry = "Long", stop = close - stopDist, limit = close + stopDist * rrInput)
+    if crossDn and allowShort
+        strategy.entry("Short", strategy.short, qty = qty)
+        strategy.exit("Short exit", from_entry = "Short", stop = close + stopDist, limit = close - stopDist * rrInput)
+    // Opposite cross with that direction disabled: just close the open trade.
+    if crossDn and not allowShort
+        strategy.close("Long", comment = "Cross down")
+    if crossUp and not allowLong
+        strategy.close("Short", comment = "Cross up")
+
+// ---------- Visuals ----------
+plot(fastEma, "Fast EMA", color = #089981)
+plot(slowEma, "Slow EMA", color = #F23645)

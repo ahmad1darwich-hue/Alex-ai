@@ -6,6 +6,9 @@
     "api/wa-customer.js": { "maxDuration": 60 },
     "api/email.js": { "maxDuration": 60 }
   },
+  "redirects": [
+    { "source": "/api/_nexus/:path*", "destination": "/", "permanent": false }
+  ],
   "headers": [
     {
       "source": "/((?!api/).*)",

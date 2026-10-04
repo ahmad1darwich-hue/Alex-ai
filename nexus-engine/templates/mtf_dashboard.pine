@@ -1,0 +1,62 @@
+//@version=6
+indicator("Nexus MTF Trend Dashboard", shorttitle = "Nexus MTF", overlay = true)
+
+// ---------- Inputs ----------
+string GRP_T = "Timeframes"
+string tf1Input = input.timeframe("15", "Timeframe 1", group = GRP_T)
+string tf2Input = input.timeframe("60", "Timeframe 2", group = GRP_T)
+string tf3Input = input.timeframe("240", "Timeframe 3", group = GRP_T)
+string tf4Input = input.timeframe("1D", "Timeframe 4", group = GRP_T)
+string GRP_R = "Trend rule"
+int    fastLenInput = input.int(21, "Fast EMA", minval = 1, group = GRP_R)
+int    slowLenInput = input.int(50, "Slow EMA", minval = 2, group = GRP_R, tooltip = "Bullish when the fast EMA is above the slow EMA and price closed above the fast EMA. Bearish when mirrored. Otherwise neutral.")
+string GRP_V = "Table"
+string posInput  = input.string("Top right", "Position", options = ["Top right", "Top left", "Bottom right", "Bottom left", "Middle right"], group = GRP_V)
+string sizeInput = input.string("Small", "Text size", options = ["Tiny", "Small", "Normal"], group = GRP_V)
+color  upColorInput = input.color(#089981, "Bullish", group = GRP_V, inline = "c")
+color  dnColorInput = input.color(#F23645, "Bearish", group = GRP_V, inline = "c")
+
+// Trend score on the requested timeframe: 1 bullish, -1 bearish, 0 neutral.
+trendScore() =>
+    float fast = ta.ema(close, fastLenInput)
+    float slow = ta.ema(close, slowLenInput)
+    fast > slow and close > fast ? 1 : fast < slow and close < fast ? -1 : 0
+
+// Non-repainting requests: each returns the value of the last CLOSED bar of that timeframe.
+int t1 = request.security(syminfo.tickerid, tf1Input, trendScore()[1], lookahead = barmerge.lookahead_on)
+int t2 = request.security(syminfo.tickerid, tf2Input, trendScore()[1], lookahead = barmerge.lookahead_on)
+int t3 = request.security(syminfo.tickerid, tf3Input, trendScore()[1], lookahead = barmerge.lookahead_on)
+int t4 = request.security(syminfo.tickerid, tf4Input, trendScore()[1], lookahead = barmerge.lookahead_on)
+int total = t1 + t2 + t3 + t4
+int bias  = total >= 2 ? 1 : total <= -2 ? -1 : 0
+
+trendText(int t) =>
+    t == 1 ? "Bullish" : t == -1 ? "Bearish" : "Neutral"
+trendColor(int t) =>
+    t == 1 ? upColorInput : t == -1 ? dnColorInput : color.gray
+
+string txtSize = sizeInput == "Tiny" ? size.tiny : sizeInput == "Small" ? size.small : size.normal
+string tblPos  = switch posInput
+    "Top left"     => position.top_left
+    "Bottom right" => position.bottom_right
+    "Bottom left"  => position.bottom_left
+    "Middle right" => position.middle_right
+    => position.top_right
+
+// Create once, fill on the last bar only.
+var table dash = table.new(tblPos, 2, 5, border_width = 1, border_color = color.new(color.gray, 70))
+row(int r, string name, int t) =>
+    table.cell(dash, 0, r, name, text_color = color.gray, text_size = txtSize, bgcolor = color.new(color.gray, 90))
+    table.cell(dash, 1, r, trendText(t), text_color = color.white, text_size = txtSize, bgcolor = color.new(trendColor(t), 30))
+
+if barstate.islast
+    row(0, tf1Input, t1)
+    row(1, tf2Input, t2)
+    row(2, tf3Input, t3)
+    row(3, tf4Input, t4)
+    row(4, "Bias", bias)
+
+bool biasUp = bias == 1 and bias[1] != 1
+bool biasDn = bias == -1 and bias[1] != -1
+alertcondition(biasUp, "Bias turned bullish", "Nexus MTF: bias turned bullish on {{ticker}}")
+alertcondition(biasDn, "Bias turned bearish", "Nexus MTF: bias turned bearish on {{ticker}}")

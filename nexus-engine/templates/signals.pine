@@ -1,0 +1,184 @@
+//@version=6
+indicator("Nexus Signals - Buy/Sell with TP & SL", shorttitle = "NX Signals", overlay = true, max_lines_count = 500, max_labels_count = 500)
+
+// ---------- Inputs ----------
+string GRP_S = "Signal"
+int    fastLenInput   = input.int(9, "Fast EMA", minval = 1, group = GRP_S)
+int    slowLenInput   = input.int(21, "Slow EMA", minval = 2, group = GRP_S)
+bool   useTrendInput  = input.bool(true, "Trend filter: trade only on the side of EMA", group = GRP_S, inline = "tr")
+int    trendLenInput  = input.int(200, "", minval = 2, group = GRP_S, inline = "tr")
+bool   useRsiInput    = input.bool(true, "Momentum filter: RSI above/below 50", group = GRP_S, inline = "rsi")
+int    rsiLenInput    = input.int(14, "", minval = 2, group = GRP_S, inline = "rsi")
+
+string GRP_R = "Targets & stop"
+bool   showLevelsInput = input.bool(true, "Draw entry / SL / TP levels", group = GRP_R)
+int    atrLenInput    = input.int(14, "ATR length", minval = 1, group = GRP_R)
+float  slMultInput    = input.float(1.5, "Stop distance (x ATR)", minval = 0.1, step = 0.1, group = GRP_R)
+float  tp1RInput      = input.float(1.0, "TP1 (R)", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp", tooltip = "Targets as multiples of the stop distance (R).")
+float  tp2RInput      = input.float(2.0, "TP2 (R)", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp")
+float  tp3RInput      = input.float(3.0, "TP3 (R)", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp")
+bool   keepOldInput   = input.bool(false, "Keep levels of finished trades", group = GRP_R)
+
+string GRP_V = "Visuals"
+color  buyColorInput  = input.color(#089981, "Buy", group = GRP_V, inline = "c")
+color  sellColorInput = input.color(#F23645, "Sell", group = GRP_V, inline = "c")
+bool   showEmasInput  = input.bool(true, "Show EMAs", group = GRP_V)
+bool   showDashInput  = input.bool(true, "Show trade table", group = GRP_V)
+
+// ---------- Calculations ----------
+float fastEma  = ta.ema(close, fastLenInput)
+float slowEma  = ta.ema(close, slowLenInput)
+float trendEma = ta.ema(close, trendLenInput)
+float rsi      = ta.rsi(close, rsiLenInput)
+float atr      = ta.atr(atrLenInput)
+bool  crossUp  = ta.crossover(fastEma, slowEma)
+bool  crossDn  = ta.crossunder(fastEma, slowEma)
+
+bool longOk  = (not useTrendInput or close > trendEma) and (not useRsiInput or rsi > 50)
+bool shortOk = (not useTrendInput or close < trendEma) and (not useRsiInput or rsi < 50)
+
+// Trade state (one open idea at a time).
+var int   pos   = 0      // 1 long, -1 short, 0 flat
+var float entry = na
+var float stop  = na
+var float tp1   = na
+var float tp2   = na
+var float tp3   = na
+var bool  hit1  = false
+var bool  hit2  = false
+var bool  hit3  = false
+
+var line  entryLine = na
+var line  stopLine  = na
+var line  tp1Line   = na
+var line  tp2Line   = na
+var line  tp3Line   = na
+var label entryLbl  = na
+var label stopLbl   = na
+var label tp1Lbl    = na
+var label tp2Lbl    = na
+var label tp3Lbl    = na
+
+levelLine(float price, color c, string style) =>
+    line.new(bar_index, price, bar_index + 1, price, color = c, style = style, width = 1)
+levelLabel(float price, string txt, color c) =>
+    label.new(bar_index + 1, price, txt + " " + str.tostring(price, format.mintick), style = label.style_label_left, color = color.new(c, 100), textcolor = c, size = size.small)
+
+bool buySignal  = false
+bool sellSignal = false
+bool tp1Hit = false
+bool tp2Hit = false
+bool tp3Hit = false
+bool stopHit = false
+
+if barstate.isconfirmed
+    // 1) Manage the open trade first (the entry bar itself is never tested).
+    if pos != 0
+        bool isLong = pos == 1
+        if (isLong and low <= stop) or (not isLong and high >= stop)
+            stopHit := true
+            pos := 0
+            stopLine.set_style(line.style_solid)
+            stopLbl.set_text("SL hit " + str.tostring(stop, format.mintick))
+        else
+            if not hit1 and (isLong ? high >= tp1 : low <= tp1)
+                hit1 := true
+                tp1Hit := true
+                tp1Line.set_style(line.style_solid)
+                tp1Lbl.set_text("TP1 hit " + str.tostring(tp1, format.mintick))
+            if not hit2 and (isLong ? high >= tp2 : low <= tp2)
+                hit2 := true
+                tp2Hit := true
+                tp2Line.set_style(line.style_solid)
+                tp2Lbl.set_text("TP2 hit " + str.tostring(tp2, format.mintick))
+            if not hit3 and (isLong ? high >= tp3 : low <= tp3)
+                hit3 := true
+                tp3Hit := true
+                tp3Line.set_style(line.style_solid)
+                tp3Lbl.set_text("TP3 hit " + str.tostring(tp3, format.mintick))
+                pos := 0
+
+    // 2) New signals: only when not already positioned in that direction.
+    buySignal  := crossUp and longOk and pos != 1 and not na(atr)
+    sellSignal := crossDn and shortOk and pos != -1 and not na(atr)
+
+    if buySignal or sellSignal
+        int   dir  = buySignal ? 1 : -1
+        float risk = atr * slMultInput
+        pos   := dir
+        entry := close
+        stop  := close - dir * risk
+        tp1   := close + dir * risk * tp1RInput
+        tp2   := close + dir * risk * tp2RInput
+        tp3   := close + dir * risk * tp3RInput
+        hit1  := false
+        hit2  := false
+        hit3  := false
+        if showLevelsInput
+            if not keepOldInput
+                entryLine.delete()
+                stopLine.delete()
+                tp1Line.delete()
+                tp2Line.delete()
+                tp3Line.delete()
+                entryLbl.delete()
+                stopLbl.delete()
+                tp1Lbl.delete()
+                tp2Lbl.delete()
+                tp3Lbl.delete()
+            color tpColor = buySignal ? buyColorInput : sellColorInput
+            color slColor = buySignal ? sellColorInput : buyColorInput
+            entryLine := levelLine(entry, color.gray, line.style_solid)
+            stopLine  := levelLine(stop, slColor, line.style_dashed)
+            tp1Line   := levelLine(tp1, tpColor, line.style_dashed)
+            tp2Line   := levelLine(tp2, tpColor, line.style_dashed)
+            tp3Line   := levelLine(tp3, tpColor, line.style_dashed)
+            entryLbl  := levelLabel(entry, "Entry", color.gray)
+            stopLbl   := levelLabel(stop, "SL", slColor)
+            tp1Lbl    := levelLabel(tp1, "TP1", tpColor)
+            tp2Lbl    := levelLabel(tp2, "TP2", tpColor)
+            tp3Lbl    := levelLabel(tp3, "TP3", tpColor)
+
+// Extend the levels of the open trade to the current bar; finished trades stay frozen.
+if pos != 0 and showLevelsInput and not na(entryLine)
+    entryLine.set_x2(bar_index + 1)
+    stopLine.set_x2(bar_index + 1)
+    tp1Line.set_x2(bar_index + 1)
+    tp2Line.set_x2(bar_index + 1)
+    tp3Line.set_x2(bar_index + 1)
+    entryLbl.set_x(bar_index + 1)
+    stopLbl.set_x(bar_index + 1)
+    tp1Lbl.set_x(bar_index + 1)
+    tp2Lbl.set_x(bar_index + 1)
+    tp3Lbl.set_x(bar_index + 1)
+
+// ---------- Visuals ----------
+plot(showEmasInput ? fastEma : na, "Fast EMA", color = color.new(buyColorInput, 30))
+plot(showEmasInput ? slowEma : na, "Slow EMA", color = color.new(sellColorInput, 30))
+plot(showEmasInput and useTrendInput ? trendEma : na, "Trend EMA", color = color.new(color.gray, 20), linewidth = 2)
+plotshape(buySignal, "Buy", shape.labelup, location.belowbar, color = buyColorInput, text = "BUY", textcolor = color.white, size = size.small)
+plotshape(sellSignal, "Sell", shape.labeldown, location.abovebar, color = sellColorInput, text = "SELL", textcolor = color.white, size = size.small)
+
+var table dash = table.new(position.top_right, 2, 4, border_width = 1, border_color = color.new(color.gray, 70))
+if showDashInput and barstate.islast
+    color posColor = pos == 1 ? buyColorInput : pos == -1 ? sellColorInput : color.gray
+    float riskNow = math.abs(entry - stop)
+    float rNow = pos != 0 and riskNow > 0 ? pos * (close - entry) / riskNow : na
+    table.cell(dash, 0, 0, "Position", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
+    table.cell(dash, 1, 0, pos == 1 ? "LONG" : pos == -1 ? "SHORT" : "FLAT", text_color = color.white, text_size = size.small, bgcolor = color.new(posColor, 30))
+    table.cell(dash, 0, 1, "Entry", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
+    table.cell(dash, 1, 1, pos != 0 ? str.tostring(entry, format.mintick) : "-", text_color = color.white, text_size = size.small, bgcolor = color.new(color.gray, 80))
+    table.cell(dash, 0, 2, "Open result", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
+    table.cell(dash, 1, 2, na(rNow) ? "-" : str.tostring(rNow, "#.##") + " R", text_color = color.white, text_size = size.small, bgcolor = color.new(color.gray, 80))
+    table.cell(dash, 0, 3, "Targets hit", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
+    table.cell(dash, 1, 3, pos != 0 ? (hit2 ? "TP1 TP2" : hit1 ? "TP1" : "none") : "-", text_color = color.white, text_size = size.small, bgcolor = color.new(color.gray, 80))
+
+// ---------- Alerts ----------
+alertcondition(buySignal,  "Buy signal",  "Nexus Signals: BUY {{ticker}} {{interval}} at {{close}}")
+alertcondition(sellSignal, "Sell signal", "Nexus Signals: SELL {{ticker}} {{interval}} at {{close}}")
+alertcondition(tp1Hit,  "TP1 hit", "Nexus Signals: TP1 hit on {{ticker}} {{interval}}")
+alertcondition(tp2Hit,  "TP2 hit", "Nexus Signals: TP2 hit on {{ticker}} {{interval}}")
+alertcondition(tp3Hit,  "TP3 hit", "Nexus Signals: TP3 hit on {{ticker}} {{interval}}")
+alertcondition(stopHit, "Stop hit", "Nexus Signals: stop hit on {{ticker}} {{interval}}")
+if buySignal or sellSignal
+    alert((buySignal ? "BUY " : "SELL ") + syminfo.ticker + " " + timeframe.period + " | entry " + str.tostring(entry, format.mintick) + " | SL " + str.tostring(stop, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick) + " | TP2 " + str.tostring(tp2, format.mintick) + " | TP3 " + str.tostring(tp3, format.mintick), alert.freq_once_per_bar_close)
