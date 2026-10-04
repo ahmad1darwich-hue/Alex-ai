@@ -1,5 +1,5 @@
 //@version=6
-indicator("Nexus Trend - EMA & ATR Trail", shorttitle = "Nexus Trend", overlay = true, max_labels_count = 500)
+indicator("Nexus Trend - EMA & ATR Trail", shorttitle = "NX Trend", overlay = true, max_labels_count = 500)
 
 // ───────────── Inputs ─────────────
 string GRP_T = "Trend engine"

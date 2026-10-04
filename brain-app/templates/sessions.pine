@@ -1,5 +1,5 @@
 //@version=6
-indicator("Nexus Sessions & Previous Levels", shorttitle = "Nexus Sessions", overlay = true, max_boxes_count = 200, max_lines_count = 100, max_labels_count = 100)
+indicator("Nexus Sessions & Previous Levels", shorttitle = "NX Session", overlay = true, max_boxes_count = 200, max_lines_count = 100, max_labels_count = 100)
 
 // ───────────── Inputs ─────────────
 string GRP_S = "Sessions (times in the timezone below)"

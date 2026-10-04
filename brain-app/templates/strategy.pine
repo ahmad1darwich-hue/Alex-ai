@@ -1,5 +1,5 @@
 //@version=6
-strategy("Nexus Strategy Template - EMA Cross with ATR Risk", shorttitle = "Nexus Strategy", overlay = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 10, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 1, process_orders_on_close = false, calc_on_every_tick = false)
+strategy("Nexus Strategy Template - EMA Cross with ATR Risk", shorttitle = "NX Strat", overlay = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 10, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 1, process_orders_on_close = false, calc_on_every_tick = false)
 
 // ───────────── Inputs ─────────────
 string GRP_S = "Entries"

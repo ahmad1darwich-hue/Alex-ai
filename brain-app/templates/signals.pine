@@ -1,5 +1,5 @@
 //@version=6
-indicator("Nexus Signals - Buy/Sell with TP & SL", shorttitle = "Nexus Signals", overlay = true, max_lines_count = 500, max_labels_count = 500)
+indicator("Nexus Signals - Buy/Sell with TP & SL", shorttitle = "NX Signals", overlay = true, max_lines_count = 500, max_labels_count = 500)
 
 // ───────────── Inputs ─────────────
 string GRP_S = "Signal"

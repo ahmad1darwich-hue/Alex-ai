@@ -1,5 +1,5 @@
 //@version=6
-indicator("Nexus Scalper - Momentum Entries", shorttitle = "Nexus Scalper", overlay = true, max_lines_count = 100, max_labels_count = 100)
+indicator("Nexus Scalper - Momentum Entries", shorttitle = "NX Scalper", overlay = true, max_lines_count = 100, max_labels_count = 100)
 
 // ───────────── Inputs ─────────────
 string GRP_S = "Signal"
