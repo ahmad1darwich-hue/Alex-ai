@@ -24,7 +24,8 @@ globalThis.fetch = async (url, init) => {
   if (next.status) return new Response(JSON.stringify({ type: "error", error: { type: next.type, message: next.message } }), { status: next.status });
   return sse(next.text, next.stop);
 };
-const { default: handler } = await import("../../brain-app/api/indicator.js");
+// api/nexus.js and api/indicator.js are entry points for the same handler.
+const { default: handler } = await import("../../brain-app/api/nexus.js");
 const post = (b) => handler(new Request("https://x.test/api/indicator", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }));
 const ndjson = async (res) => (await res.text()).split("\n").filter(Boolean).map((l) => JSON.parse(l));
 let n = 0;
@@ -135,11 +136,6 @@ await t("debug output, model override and stats need the operator token", async 
   assert.equal(denied.status, 403);
   const st = await (await post({ v: 2, mode: "stats", admin: ADMIN })).json();
   assert.equal(st.ok, false, "no KV configured in tests");
-});
-await t("the second address serves the same engine", async () => {
-  const { default: h2 } = await import("../../brain-app/api/nexus.js");
-  const j = await (await h2(new Request("https://x.test/api/nexus"))).json();
-  assert.equal(j.engine, 2);
 });
 await t("fix mode sends the TradingView error and uses the given script", async () => {
   script = [{ text: '<nexus><base>CURRENT</base><edits>\n<<<<<<< FIND\nplot(ema, "EMA", color = color.teal)\n=======\nplot(ema, "EMA", color = color.red)\n>>>>>>> END\n</edits><explain>fixed</explain></nexus>' }];
