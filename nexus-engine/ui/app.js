@@ -265,7 +265,7 @@
   if (SYNC) {
     try {
       var hk = /[#&]key=([A-Za-z0-9_-]{24,200})(?![A-Za-z0-9_-])/.exec(location.hash || '');
-      if (hk) { localStorage.setItem('brain_key', hk[1]); history.replaceState(null, '', location.pathname + location.search); }
+      if (hk) { localStorage.setItem('brain_key', hk[1]); history.replaceState(null, '', location.pathname + location.search + (LANDING ? '#app' : '')); }
       syncKey = localStorage.getItem('brain_key') || '';
     } catch (e) {}
   }

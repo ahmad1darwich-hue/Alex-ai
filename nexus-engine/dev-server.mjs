@@ -67,7 +67,7 @@ try { ({ default: brainEmail } = await import("../brain-app/api/email.js")); } c
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json" };
 const pages = {
-  "/": () => fs.readFileSync(path.join(root, "indicator-build", "index.html"), "utf8").replace(/https:\/\/brain-ahmad-93cb\.vercel\.app\/api\/indicator/g, "/api/indicator"),
+  "/": () => fs.readFileSync(path.join(root, "indicator-build", "index.html"), "utf8").replace(/https:\/\/brain-ahmad-93cb\.vercel\.app\/api\/(indicator|sync)/g, "/api/$1"),
   "/indicators": () => fs.readFileSync(path.join(root, "brain-app", "indicators.html"), "utf8"),
   "/nexus-next": () => fs.readFileSync(path.join(root, "brain-app", "nexus-next.html"), "utf8"),
   "/brain": () => fs.readFileSync(path.join(root, "brain-app", "index.html"), "utf8"),

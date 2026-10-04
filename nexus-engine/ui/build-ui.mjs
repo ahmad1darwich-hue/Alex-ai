@@ -163,7 +163,7 @@ export function render() {
     title: "Nexus — AI Trading Indicator Designer",
     desc: "Nexus turns your idea into a complete TradingView indicator and checks it automatically: SMC, signals, alerts, backtests.",
     brand: "NEXUS", brandSub: "Indicator Designer", landing: true,
-    endpoint: BRAIN_ORIGIN + "/api/indicator", store: "nexus_v2",
+    endpoint: BRAIN_ORIGIN + "/api/indicator", store: "nexus_v2", sync: BRAIN_ORIGIN + "/api/sync",
     hintAr: "Nexus · Pine Script v6 · أداة تعليمية، مش نصيحة مالية", hintEn: "Nexus · Pine Script v6 · educational tool, not financial advice",
   });
   const brain = page({

@@ -21,9 +21,15 @@ async function kv(cmd) {
     return r.ok ? await r.json() : null;
   } catch (e) { return null; } finally { clearTimeout(timer); }
 }
-const json = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+// The public Nexus page (another site of the owner) may use this too: it is still closed without the key.
+const SITES = ["https://indicator-build.vercel.app"];
+let cors = {};
+const json = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...cors } });
 
 export default async function handler(req) {
+  const origin = req.headers.get("origin") || "";
+  cors = SITES.includes(origin) ? { "access-control-allow-origin": origin, "access-control-allow-headers": "content-type,x-brain-key", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-max-age": "600", vary: "origin" } : {};
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const auth = brainAuth(req.headers.get("x-brain-key"));
   if (auth !== "ok") return json({ ok: false, locked: true, auth, reply: lockedReply(auth) }, auth === "unset" ? 503 : 401);
   if (req.method !== "GET" && req.method !== "POST") return new Response("GET or POST", { status: 405 });
