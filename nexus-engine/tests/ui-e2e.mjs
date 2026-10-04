@@ -661,6 +661,29 @@ test("Brain (private app): closed without the owner key, opened by the activatio
   await ctx.close();
 });
 
+test("Brain Indicators: one conversation on two activated devices", async () => {
+  const KEY = "e2e-brain-key-0123456789abcdefgh";
+  const A = await open(), B = await open({ mobile: true });
+  await A.page.goto(BASE + "/indicators#key=" + KEY, { waitUntil: "load" });
+  check("the key leaves the address bar", !/key=/.test(A.page.url()));
+  await A.page.click("#langA");
+  await A.page.locator("#tgrid .tcard").first().click(); await idle(A.page); await sleep(900);
+  await B.page.goto(BASE + "/indicators#key=" + KEY, { waitUntil: "load" });
+  await B.page.waitForSelector(".art", { timeout: 6000 }).catch(() => {});
+  check("the second device opens with the same conversation", (await B.page.locator(".art").count()) === 1 && (await B.page.evaluate(() => document.getElementById("ctxFile").textContent)) === "nexus_smc.pine");
+  // The phone adds a request; the laptop sees it when it comes back to the page.
+  await B.page.fill("#in", "sim:text from the phone"); await B.page.click("#send"); await busyStart(B.page); await idle(B.page); await sleep(900);
+  await A.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await A.page.waitForFunction(() => document.querySelectorAll(".msg").length === 4, null, { timeout: 6000 }).catch(() => {});
+  check("a change on one device reaches the other", (await A.page.locator(".msg").count()) === 4 && /from the phone/.test(await A.page.textContent("#thread")), await A.page.locator(".msg").count());
+  // A device without the key gets nothing.
+  const C = await open();
+  await C.page.goto(BASE + "/indicators", { waitUntil: "load" }); await sleep(600);
+  const closed = await C.page.evaluate(async () => { const r = await fetch("/api/sync"); return r.status; });
+  check("without the key nothing is shared", (await C.page.locator(".msg").count()) === 0 && closed === 401, closed);
+  for (const o of [A, B, C]) { check("no page errors", o.log.errors.length === 0, o.log.errors); await o.ctx.close(); }
+});
+
 // ---------- run ----------
 try {
   await waitServer();

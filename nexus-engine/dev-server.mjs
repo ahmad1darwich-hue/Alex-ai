@@ -61,6 +61,7 @@ const { handle } = await import("../brain-app/api/_nexus/handler.js");
 // Brain's private endpoints, locked with a development key (printed at start).
 if (!process.env.BRAIN_KEY) process.env.BRAIN_KEY = crypto.randomBytes(24).toString("base64url");
 const { default: brainAgent } = await import("../brain-app/api/agent.js");
+const { default: brainSync } = await import("../brain-app/api/sync.js");
 let brainEmail = null;
 try { ({ default: brainEmail } = await import("../brain-app/api/email.js")); } catch (e) { /* imapflow is not installed locally */ }
 
@@ -97,10 +98,10 @@ http.createServer(async (req, res) => {
       if (response.body) { const reader = response.body.getReader(); for (;;) { const { done, value } = await reader.read(); if (done) break; res.write(value); } }
       return res.end();
     }
-    if (url.pathname === "/api/agent") {
+    if (url.pathname === "/api/agent" || url.pathname === "/api/sync") {
       const chunks = [];
       for await (const ch of req) chunks.push(ch);
-      const response = await brainAgent(new Request(url, { method: req.method, headers: req.headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : Buffer.concat(chunks) }));
+      const response = await (url.pathname === "/api/sync" ? brainSync : brainAgent)(new Request(url, { method: req.method, headers: req.headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : Buffer.concat(chunks) }));
       res.writeHead(response.status, Object.fromEntries(response.headers));
       if (response.body) { const reader = response.body.getReader(); for (;;) { const { done, value } = await reader.read(); if (done) break; res.write(value); } }
       return res.end();

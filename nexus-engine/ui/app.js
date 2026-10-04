@@ -133,6 +133,7 @@
     q2: ['غيّر الألوان', 'Change colors'], q2p: ['غيّر الألوان: ', 'Change the colors: '],
     q3: ['إشارات أقل', 'Fewer signals'], q3p: ['خفّف عدد الإشارات وخلّي بس الأقوى.', 'Reduce the number of signals and keep only the strongest ones.'],
     st_live: ['شغّال', 'active'], st_off: ['متوقّف مؤقتاً', 'paused'], st_noconn: ['بدون اتصال', 'offline'], st_ready: ['جاهز', 'ready'],
+    sync_in: ['تحدّثت المحادثة من جهازك التاني.', 'Conversation updated from your other device.'],
     you: ['إنت', 'You'],
     hint: [CFG.hintAr || 'Pine Script v6 · أداة تعليمية، مش نصيحة مالية', CFG.hintEn || 'Pine Script v6 · educational tool, not financial advice']
   };
@@ -256,6 +257,44 @@
       catch (e) { try { if (slim === null) slim = slimJson(data); st.setItem(STORE, slim); saved++; } catch (e2) { try { st.removeItem(STORE); } catch (e3) {} } }
     });
     if (!saved && !save.warned) { save.warned = true; toast(t('e_store'), 5000); }
+    pushSync();
+  }
+
+  /* ---------- one conversation on all the owner's devices (pages with CFG.sync, activated with the owner key) ---------- */
+  var SYNC = CFG.sync || '', syncRev = 0, syncTimer = null, syncKey = '', lastActive = Date.now();
+  if (SYNC) {
+    try {
+      var hk = /[#&]key=([A-Za-z0-9_-]{24,200})(?![A-Za-z0-9_-])/.exec(location.hash || '');
+      if (hk) { localStorage.setItem('brain_key', hk[1]); history.replaceState(null, '', location.pathname + location.search); }
+      syncKey = localStorage.getItem('brain_key') || '';
+    } catch (e) {}
+  }
+  function syncData() {
+    var slim = JSON.parse(slimJson({ msgs: S.msgs.slice(-30), cur: S.cur ? { id: S.cur.id, file: S.cur.file } : null, seq: S.seq }));
+    return slim;
+  }
+  function pushSync() {
+    if (!SYNC || !syncKey) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () {
+      fetch(SYNC, { method: 'POST', headers: { 'content-type': 'application/json', 'x-brain-key': syncKey }, body: JSON.stringify({ data: syncData() }) })
+        .then(function (r) { return r.json(); }).then(function (d) { if (d && d.ok && d.rev) syncRev = d.rev; }).catch(function () {});
+    }, 500);
+  }
+  function pullSync() {
+    if (!SYNC || !syncKey || busy || loading) return;
+    fetch(SYNC, { headers: { 'x-brain-key': syncKey }, cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) return;
+      if (!d.rev) { if (S.msgs.length) pushSync(); return; }
+      if (d.rev <= syncRev || !d.data || busy || loading || document.querySelector('.modal.on') || document.querySelector('.fixbox.on')) return;
+      var first = syncRev === 0, before = JSON.stringify(syncData());
+      syncRev = d.rev;
+      if (JSON.stringify(d.data) === before) return;
+      var text = JSON.stringify(d.data);
+      stores().forEach(function (st) { try { st.setItem(STORE, text); } catch (e) {} });
+      S = { msgs: [], cur: null, seq: 0 }; load(); renderAll();
+      if (!first) toast(t('sync_in'), 2500);
+    }).catch(function () {});
   }
   function load() {
     var raw = null;
@@ -888,6 +927,7 @@
     if (mic) mic.stop();
     S = { msgs: [], cur: null, seq: 0 }; pending = []; renderChips();
     stores().forEach(function (st) { try { st.removeItem(STORE); } catch (e) {} });
+    pushSync();
     renderAll(); input.value = ''; grow();
     if (!coarse()) input.focus();
   }
@@ -1043,6 +1083,13 @@
   window.NexusApp = { launch: launch, home: home, toggleLang: toggleLang, useTemplate: function (id) { launch(); useTemplate(id); }, demo: function () { launch(); useTemplate('smc'); } };
 
   load();
+  if (SYNC && syncKey) {
+    pullSync();
+    ['pointerdown', 'keydown'].forEach(function (ev) { document.addEventListener(ev, function () { lastActive = Date.now(); }, true); });
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { lastActive = Date.now(); pullSync(); } });
+    // Checks for changes from the other device while the page is in use (pauses after 10 quiet minutes).
+    setInterval(function () { if (document.visibilityState === 'visible' && Date.now() - lastActive < 600000) pullSync(); }, 15000);
+  }
   setStatus('st_ready');
   applyLang();
   renderAll();

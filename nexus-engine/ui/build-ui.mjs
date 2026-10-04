@@ -82,8 +82,8 @@ const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
 const sha256 = (s) => "'sha256-" + crypto.createHash("sha256").update(s, "utf8").digest("base64") + "'";
 
 // Returns { html, scripts }: `scripts` are the exact inline script bodies (their hashes go into the CSP).
-function page({ title, desc, brand, brandSub, landing, endpoint, store, themeCss, hintAr, hintEn, noindex }) {
-  const config = { endpoint, store, templates, landing: !!landing, hintAr, hintEn, fonts: FONTS, i18n: landing ? LANDING_I18N : undefined };
+function page({ title, desc, brand, brandSub, landing, endpoint, store, themeCss, hintAr, hintEn, noindex, sync }) {
+  const config = { endpoint, store, templates, landing: !!landing, hintAr, hintEn, fonts: FONTS, sync: sync || undefined, i18n: landing ? LANDING_I18N : undefined };
   const appHtml = fill(read("app.html"), {
     APP_ON: landing ? "" : ' class="on"',
     BRAND: brand,
@@ -170,7 +170,7 @@ export function render() {
     title: "Brain Indicators — Pine Script designer",
     desc: "Brain Indicators designs and checks TradingView Pine Script indicators and strategies.",
     brand: "Brain Indicators", brandSub: "Pine Script designer", landing: false, noindex: true,
-    endpoint: "/api/indicator", store: "brain_ind_v2", themeCss: BRAIN_THEME,
+    endpoint: "/api/indicator", store: "brain_ind_v2", themeCss: BRAIN_THEME, sync: "/api/sync",
     hintAr: "Pine Script v6 · الكود بينفحص تلقائياً · مش نصيحة مالية", hintEn: "Pine Script v6 · code is checked automatically · not financial advice",
   });
   const stage = page({
