@@ -210,6 +210,12 @@ const patches = [
     replace: 'for(let a of e.arguments)a.skipSemanticValidation||n.validateExpression(a.value,t);if(t==="6"&&r)try{__nxTextArg(n,e,r,t)}catch{}if(t==="6"&&r.startsWith("request.")&&Fn(n,e,r),!r)return;',
   },
   {
+    id: "bounded-suggestions",
+    why: "The \"did you mean\" search is quadratic in the number of names; a pasted script with thousands of unknown names kept one request busy for tens of seconds. After 40 suggestions per check the rest go without one.",
+    find: "findSimilarSymbols(e,t=2){",
+    replace: "findSimilarSymbols(e,t=2){if((this.__nxSim=(this.__nxSim||0)+1)>40)return[];",
+  },
+  {
     id: "text-argument-type-fn",
     why: "Helper for the patch above.",
     find: "function Ur(n,e,t=\"6\"){",

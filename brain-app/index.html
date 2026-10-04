@@ -209,7 +209,12 @@ var I18N={
  big:["الملف كبير (أقصى 8MB).","File is too large (max 8MB)."],
  noimg:["تعذّر قراءة الصورة.","Could not read the image."],
  errTimeout:["⚠️ الرد تأخّر — جرّب مرة ثانية أو سؤال أقصر.","⚠️ The reply timed out — try again or a shorter question."],
- errConn:["⚠️ خطأ اتصال: ","⚠️ Connection error: "]
+ errConn:["⚠️ خطأ اتصال: ","⚠️ Connection error: "],
+ lk_status:["🔒 بدّو تفعيل","🔒 needs activation"],
+ lk_ph:["الصق المفتاح أو رابط التفعيل","Paste the key or the activation link"],
+ lk_go:["تفعيل","Activate"],
+ lk_ok:["✓ تفعّل هالجهاز. ابعت طلبك مرة تانية.","✓ This device is activated. Send your request again."],
+ lk_bad:["المفتاح قصير أو غلط.","The key is too short or wrong."]
 };
 var SUG=[
  ["رد على زبون سأل عن سعر تبليط","Reply to a customer asking about a paving price"],
@@ -218,6 +223,45 @@ var SUG=[
  ["شو سعر الذهب هلأ؟","What's the gold price right now?"]
 ];
 var L=0; try{if(localStorage.getItem('brain_lang')==='en')L=1;}catch(e){}
+/* ---- owner key ----
+   Brain only answers devices that hold the owner's key. A device gets it once from the activation link
+   (.../#key=...): the key is stored here and removed from the address bar; it is sent as a header, never in a URL. */
+var BKEY='';
+try{BKEY=localStorage.getItem('brain_key')||'';}catch(e){}
+function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function keyFrom(text){var s=String(text||'').trim(),m=/^([A-Za-z0-9_-]{24,200})$/.exec(s)||/[#&?]key=([A-Za-z0-9_-]{24,200})(?![A-Za-z0-9_-])/.exec(s);return m?m[1]:'';}
+function setKey(k){BKEY=k;try{localStorage.setItem('brain_key',k);}catch(e){}}
+function refreshStatus(){fetch('/api/agent',{method:'GET',headers:BKEY?{'x-brain-key':BKEY}:{}}).then(function(r){return r.json();}).then(setStatus).catch(function(){dot.className='dot live';stat.textContent='ready';});}
+/* The key always leaves the address bar. A device that already works only switches to a key the server accepts,
+   so a link with a wrong key cannot lock the owner out. */
+function activateFromHash(){var h=location.hash;if(!/[#&]key=/i.test(h))return;var k=keyFrom(h);
+  try{history.replaceState(null,'',location.pathname+location.search);}catch(e){location.hash='';}
+  if(!k||k===BKEY)return;
+  if(!BKEY){setKey(k);return;}
+  fetch('/api/agent',{headers:{'x-brain-key':k}}).then(function(r){return r.json();}).then(function(d){if(d&&d.auth==='ok'){setKey(k);setStatus(d);}}).catch(function(){});}
+activateFromHash();window.addEventListener('hashchange',function(){activateFromHash();refreshStatus();});
+function apiHeaders(){var h={'content-type':'application/json'};if(BKEY)h['x-brain-key']=BKEY;return h;}
+/* A refused request: show why, with a box to paste the key (or the whole activation link) on this device. */
+function showLocked(th,msg){
+  th.bub.className='bub';th.bub.textContent=msg||'🔒';
+  var box=document.createElement('div');box.style.cssText='margin-top:10px;display:flex;gap:8px;flex-wrap:wrap';
+  var inp=document.createElement('input');inp.type='password';inp.autocomplete='off';inp.placeholder=t('lk_ph');inp.setAttribute('aria-label',t('lk_ph'));
+  inp.style.cssText='flex:1;min-width:170px;background:#0e1830;border:1px solid #2a3a5a;border-radius:10px;color:inherit;font:inherit;font-size:14px;padding:8px 10px;outline:none';
+  var go=document.createElement('button');go.type='button';go.textContent=t('lk_go');
+  go.style.cssText='font:inherit;font-weight:700;border:0;border-radius:10px;padding:8px 14px;cursor:pointer';
+  var note=document.createElement('div');note.style.cssText='width:100%;font-size:13px;opacity:.85';
+  go.onclick=function(){var k=keyFrom(inp.value);if(!k){note.textContent=t('lk_bad');return;}
+    fetch('/api/agent',{method:'GET',headers:{'x-brain-key':k}}).then(function(r){return r.json();}).then(function(d){
+      if(d&&d.auth==='ok'){setKey(k);inp.value='';box.remove();th.bub.textContent=t('lk_ok');setStatus(d);}else note.textContent=t('lk_bad');
+    }).catch(function(){note.textContent=t('errConn');});};
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();go.click();}});
+  box.appendChild(inp);box.appendChild(go);box.appendChild(note);th.bub.appendChild(box);scroll();
+}
+function setStatus(d){
+  if(d&&d.auth&&d.auth!=='ok'){dot.className='dot';stat.textContent=t('lk_status');}
+  else if(d&&d.hasKey===false){dot.className='dot';stat.textContent='needs API key';}
+  else{dot.className='dot live';stat.textContent='active';}
+}
 function t(k){var v=I18N[k];return v?v[L]:k;}
 function applyLang(){
   document.documentElement.lang=L?'en':'ar';
@@ -300,7 +344,7 @@ function renderChips(){
   chipsEl.innerHTML='';
   pending.forEach(function(p,i){
     var c=document.createElement('div');c.className='chip';
-    c.innerHTML=(p.kind==='image'?'<img src="'+p.preview+'">':'<span>'+(p.kind==='document'?'📄':'📝')+'</span>')+'<span>'+(p.name||t('attach'))+'</span><span class="x" data-i="'+i+'">✕</span>';
+    c.innerHTML=(p.kind==='image'?'<img src="'+p.preview+'">':'<span>'+(p.kind==='document'?'📄':'📝')+'</span>')+'<span>'+escHtml(p.name||t('attach'))+'</span><span class="x" data-i="'+i+'">✕</span>';
     chipsEl.appendChild(c);
   });
   chipsEl.querySelectorAll('.x').forEach(function(x){x.onclick=function(){pending.splice(+x.getAttribute('data-i'),1);renderChips();};});
@@ -354,7 +398,7 @@ function mdToHtml(tx){
 }
 function renderArtifact(container,a){
   var wrap=document.createElement('div');wrap.className='art';var isHtml=a.type==='html';
-  var bar='<div class="bar"><span class="fn">'+a.filename+'</span><span class="sp">';
+  var bar='<div class="bar"><span class="fn">'+escHtml(a.filename)+'</span><span class="sp">';
   if(isHtml)bar+='<button data-act="toggle">Code</button>';
   bar+='<button data-act="copy">'+t('copy')+'</button><button data-act="dl">'+t('dl')+'</button></span></div>';
   wrap.innerHTML=bar;var view=document.createElement('div');
@@ -392,10 +436,13 @@ async function submit(){
   var th=addThinking();
   var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},30000);
   try{
-    var r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:convo}),signal:ac.signal});
+    var r=await fetch('/api/agent',{method:'POST',headers:apiHeaders(),body:JSON.stringify({messages:convo}),signal:ac.signal});
     clearTimeout(tmo);
     var ct=r.headers.get('content-type')||'';var full='';
-    if(ct.indexOf('application/json')>=0){var d=await r.json();full=d.reply||'…';}
+    if(ct.indexOf('application/json')>=0){var d=await r.json();
+      // Not activated: nothing was answered, so the message is not kept as part of the conversation.
+      if(d&&d.locked){convo.pop();saveConvo();showLocked(th,d.reply);setStatus({auth:'denied'});if(!input.value){input.value=text;}if(atts.length&&!pending.length){pending=atts;renderChips();}busy=false;send.disabled=false;return;}
+      full=d.reply||'…';}
     else{th.bub.className='bub';th.bub.textContent='';var reader=r.body.getReader(),dcd=new TextDecoder();while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});th.bub.textContent=full;scroll();}}
     var ex=extractArtifacts(full);
     th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||t('done'));
@@ -416,8 +463,9 @@ async function emailCheckup(){
   addMsg('user',L?'Email check-up 📧':'تشيك أب الإيميل 📧');
   var th=addThinking();th.bub.innerHTML='<span class="spin"></span> '+(L?'Checking the work inbox…':'عم أفحص بريد الشغل…');
   try{
-    var r=await fetch('/api/email',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({})});
+    var r=await fetch('/api/email',{method:'POST',headers:apiHeaders(),body:JSON.stringify({})});
     var d=await r.json();
+    if(d&&d.locked){showLocked(th,d.reply);setStatus({auth:'denied'});busy=false;send.disabled=false;return;}
     th.bub.className='bub';th.bub.innerHTML=mdToHtml(d.reply||(L?'Done.':'تم.'));
   }catch(e){th.bub.className='bub';th.bub.textContent=(L?'⚠️ Connection error: ':'⚠️ خطأ اتصال: ')+(e&&e.message||e);}
   busy=false;send.disabled=false;scroll();
@@ -432,10 +480,7 @@ document.getElementById('tvgo').onclick=function(){tvframe.src=tvURL(tvsym.value
 document.getElementById('tvopen').onclick=function(){window.open('https://www.tradingview.com/chart/?symbol='+encodeURIComponent(tvsym.value.trim()||'OANDA:XAUUSD'),'_blank');};
 
 /* ---- status + restore ---- */
-fetch('/api/agent',{method:'GET'}).then(function(r){return r.json();}).then(function(d){
-  if(d&&d.hasKey===false){dot.className='dot';stat.textContent='needs API key';}
-  else{dot.className='dot live';stat.textContent='active';}
-}).catch(function(){dot.className='dot live';stat.textContent='ready';});
+refreshStatus();
 try{
   var saved=JSON.parse(localStorage.getItem('brain_convo')||'[]');
   if(saved&&saved.length){

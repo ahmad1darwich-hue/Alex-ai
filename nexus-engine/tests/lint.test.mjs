@@ -175,6 +175,28 @@ t("compiler gaps: fill kinds, tostring format, declaration limits, array indexin
   const idxOk = checkPine(H + 'var levels = array.new<float>()\nlevels.push(close)\nfloat prev = close[1]\nplot(levels.get(0) + prev)\n');
   assert.ok(!idxOk.mustFix.some((e) => e.rule === "NX_ARRAY_INDEX") && idxOk.errors.length === 0, JSON.stringify(idxOk));
 });
+t("sanitizeCode normalises pasted text in linear time", () => {
+  // Unicode spaces, typographic quotes, zero-width characters, tabs, fences, blank-line runs.
+  assert.equal(sanitizeCode("a\u00A0=\u00A01\u202F+\u20072"), "a = 1 + 2\n");
+  assert.equal(sanitizeCode("s = \u201Cx\u201D\u200B\n\tplot(1)  \t\n\n\n\nplot(2)\n\n"), 's = "x"\n    plot(1)\n\nplot(2)\n');
+  assert.equal(sanitizeCode("```pine\n// FILE: a.pine\n//@version=6\nplot(close)\n```\n"), "//@version=6\nplot(close)\n");
+  assert.equal(sanitizeCode("//@version=6\nplot(close)\n```"), "//@version=6\nplot(close)\n");
+  assert.equal(sanitizeCode(""), "\n");
+  // 200 KB of whitespace used to take minutes (quadratic trims).
+  const t0 = Date.now();
+  sanitizeCode(" ".repeat(200000) + "x\n" + "\t".repeat(50000) + "y");
+  const big = checkPine('//@version=6\nindicator("x")\n' + "plot(\n".repeat(30000));
+  assert.ok(Date.now() - t0 < 4000, "sanitize + check took " + (Date.now() - t0) + " ms");
+  assert.ok(!big.clean);
+});
+t("a checker crash is never reported as verified", () => {
+  const src = '//@version=6\nindicator("x", overlay = true)\ny = ' + "1 + ".repeat(20000) + "1\nplot(undefinedVar)\n";
+  const c = checkPine(src);
+  if (c.crashed) {
+    assert.equal(c.clean, false);
+    assert.ok(summarizeCheck(c).warnings.some((w) => w.rule === "NX_CHECKER_CRASH"));
+  } else assert.ok(c.errors.length > 0, "an undeclared identifier must be reported when the checker does not crash");
+});
 t("known checker false positives are dropped", () => {
   const H = '//@version=6\nindicator("x", overlay = true)\n';
   const c = checkPine(H + 'if barstate.islast\n    label.new(bar_index, high, "x", text_formatting = text.format_bold + text.format_italic)\n');

@@ -12,9 +12,13 @@ const API = "https://api.anthropic.com/v1/messages";
 const PRIMARY_MODEL = process.env.NEXUS_MODEL || "claude-sonnet-5-5";
 const FALLBACK_MODELS = (process.env.NEXUS_FALLBACK_MODELS || "claude-sonnet-4-5").split(",").map((s) => s.trim()).filter(Boolean);
 const EFFORT = process.env.NEXUS_EFFORT || "medium";
-const LIMIT_PER_IP = Number(process.env.NEXUS_DAILY_PER_IP || 40);
-const LIMIT_TOTAL = Number(process.env.NEXUS_DAILY_TOTAL || 400);
+const posInt = (v, d) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.floor(n) : d; };
+const LIMIT_PER_IP = posInt(process.env.NEXUS_DAILY_PER_IP, 40); // model requests per client per day
+const LIMIT_TOTAL = posInt(process.env.NEXUS_DAILY_TOTAL, 400); // model requests per day, all clients
+const LIMIT_FREE_PER_IP = posInt(process.env.NEXUS_DAILY_FREE_PER_IP, 600); // template / check requests (no model call)
 const BUDGET_MS = 280000; // Edge streams may run for 300 s
+const MAX_BODY = 4500000; // bytes; attachments arrive as base64 inside the JSON body
+const MAX_CODE = 120000; // characters of Pine code accepted from the client
 // Optional operator token: lets the owner read stats, skip the per-IP cap and see token usage while testing.
 const ADMIN_TOKEN = process.env.NEXUS_ADMIN_TOKEN || "";
 function isAdmin(body) {
@@ -27,10 +31,22 @@ function isAdmin(body) {
 
 // NEXUS_ALLOWED_ORIGINS: comma separated list of sites allowed to call the API from a browser. Empty = any site.
 const ALLOWED_ORIGINS = (process.env.NEXUS_ALLOWED_ORIGINS || "").split(",").map((s) => s.trim().replace(/\/$/, "")).filter(Boolean);
-function corsFor(req) {
-  const origin = (req && req.headers.get("origin")) || "";
-  const allow = !ALLOWED_ORIGINS.length ? "*" : ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return { "access-control-allow-origin": allow, "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type", vary: "origin" };
+// A preflight carries no data and is answered for any site; the request itself is what gets refused. The operator
+// (admin token) may call from anywhere, which keeps the test tools working.
+function corsFor(req, admin) {
+  const origin = ((req && req.headers.get("origin")) || "").replace(/\/$/, "");
+  const open = admin || (req && req.method === "OPTIONS");
+  const allow = !ALLOWED_ORIGINS.length ? "*" : ALLOWED_ORIGINS.includes(origin) || (open && origin) ? origin : ALLOWED_ORIGINS[0];
+  return { "access-control-allow-origin": allow, "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type", "access-control-max-age": "600", vary: "origin" };
+}
+// With a list configured, browser calls from other sites are refused (requests without an Origin header - curl,
+// server to server - are not browsers and are only limited by the caps).
+function originAllowed(req) {
+  if (!ALLOWED_ORIGINS.length) return true;
+  const origin = ((req && req.headers.get("origin")) || "").replace(/\/$/, "");
+  if (!origin || ALLOWED_ORIGINS.includes(origin)) return true;
+  // Pages served by this same deployment (Brain Indicators) are always allowed.
+  try { return origin === new URL(req.url).origin; } catch (e) { return false; }
 }
 const jsonWith = (cors) => (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...cors } });
 
@@ -54,11 +70,15 @@ function classify(status, body) {
   return "other";
 }
 
-async function callOnce({ key, model, messages, effort, onText, onThinking, signal, legacyShape }) {
+function abortError(message) { const e = new Error(message || "aborted"); e.name = "AbortError"; return e; }
+
+async function callOnce({ key, model, messages, effort, onText, onThinking, signal, legacyShape, maxTokens }) {
   const adaptive = isAdaptiveModel(model) && !legacyShape;
   const body = {
     model,
-    max_tokens: adaptive ? 40000 : 16000,
+    // Thinking counts towards max_tokens on adaptive models. The caps bound the cost of one call; a script that
+    // does not fit is continued once by the pipeline.
+    max_tokens: Math.min(maxTokens || 24000, adaptive ? 24000 : 16000),
     system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages,
     stream: true,
@@ -91,49 +111,75 @@ async function callOnce({ key, model, messages, effort, onText, onThinking, sign
       else if (ev.type === "error") { const m = (ev.error && (ev.error.type + ": " + ev.error.message)) || "stream error"; throw new ModelError(classify(0, m), 0, m); }
     }
   }
+  // A stream that ends without a stop reason was cut off upstream: what arrived is not a complete reply.
+  if (!stopReason) throw new ModelError("incomplete", 0, "the model stream ended early");
   return { text, stopReason, usage, model };
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Tries the configured model, then the fallbacks. Auth and billing problems are never retried.
-function makeCaller(key, deadline, state) {
-  return async ({ messages, effort, onText, onThinking }) => {
+// `signal` aborts everything when the client goes away or presses Stop.
+function makeCaller(key, deadline, state, signal) {
+  return async ({ messages, effort, onText, onThinking, maxTokens }) => {
     const chain = [state.model || PRIMARY_MODEL, ...FALLBACK_MODELS.filter((m) => m !== (state.model || PRIMARY_MODEL))];
     let lastErr = null;
     for (const model of chain) {
       for (let attempt = 0; attempt < 2; attempt++) {
+        if (signal && signal.aborted) throw abortError("cancelled");
+        const left = deadline - Date.now();
+        if (left < 8000) throw lastErr || abortError("out of time");
         const ctrl = new AbortController();
-        const ms = Math.max(15000, Math.min(240000, deadline - Date.now() - 4000));
-        const timer = setTimeout(() => ctrl.abort(), ms);
+        const timer = setTimeout(() => ctrl.abort(), Math.min(240000, left - 3000));
+        const onAbort = () => ctrl.abort();
+        if (signal) signal.addEventListener("abort", onAbort, { once: true });
         let streamed = false;
         try {
-          const out = await callOnce({ key, model, messages, effort, onText: (d) => { streamed = true; if (onText) onText(d); }, onThinking, signal: ctrl.signal, legacyShape: state.legacyShape && state.legacyShape.has(model) });
+          const out = await callOnce({ key, model, messages, effort, maxTokens, onText: (d) => { streamed = true; if (onText) onText(d); }, onThinking, signal: ctrl.signal, legacyShape: state.legacyShape && state.legacyShape.has(model) });
           state.model = model;
           return out;
         } catch (e) {
           lastErr = e;
           const kind = e instanceof ModelError ? e.kind : e && e.name === "AbortError" ? "timeout" : "other";
           if (kind === "auth" || kind === "credit" || kind === "timeout" || streamed) throw e;
-          if (kind === "bad_request" && isAdaptiveModel(model) && !(state.legacyShape && state.legacyShape.has(model))) { (state.legacyShape = state.legacyShape || new Set()).add(model); continue; }
-          if ((kind === "rate" || kind === "overloaded") && attempt === 0) { await sleep(1800); continue; }
+          if (kind === "bad_request") {
+            // Only a complaint about the thinking / effort fields is worth retrying in the older request shape;
+            // any other invalid request would fail the same way on every model.
+            if (/thinking|output_config|effort/i.test(e.detail || "") && isAdaptiveModel(model) && !(state.legacyShape && state.legacyShape.has(model))) { (state.legacyShape = state.legacyShape || new Set()).add(model); continue; }
+            throw e;
+          }
+          if ((kind === "rate" || kind === "overloaded" || kind === "incomplete") && attempt === 0) { await sleep(1800); continue; }
           break; // next model
-        } finally { clearTimeout(timer); }
+        } finally {
+          clearTimeout(timer);
+          if (signal) signal.removeEventListener("abort", onAbort);
+        }
       }
     }
     throw lastErr || new Error("model call failed");
   };
 }
 
+// Problems only the operator can solve (the key, the credit, the model name). Visitors get a neutral sentence with a
+// short code; the operator finds the code in the README, in the logs and in the stats.
+const OUTAGE_CODES = { nokey: "K1", auth: "K2", credit: "C1", model: "M1" };
+function outageMessage(kind, lang) {
+  const code = OUTAGE_CODES[kind];
+  try { console.error("nexus outage " + code + " (" + kind + ")"); } catch (x) {}
+  return lang === "en" ? `The service is paused for the moment (code ${code}). Please try again later.` : `الخدمة متوقفة مؤقتاً (رمز ${code}). جرّب بعد شوي.`;
+}
+const errorKind = (e) => (e instanceof ModelError ? e.kind : e && e.name === "AbortError" ? "timeout" : "other");
+
 function friendlyError(e, lang) {
   const en = lang === "en";
-  const kind = e instanceof ModelError ? e.kind : e && e.name === "AbortError" ? "timeout" : "other";
-  if (kind === "auth") return en ? "The AI key is invalid. Check ANTHROPIC_API_KEY in Vercel." : "مفتاح الذكاء الاصطناعي غير صالح. راجع ANTHROPIC_API_KEY بـ Vercel.";
-  if (kind === "credit") return en ? "The AI account is out of credit. Top up the Anthropic account." : "رصيد حساب الذكاء الاصطناعي خلص. اشحن حساب Anthropic.";
+  const kind = errorKind(e);
+  if (OUTAGE_CODES[kind]) return outageMessage(kind, lang);
   if (kind === "rate" || kind === "overloaded") return en ? "The AI service is busy right now. Try again in a minute." : "خدمة الذكاء الاصطناعي مشغولة هلّق. جرّب بعد دقيقة.";
   if (kind === "timeout") return en ? "This took too long and was stopped. Try again, or ask for a simpler version first." : "الطلب أخد وقت طويل وتوقّف. جرّب مرة تانية، أو اطلب نسخة أبسط أول.";
-  if (kind === "model") return en ? "The configured AI model is not available on this account." : "موديل الذكاء الاصطناعي المحدَّد مش متاح على هالحساب.";
-  return (en ? "Something went wrong: " : "صار خطأ: ") + String((e && (e.detail || e.message)) || e).slice(0, 160);
+  if (kind === "incomplete" || (e && e.kind === "empty")) return en ? "The reply did not arrive complete. Please try again." : "الرد ما وصل كامل. جرّب مرة تانية.";
+  // Upstream error text stays in the logs: it is not written for end users and may carry internals.
+  try { console.error("nexus error:", String((e && (e.detail || e.message)) || e).slice(0, 500)); } catch (x) {}
+  return en ? "Something went wrong on our side. Please try again in a moment." : "صار خطأ من عنّا. جرّب مرة تانية بعد شوي.";
 }
 
 // ---------- KV (optional): daily limits and lightweight stats ----------
@@ -152,15 +198,64 @@ async function kvPipeline(cmds) {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// Fails open: if the store is unreachable the request is allowed.
+// The client key for the caps. Vercel sets these headers itself (a caller cannot forge them there). An IPv6 customer
+// owns a whole /64, so the prefix is the key: rotating addresses inside it does not reset the cap.
+function clientKey(req) {
+  const raw = (req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim().slice(0, 60);
+  if (!raw.includes(":")) return raw;
+  const [head, tail] = raw.toLowerCase().split("::");
+  const h = head ? head.split(":") : [];
+  const t = tail ? tail.split(":") : [];
+  const groups = raw.includes("::") ? h.concat(new Array(Math.max(0, 8 - h.length - t.length)).fill("0"), t) : h;
+  return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
+}
+
+// Small in-memory allowance per isolate: the cap that still exists when the store is missing or unreachable.
+const memHits = new Map();
+function memOver(key, max, windowMs) {
+  const now = Date.now();
+  // Full: drop the oldest keys (a flood of new clients must not reset the ones already limited).
+  if (memHits.size > 4000) { let drop = 1000; for (const k of memHits.keys()) { memHits.delete(k); if (--drop <= 0) break; } }
+  const hits = (memHits.get(key) || []).filter((t) => now - t < windowMs);
+  hits.push(now);
+  memHits.set(key, hits);
+  return hits.length > max;
+}
+
+// A ceiling for all clients together in the no-store case.
+const memAll = [];
+function memGlobalOver(max, windowMs) {
+  const now = Date.now();
+  while (memAll.length && now - memAll[0] >= windowMs) memAll.shift();
+  memAll.push(now);
+  return memAll.length > max;
+}
+
+// Daily caps for model requests. A request refused by the per-client cap does not use up the shared allowance.
 async function overLimit(req, admin) {
-  const ip = (req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown").split(",")[0].trim().slice(0, 60);
+  const ip = clientKey(req);
   const day = today();
   const kIp = `nx:rl:${day}:ip:${ip}`, kAll = `nx:rl:${day}:all`;
   const res = await kvPipeline([["INCR", kIp], ["EXPIRE", kIp, 172800], ["INCR", kAll], ["EXPIRE", kAll, 172800]]);
-  if (!res || !Array.isArray(res)) return false;
-  const nIp = Number(res[0] && res[0].result), nAll = Number(res[2] && res[2].result);
-  return (!admin && Number.isFinite(nIp) && nIp > LIMIT_PER_IP) || (Number.isFinite(nAll) && nAll > LIMIT_TOTAL);
+  const nIp = Array.isArray(res) ? Number(res[0] && res[0].result) : NaN;
+  const nAll = Array.isArray(res) ? Number(res[2] && res[2].result) : NaN;
+  if (!Number.isFinite(nIp) || !Number.isFinite(nAll) || nIp < 1 || nAll < 1) {
+    // No store, or it failed: allow a little per client instead of everything.
+    return !admin && (memOver("m:" + ip, 12, 3600000) || memGlobalOver(120, 3600000));
+  }
+  if (!admin && nIp > LIMIT_PER_IP) { await kvPipeline([["DECR", kAll]]); return true; }
+  return nAll > LIMIT_TOTAL;
+}
+
+// Template and check requests cost no model call but do cost compute: a generous cap keeps them from being hammered.
+async function overFreeLimit(req, admin) {
+  if (admin) return false;
+  const ip = clientKey(req);
+  if (memOver("f:" + ip, 90, 60000)) return true; // bursts, per isolate
+  const k = `nx:rl:${today()}:free:${ip}`;
+  const res = await kvPipeline([["INCR", k], ["EXPIRE", k, 172800]]);
+  const n = Array.isArray(res) ? Number(res[0] && res[0].result) : NaN;
+  return Number.isFinite(n) && n > LIMIT_FREE_PER_IP;
 }
 
 // Last days of counters plus the most recent problem samples (operator only).
@@ -174,11 +269,12 @@ async function readStats() {
   return { ok: true, limits: { perIp: LIMIT_PER_IP, total: LIMIT_TOTAL }, days: days.map((d, i) => ({ day: d, ...toObj(res[i] && res[i].result) })), unverified: parse(res[days.length] && res[days.length].result), tvErrors: parse(res[days.length + 1] && res[days.length + 1].result) };
 }
 
-function recordStats(result, mode, ms, tvError) {
+function recordStats(result, mode, ms, tvError, outage) {
   const day = today();
   const key = `nx:stats:${day}`;
   const cmds = [["HINCRBY", key, "requests", 1], ["HINCRBY", key, "ms", Math.round(ms)], ["EXPIRE", key, 60 * 86400]];
-  if (!result) cmds.push(["HINCRBY", key, "failed", 1]);
+  if (!result) cmds.push(["HINCRBY", key, mode === "cancelled" ? "cancelled" : "failed", 1]);
+  if (outage) cmds.push(["HINCRBY", key, "outage_" + outage, 1]);
   if (result && result.kind === "text") cmds.push(["HINCRBY", key, "text_replies", 1]);
   if (result && result.usage) cmds.push(["HINCRBY", key, "tokens_in", result.usage.input || 0], ["HINCRBY", key, "tokens_cache_read", result.usage.cacheRead || 0], ["HINCRBY", key, "tokens_cache_write", result.usage.cacheWrite || 0], ["HINCRBY", key, "tokens_out", result.usage.output || 0], ["HINCRBY", key, "model_calls", result.usage.calls || 0]);
   if (result && result.kind === "script") {
@@ -186,7 +282,7 @@ function recordStats(result, mode, ms, tvError) {
     if (!result.report.verified) cmds.push(["LPUSH", "nx:unverified", JSON.stringify({ at: new Date().toISOString(), errors: result.report.errors.slice(0, 4), warnings: result.report.warnings.slice(0, 4), base: result.base })], ["LTRIM", "nx:unverified", 0, 99]);
   }
   // Errors users paste from TradingView are the cases the checker missed: keep them to improve the checker.
-  if (mode === "fix" && tvError) cmds.push(["LPUSH", "nx:tverrors", JSON.stringify({ at: new Date().toISOString(), error: String(tvError).slice(0, 500) })], ["LTRIM", "nx:tverrors", 0, 199]);
+  if (mode === "fix" && tvError && result) cmds.push(["LPUSH", "nx:tverrors", JSON.stringify({ at: new Date().toISOString(), error: String(tvError).slice(0, 500) })], ["LTRIM", "nx:tverrors", 0, 199]);
   return kvPipeline(cmds);
 }
 
@@ -230,8 +326,10 @@ function extractPastedScript(text) {
   if (i < 0) return null;
   const lines = src.slice(i).split("\n");
   const tail = [];
-  // Trailing lines written in Arabic are part of the request, not of the script.
-  while (lines.length > 3 && (!lines[lines.length - 1].trim() || hasArabic(lines[lines.length - 1]))) { const l = lines.pop(); if (l.trim()) tail.unshift(l); }
+  // Trailing lines written as plain language (Arabic, or a sentence without any code punctuation) are part of the
+  // request, not of the script.
+  const isProse = (l) => { const t = l.trim(); return !t || hasArabic(t) || (!/^\s/.test(l) && !/[=()\[\]{}:<>]|^\/\//.test(t) && t.split(/\s+/).length >= 3); };
+  while (lines.length > 3 && isProse(lines[lines.length - 1])) { const l = lines.pop(); if (l.trim()) tail.unshift(l); }
   if (lines.length < 3) return null;
   return { code: lines.join("\n"), rest: (src.slice(0, i).trim() + "\n" + tail.join("\n")).trim() };
 }
@@ -239,9 +337,15 @@ function extractPastedScript(text) {
 function reportLine(result, lang) {
   const en = lang === "en";
   const r = result.report;
-  if (r.verified) return en ? (r.rounds ? `Checked automatically: ${r.rounds} issue round(s) fixed, 0 errors.` : "Checked automatically: 0 errors.") : (r.rounds ? `انفحص تلقائياً: تصلّحت الملاحظات (${r.rounds} جولة)، 0 أخطاء.` : "انفحص تلقائياً: 0 أخطاء.");
-  const n = r.errors.length + r.warnings.length;
-  return en ? `Automatic check: ${n} finding(s) remain. If TradingView shows an error, paste it here and I will fix it.` : `الفحص التلقائي: بقي ${n} ملاحظة. إذا طلعلك خطأ بـ TradingView الصقه هون وبصلّحه.`;
+  if (r.verified) return en ? (r.fixed ? `Checked automatically: issues found and fixed, 0 errors.` : "Checked automatically: 0 errors.") : (r.fixed ? `انفحص تلقائياً: لقيت ملاحظات وتصلّحت، 0 أخطاء.` : "انفحص تلقائياً: 0 أخطاء.");
+  const nErr = r.errorCount ?? r.errors.length;
+  const nWarn = r.warningCount ?? r.warnings.length;
+  const parts = [];
+  if (r.unappliedEdits) parts.push(en ? `${r.unappliedEdits} requested change(s) could not be applied.` : `ما قدرت طبّق ${r.unappliedEdits} من التعديلات المطلوبة.`);
+  if (nErr) parts.push(en ? `Not verified: ${nErr} error(s) remain, so the script may not compile yet.` : `مش متحقَّق منه: بقي ${nErr} خطأ، ويمكن السكربت ما يشتغل لسا.`);
+  else if (nWarn) parts.push(en ? `Not fully verified: ${nWarn} warning(s) remain.` : `مش متحقَّق منه بالكامل: بقي ${nWarn} ملاحظة.`);
+  parts.push(en ? "If TradingView shows an error, paste it here and I will fix it." : "إذا طلعلك خطأ بـ TradingView الصقه هون وبصلّحه.");
+  return parts.join(" ");
 }
 
 function templatePayload(t, lang) {
@@ -253,8 +357,8 @@ function templatePayload(t, lang) {
 
 export async function handle(req, ctx) {
   const key = process.env.ANTHROPIC_API_KEY;
-  const CORS = corsFor(req);
-  const json = jsonWith(CORS);
+  let CORS = corsFor(req, false);
+  let json = jsonWith(CORS);
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method === "GET") {
     // `rev` changes whenever the knowledge pack changes: an easy way to confirm which build is live.
@@ -262,11 +366,20 @@ export async function handle(req, ctx) {
   }
   if (req.method !== "POST") return new Response("POST only", { status: 405, headers: CORS });
 
+  // Bounded body: the largest real request is a few attachments of about a megabyte each.
+  const tooLarge = () => json({ kind: "error", message: "The request is too large. Send smaller files." }, 413);
+  if (Number(req.headers.get("content-length") || 0) > MAX_BODY) return tooLarge();
+  let raw = "";
+  try { raw = await req.text(); } catch (e) {}
+  if (raw.length > MAX_BODY) return tooLarge();
   let body = {};
-  try { body = await req.json(); } catch (e) {}
-  if (!body || typeof body !== "object") body = {};
+  try { body = JSON.parse(raw); } catch (e) {}
+  raw = "";
+  if (!body || typeof body !== "object" || Array.isArray(body)) body = {};
   const v2 = Number(body.v) >= 2;
   const admin = isAdmin(body);
+  if (admin) { CORS = corsFor(req, true); json = jsonWith(CORS); }
+  if (!admin && !originAllowed(req)) return json({ kind: "error", message: "This site is not allowed to use the service." }, 403);
   if (body.mode === "stats") return admin ? json(await readStats()) : json({ kind: "error", message: "Not allowed." }, 403);
   const mode = ["build", "fix", "template", "lint"].includes(body.mode) ? body.mode : "build";
   const split = splitHistory(body.messages);
@@ -277,19 +390,22 @@ export async function handle(req, ctx) {
   const lang = hasArabic(userText) ? "ar" : body.lang === "ar" ? "ar" : body.lang === "en" ? "en" : userText.trim() ? "en" : "ar";
 
   // No-model modes first: they are free and instant.
+  if ((mode === "template" || mode === "lint") && await overFreeLimit(req, admin)) {
+    return json({ kind: "error", message: lang === "en" ? "Too many requests. Please slow down and try again in a minute." : "طلبات كتير ورا بعض. استنى دقيقة وجرّب." }, 429);
+  }
   if (mode === "template") {
     const t = TEMPLATE_BY_ID.get(String(body.templateId || "").toLowerCase());
     if (!t) return json({ kind: "error", message: lang === "en" ? "Unknown template." : "قالب غير معروف." }, 404);
     return json(templatePayload(t, body.lang === "en" ? "en" : "ar"));
   }
   if (mode === "lint") {
-    const src = String(body.code || "").slice(0, 200000);
+    const src = String(body.code || "").slice(0, MAX_CODE);
     if (!src.trim()) return json({ kind: "error", message: lang === "en" ? "Paste the Pine code to check." : "الصق كود Pine اللي بدك تفحصه." }, 400);
     const check = checkPine(src);
     return json({ kind: "lint", code: check.code, report: { ...summarizeCheck(check), verified: check.clean } });
   }
 
-  if (!key) return json(v2 ? { kind: "error", message: "ANTHROPIC_API_KEY is not set in Vercel." } : { reply: "🔌 غير مفعّل — أضف ANTHROPIC_API_KEY في Vercel." });
+  if (!key) { const msg = outageMessage("nokey", lang); return json(v2 ? { kind: "error", message: msg } : { reply: "⚠️ " + msg }); }
   const hasAttachment = Array.isArray(userContent) && userContent.some((b) => b && (b.type === "image" || b.type === "document"));
   if (!userText.trim() && !hasAttachment && mode !== "fix") return json(v2 ? { kind: "error", message: lang === "en" ? "Describe the indicator you want." : "وصّفلي المؤشر اللي بدك ياه." } : { reply: "وصّفلي المؤشر اللي بدك اصمّمه 👇" });
   if (await overLimit(req, admin)) {
@@ -297,12 +413,12 @@ export async function handle(req, ctx) {
     return json(v2 ? { kind: "error", message: msg } : { reply: "⚠️ " + msg });
   }
 
-  let currentCode = (v2 ? String(body.code || "") : lastPineBlock(lastAssistantText)).slice(0, 200000);
+  let currentCode = (v2 ? String(body.code || "") : lastPineBlock(lastAssistantText)).slice(0, MAX_CODE);
   // A script pasted inside the message becomes the current script.
   if (typeof userContent === "string" || !hasAttachment) {
     const pasted = extractPastedScript(userText);
     if (pasted) {
-      currentCode = pasted.code.slice(0, 200000);
+      currentCode = pasted.code.slice(0, MAX_CODE);
       userText = pasted.rest;
       userContent = pasted.rest || (lang === "en" ? "Check this script, fix what is wrong and explain what you changed." : "افحص هالسكربت، صلّح الغلط واشرحلي شو غيّرت.");
     }
@@ -316,7 +432,12 @@ export async function handle(req, ctx) {
   const effort = admin && ["low", "medium", "high", "xhigh", "max"].includes(body.effort) ? body.effort : EFFORT;
   const debug = admin && !!body.debug;
 
+  // One switch for the whole request: Stop in the browser, a closed tab or a dropped connection end the model calls.
+  const abort = new AbortController();
+  if (req.signal) { if (req.signal.aborted) abort.abort(); else req.signal.addEventListener("abort", () => abort.abort(), { once: true }); }
+
   const stream = new ReadableStream({
+    cancel() { abort.abort(); },
     async start(controller) {
       let closed = false;
       const send = (s) => { if (closed) return; try { controller.enqueue(enc.encode(s)); } catch (e) { closed = true; } };
@@ -324,10 +445,10 @@ export async function handle(req, ctx) {
       // Keep the connection alive while the model thinks (no bytes flow during thinking).
       const beat = setInterval(() => (v2 ? emit({ t: "ping" }) : send(" ")), 7000);
       if (v2) emit({ t: "stage", id: "start" }); else send(" ");
-      let result = null;
+      let result = null, outage = "";
       try {
         const currentFile = String(body.file || "").replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 80);
-        result = await runPipeline({ mode: mode === "fix" ? "fix" : "build", lang, history, userContent, currentCode, currentFile, tvError: body.tvError, callModel: makeCaller(key, deadline, state), emit, deadline, effort });
+        result = await runPipeline({ mode: mode === "fix" ? "fix" : "build", lang, history, userContent, currentCode, currentFile, tvError: body.tvError, callModel: makeCaller(key, deadline, state, abort.signal), emit, deadline, effort, signal: abort.signal });
         result.ms = Date.now() - started;
         if (v2) {
           // Token usage, the model id and the repair history are internal: only sent when the client asks for them.
@@ -338,14 +459,17 @@ export async function handle(req, ctx) {
         else if (result.kind === "script") send("```pine\n// FILE: " + result.file + "\n" + result.code.trimEnd() + "\n```\n\n" + (result.explain ? result.explain + "\n\n" : "") + (result.report.verified ? "✅ " : "⚠️ ") + reportLine(result, lang));
         else send(result.explain || "…");
       } catch (e) {
-        const msg = friendlyError(e, lang);
-        if (v2) emit({ t: "error", message: msg }); else send("\n⚠️ " + msg);
+        if (!abort.signal.aborted) {
+          outage = OUTAGE_CODES[errorKind(e)] || "";
+          const msg = friendlyError(e, lang);
+          if (v2) emit({ t: "error", message: msg }); else send("\n⚠️ " + msg);
+        }
       } finally {
         clearInterval(beat);
         closed = true;
         try { controller.close(); } catch (e) {}
         // Stats are best-effort and must not delay the reply.
-        const p = recordStats(result, mode, Date.now() - started, body.tvError).catch(() => {});
+        const p = recordStats(result, abort.signal.aborted && !result ? "cancelled" : mode, Date.now() - started, body.tvError, outage).catch(() => {});
         if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(p);
       }
     },

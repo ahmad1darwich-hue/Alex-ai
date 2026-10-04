@@ -2,19 +2,19 @@
 <div id="landing">
 <div class="lwrap">
   <nav class="lnav">
-    <div class="brandrow"><span class="mk">∿</span><span class="bname">NE<span>XUS</span></span></div>
+    <div class="brandrow"><span class="mk" aria-hidden="true">∿</span><span class="bname">NE<span>XUS</span></span></div>
     <span class="spacer"></span>
     <button class="langbtn" id="langL" type="button">EN</button>
-    <button class="btn btn-p" type="button" onclick="NexusApp.launch()" data-i18n="nav_cta">ابدأ التصميم ↗</button>
+    <button class="btn btn-p" type="button" data-act="launch" data-i18n="nav_cta">ابدأ التصميم ↖</button>
   </nav>
 
   <section class="hero">
     <span class="eyebrow" data-i18n="eyebrow">⚡ مصمّم مؤشرات TradingView بالذكاء الاصطناعي</span>
     <h1 data-i18n-html="hero_h1">صمّم مؤشّرك. <em>بكلماتك.</em></h1>
-    <p class="sub" data-i18n="hero_sub">احكي فكرتك بالعربي، وNexus بيبني مؤشر TradingView كامل، بيفحصه تلقائياً، وبيسلّمك كود جاهز للصق.</p>
+    <p class="sub" data-i18n="hero_sub">احكي فكرتك بالعربي، وNexus بيبني مؤشر TradingView كامل وبيفحصه تلقائياً قبل ما يسلّمك الكود.</p>
     <div class="hcta">
-      <button class="btn btn-p" type="button" onclick="NexusApp.launch()" data-i18n="hero_cta1">ابدأ هلّق →</button>
-      <button class="btn btn-g" type="button" onclick="NexusApp.demo()" data-i18n="hero_cta2">جرّب مؤشر جاهز</button>
+      <button class="btn btn-p" type="button" data-act="launch" data-i18n="hero_cta1">ابدأ هلّق ←</button>
+      <button class="btn btn-g" type="button" data-act="demo" data-i18n="hero_cta2">جرّب مؤشر جاهز</button>
     </div>
     <div class="hstat">
       <span data-i18n-html="stat1"><b>Pine v6</b> · أحدث نسخة</span>
@@ -22,7 +22,7 @@
       <span data-i18n-html="stat3"><b>{{TPL_COUNT}} مؤشرات</b> · جاهزة فوراً</span>
     </div>
 
-    <div class="mock">
+    <div class="mock" aria-hidden="true">
       <div class="bar"><i></i><i></i><i></i><span>nexus_smc.pine</span><em data-i18n="mock_badge">✓ انفحص · 0 أخطاء</em></div>
 <pre><span class="c">//@version=6</span>
 <span class="k">indicator</span>(<span class="s">"Nexus SMC - Structure, Order Blocks, FVG &amp; Liquidity"</span>, shorttitle = <span class="s">"Nexus SMC"</span>, overlay = <span class="k">true</span>)
@@ -35,12 +35,12 @@
 
   <section class="sec">
     <div class="kick" data-i18n="feat_kick">ليش Nexus</div>
-    <div class="sh" data-i18n="feat_sh">مؤشر بيشتغل من أول لصقة</div>
+    <div class="sh" data-i18n="feat_sh">مؤشر مفحوص قبل ما يوصلك</div>
     <div class="grid">
-      <div class="card"><div class="ic">🗣️</div><h3 data-i18n="f1h">بيفهم عليك</h3><p data-i18n="f1p">اكتب أو احكي بالصوت، بالعربي أو الإنجليزي، أو ارفع صورة شارت.</p></div>
-      <div class="card"><div class="ic">✅</div><h3 data-i18n="f2h">فحص تلقائي</h3><p data-i18n="f2p">كل كود بيمرّ على فاحص Pine v6 حقيقي، والأخطاء بتتصلّح قبل ما توصلك.</p></div>
-      <div class="card"><div class="ic">⚡</div><h3 data-i18n="f3h">مؤشرات جاهزة فورية</h3><p data-i18n="f3p">SMC، اتجاه، إشارات مع أهداف، دعوم ومقاومات وغيرها، مفحوصة وجاهزة بكبسة.</p></div>
-      <div class="card"><div class="ic">🛠️</div><h3 data-i18n="f4h">تصليح بلصقة</h3><p data-i18n="f4p">إذا TradingView طلّع خطأ، الصقه وبيتصلّح على نفس المؤشر.</p></div>
+      <div class="card"><div class="ic" aria-hidden="true">🗣️</div><h3 data-i18n="f1h">بيفهم عليك</h3><p data-i18n="f1p">اكتب بالعربي أو الإنجليزي، ارفع صورة شارت، أو احكي بالصوت إذا متصفّحك بيدعمه.</p></div>
+      <div class="card"><div class="ic" aria-hidden="true">✅</div><h3 data-i18n="f2h">فحص تلقائي</h3><p data-i18n="f2p">كل كود بيمرّ على فاحص Pine v6 قبل ما يوصلك، واللي بيلاقيه الفحص بينبعت للتصليح تلقائياً. وإذا بقي شي، بيبيّنلك بوضوح.</p></div>
+      <div class="card"><div class="ic" aria-hidden="true">⚡</div><h3 data-i18n="f3h">مؤشرات جاهزة فورية</h3><p data-i18n="f3p">SMC، اتجاه، إشارات مع أهداف، دعوم ومقاومات وغيرها، مفحوصة وجاهزة بكبسة.</p></div>
+      <div class="card"><div class="ic" aria-hidden="true">🛠️</div><h3 data-i18n="f4h">تصليح بلصقة</h3><p data-i18n="f4p">إذا TradingView طلّع خطأ، الصقه تحت المؤشر وبينبعت للتصليح على نفس النسخة.</p></div>
     </div>
   </section>
 
@@ -56,7 +56,7 @@
     <div class="sh" data-i18n="how_sh">من فكرة لمؤشّر بـ ٣ خطوات</div>
     <div class="steps">
       <div class="step"><b class="n">1</b><h4 data-i18n="s1h">احكي فكرتك</h4><p data-i18n="s1p">مثلاً: «إشارة شراء لما RSI يطلع فوق 30 والسعر فوق EMA 200، مع تنبيه».</p></div>
-      <div class="step"><b class="n">2</b><h4 data-i18n="s2h">Nexus بيبني وبيفحص</h4><p data-i18n="s2p">بينكتب الكود، بينفحص تلقائياً، وبتتصلّح الأخطاء قبل التسليم.</p></div>
+      <div class="step"><b class="n">2</b><h4 data-i18n="s2h">Nexus بيبني وبيفحص</h4><p data-i18n="s2p">بينكتب الكود، بينفحص تلقائياً، واللي بيلاقيه الفحص بينبعت للتصليح قبل التسليم.</p></div>
       <div class="step"><b class="n">3</b><h4 data-i18n="s3h">الصق بـ TradingView</h4><p data-i18n="s3p">انسخ الكود، الصقه بالـ Pine&nbsp;Editor واضغط Add&nbsp;to&nbsp;chart.</p></div>
     </div>
   </section>
@@ -64,11 +64,11 @@
   <div class="bigcta">
     <h2 data-i18n="big_h">جاهز تبني مؤشّرك الأول؟</h2>
     <p data-i18n="big_p">بدون برمجة. بس فكرة.</p>
-    <div class="hcta"><button class="btn btn-p" type="button" onclick="NexusApp.launch()" data-i18n="big_cta">ابدأ هلّق ↗</button></div>
+    <div class="hcta"><button class="btn btn-p" type="button" data-act="launch" data-i18n="big_cta">ابدأ هلّق ↖</button></div>
   </div>
 
   <div class="lfoot">
-    <span class="mk">∿</span><span data-i18n="foot_l">© {yr} Nexus — مصمّم مؤشرات التداول</span>
+    <span class="mk" aria-hidden="true">∿</span><span data-i18n="foot_l">© {yr} Nexus — مصمّم مؤشرات التداول</span>
     <span class="r" data-i18n="foot_r">مؤشرات أصلية · أداة تعليمية، مش نصيحة مالية</span>
   </div>
 </div>

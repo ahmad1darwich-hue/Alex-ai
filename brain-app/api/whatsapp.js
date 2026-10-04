@@ -11,6 +11,9 @@
 //   WA_ALLOWED          - comma-separated phone numbers allowed to use the bot (digits only, with country code),
 //                         e.g. "61434449997". If set, messages from other numbers are ignored.
 //   BRAIN_MODEL         - overrides the model (default claude-sonnet-4-5)
+//   WA_APP_SECRET       - the Meta app secret (required): calls that are not signed by Meta are ignored.
+// Without WA_TOKEN, WA_PHONE_ID and WA_APP_SECRET the bot is off: nothing is sent to the model.
+import { metaSignatureOk } from "./_brain/lock.js";
 export const config = { runtime: "edge" };
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-4-5";
@@ -89,8 +92,15 @@ export default async function handler(req) {
   if (req.method === "GET") return verify(req);
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
 
+  // Not configured: the bot cannot answer anyone, so no model call is made for whoever posts here.
+  const secret = (process.env.WA_APP_SECRET || "").trim();
+  if (!process.env.WA_TOKEN || !process.env.WA_PHONE_ID || !secret) return jsonResp({ ok: true, off: true });
+  let raw = "";
+  try { raw = await req.text(); } catch (e) {}
+  if (raw.length > 200000 || !(await metaSignatureOk(raw, req.headers.get("x-hub-signature-256"), secret))) return jsonResp({ ok: true, ignored: "signature" });
   let body = {};
-  try { body = await req.json(); } catch (e) {}
+  try { body = JSON.parse(raw); } catch (e) {}
+  if (!body || typeof body !== "object") body = {};
 
   // Acknowledge fast is good, but Edge freezes after the response returns, so we
   // process inline (short max_tokens keeps it well under the limit) then 200.

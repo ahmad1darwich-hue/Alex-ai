@@ -1,5 +1,5 @@
 // Nexus engine: generate -> check -> repair. Pure orchestration; the model call is injected so it can be tested offline.
-import { checkPine, sanitizeCode, describeDiagnostics, summarizeCheck } from "./lint.js";
+import { checkPine, sanitizeCode, describeDiagnostics, summarizeCheck, rtrimLine } from "./lint.js";
 import { TEMPLATE_BY_ID } from "./templates.js";
 import { modeInstructions } from "./knowledge.js";
 
@@ -12,10 +12,31 @@ function tag(text, name) {
   return m ? m[1] : null;
 }
 
+// Parses the body of an <edits> section line by line. A block that is cut off (no ">>>>>>> END") is dropped and
+// reported through `incomplete`.
+function parseEdits(body) {
+  const edits = [];
+  let state = 0, find = [], rep = [];
+  for (const raw of body.split("\n")) {
+    const l = rtrimLine(raw).trimStart();
+    if (state === 0) {
+      if (/^<{5,9} ?FIND$/.test(l)) { state = 1; find = []; rep = []; }
+    } else if (state === 1) {
+      const m = /^={5,9}[ \t]*(>{5,9} ?END)?$/.exec(l);
+      if (!m) find.push(raw);
+      else if (m[1]) { edits.push({ find: find.join("\n"), replace: "" }); state = 0; } // "=======>>>>>>> END": pure deletion
+      else state = 2;
+    } else if (/^>{5,9} ?END$/.test(l)) { edits.push({ find: find.join("\n"), replace: rep.join("\n") }); state = 0; }
+    else rep.push(raw);
+  }
+  return { edits, incomplete: state !== 0 };
+}
+
 // Parses one <nexus> reply. Tolerates a missing closing tag on the last block (truncated output).
 export function parseReply(text) {
-  const src = String(text || "");
-  const out = { title: "", file: "", base: "", templateId: "", code: null, codeClosed: false, edits: [], explain: "", raw: src };
+  const src = String(text || "").replace(/\r\n?/g, "\n");
+  const lower = src.toLowerCase();
+  const out = { title: "", file: "", base: "", templateId: "", code: null, codeClosed: false, edits: [], editsIncomplete: false, explain: "", raw: src };
   out.title = (tag(src, "title") || "").trim().slice(0, 120);
   out.file = (tag(src, "file") || "").trim().replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 80);
   const baseRaw = (tag(src, "base") || "").trim();
@@ -25,30 +46,35 @@ export function parseReply(text) {
   else if (/^NONE/i.test(baseRaw)) out.base = "NONE";
   else if (/^NEW/i.test(baseRaw)) out.base = "NEW";
 
-  const cs = src.search(/<code>/i);
+  // The code block follows <base>; a "<code>" mentioned earlier in prose is not the block.
+  const baseEnd = lower.indexOf("</base>");
+  let cs = lower.indexOf("<code>", baseEnd >= 0 ? baseEnd : 0);
+  if (cs < 0) cs = lower.indexOf("<code>");
   if (cs >= 0) {
     const from = cs + 6;
-    const ce = src.indexOf("</code>", from);
-    out.code = ce >= 0 ? src.slice(from, ce) : src.slice(from);
-    out.codeClosed = ce >= 0;
+    const explainAt = lower.indexOf("<explain>", from);
+    // The block ends at the last </code> before <explain>, so a "</code>" inside the script does not cut it short.
+    let ce = lower.lastIndexOf("</code>", explainAt >= 0 ? explainAt : src.length);
+    if (ce < from) ce = -1;
+    if (ce >= 0) { out.code = src.slice(from, ce); out.codeClosed = true; }
+    else if (explainAt >= 0) { out.code = src.slice(from, explainAt); out.codeClosed = true; } // closing tag forgotten
+    else out.code = src.slice(from);
     if (!out.base) out.base = "NEW";
   }
-  const editsBody = tag(src, "edits");
-  if (editsBody !== null) {
-    const re = /<{5,9} ?FIND[ \t]*\n([\s\S]*?)\n={5,9}[ \t]*\n([\s\S]*?)>{5,9} ?END/g;
-    let m;
-    while ((m = re.exec(editsBody)) !== null) out.edits.push({ find: m[1], replace: m[2].replace(/\n$/, "") });
-    // "=======" directly followed by ">>>>>>> END" (pure deletion) has no newline between them.
-    const reDel = /<{5,9} ?FIND[ \t]*\n([\s\S]*?)\n={5,9}[ \t]*>{5,9} ?END/g;
-    while ((m = reDel.exec(editsBody)) !== null) out.edits.push({ find: m[1], replace: "" });
+  const es = lower.indexOf("<edits>");
+  if (es >= 0) {
+    const ee = lower.indexOf("</edits>", es + 7);
+    const pe = parseEdits(ee >= 0 ? src.slice(es + 7, ee) : src.slice(es + 7));
+    out.edits = pe.edits;
+    out.editsIncomplete = pe.incomplete || ee < 0;
   }
   const ex = tag(src, "explain");
   if (ex !== null) out.explain = ex.trim();
   else {
-    const es = src.search(/<explain>/i);
-    if (es >= 0) out.explain = src.slice(es + 9).replace(/<\/nexus>\s*$/i, "").trim();
+    const xs = lower.indexOf("<explain>");
+    if (xs >= 0) out.explain = src.slice(xs + 9).replace(/<\/nexus>\s*$/i, "").trim();
   }
-  if (!out.base && !out.code && !out.edits.length) {
+  if (!out.base && out.code === null && !out.edits.length) {
     // The model ignored the protocol. Accept a fenced Pine block as a NEW script, otherwise treat it as plain text.
     const f = /```(?:pine|pinescript)?[ \t]*\n([\s\S]*?)(?:```|$)/.exec(src);
     if (f && /\/\/@version=/.test(f[1])) { out.base = "NEW"; out.code = f[1]; out.codeClosed = /```\s*$/.test(src.slice(f.index + 3)); out.explain = src.replace(f[0], "").trim(); }
@@ -59,51 +85,82 @@ export function parseReply(text) {
 
 // ---------- edits ----------
 
-const rtrimLines = (s) => String(s).replace(/\r\n?/g, "\n").split("\n").map((l) => l.replace(/[ \t]+$/, "")).join("\n");
+const toLines = (s) => String(s).replace(/\r\n?/g, "\n").split("\n").map(rtrimLine);
+const indentOf = (l) => { let i = 0; while (i < l.length && l[i] === " ") i++; return i; };
 
-function countOccurrences(hay, needle) {
-  if (!needle) return 0;
-  let n = 0, i = 0;
-  while ((i = hay.indexOf(needle, i)) !== -1) { n++; i += needle.length; }
-  return n;
+function findBlock(lines, block, loose) {
+  const want = loose ? block.map((l) => l.trim()) : block;
+  const hits = [];
+  for (let i = 0; i + want.length <= lines.length; i++) {
+    let ok = true;
+    for (let j = 0; j < want.length; j++) { if ((loose ? lines[i + j].trim() : lines[i + j]) !== want[j]) { ok = false; break; } }
+    if (ok) { hits.push(i); if (hits.length > 8) break; }
+  }
+  return hits;
 }
 
-// Applies search/replace edits in order. An edit must match exactly once; otherwise it is reported, not guessed.
+/**
+ * Applies search/replace edits in order. FIND must match whole lines exactly once (first as written, then ignoring
+ * indentation); a single-line FIND may also match one unique piece of a line. Anything else is reported, not guessed.
+ */
 export function applyEdits(base, edits) {
-  let code = rtrimLines(base);
+  const lines = toLines(base);
   const failed = [];
   let applied = 0;
   for (let k = 0; k < edits.length; k++) {
-    const find = rtrimLines(edits[k].find).replace(/^\n+|\n+$/g, "");
-    const replace = rtrimLines(edits[k].replace).replace(/\n+$/g, "");
-    if (!find.trim()) { failed.push({ index: k, reason: "empty FIND block", find }); continue; }
-    let n = countOccurrences(code, find);
-    if (n === 1) { code = code.replace(find, () => replace); applied++; continue; }
-    if (n > 1) { failed.push({ index: k, reason: `FIND text appears ${n} times; include more surrounding lines so it is unique`, find }); continue; }
-    // Not found verbatim: retry ignoring indentation differences, line by line.
-    const fl = find.split("\n").map((l) => l.trim());
-    const cl = code.split("\n");
-    const hits = [];
-    for (let i = 0; i + fl.length <= cl.length; i++) {
-      let ok = true;
-      for (let j = 0; j < fl.length; j++) { if (cl[i + j].trim() !== fl[j]) { ok = false; break; } }
-      if (ok) hits.push(i);
-    }
+    const find = toLines(edits[k].find);
+    while (find.length && !find[0].trim()) find.shift();
+    while (find.length && !find[find.length - 1].trim()) find.pop();
+    const rep = edits[k].replace ? toLines(edits[k].replace) : [];
+    while (rep.length && !rep[rep.length - 1].trim()) rep.pop();
+    const fail = (reason) => failed.push({ index: k, reason, find: find.join("\n"), replace: rep.join("\n") });
+    if (!find.length) { fail("empty FIND block"); continue; }
+
+    let hits = findBlock(lines, find, false);
+    let loose = false;
+    if (!hits.length) { hits = findBlock(lines, find, true); loose = true; }
+    if (hits.length > 1) { fail(`FIND text appears ${hits.length > 8 ? "many" : hits.length} times; include more surrounding lines so it is unique`); continue; }
     if (hits.length === 1) {
-      // Re-indent the replacement to the block it replaces when the model dropped the indentation.
-      const baseIndent = /^[ ]*/.exec(cl[hits[0]])[0];
-      const repLines = replace.length ? replace.split("\n") : [];
-      const findIndent = /^[ ]*/.exec(edits[k].find.replace(/^\n+/, "").split("\n")[0] || "")[0];
-      const shift = baseIndent.length - findIndent.length;
-      const fixed = shift > 0 ? repLines.map((l) => (l.length ? " ".repeat(shift) + l : l)) : shift < 0 ? repLines.map((l) => (l.startsWith(" ".repeat(-shift)) ? l.slice(-shift) : l)) : repLines;
-      cl.splice(hits[0], fl.length, ...fixed);
-      code = cl.join("\n");
+      let out = rep;
+      if (loose) {
+        // The model dropped (or added) indentation consistently: shift the replacement to the block it replaces.
+        const shift = indentOf(lines[hits[0]]) - indentOf(find[0]);
+        const firstRep = rep.find((l) => l.trim());
+        if (shift !== 0 && firstRep !== undefined && indentOf(firstRep) === indentOf(find[0])) {
+          out = rep.map((l) => (shift > 0 ? (l.length ? " ".repeat(shift) + l : l) : l.startsWith(" ".repeat(-shift)) ? l.slice(-shift) : l));
+        }
+      }
+      lines.splice(hits[0], find.length, ...out);
       applied++;
       continue;
     }
-    failed.push({ index: k, reason: hits.length > 1 ? `FIND text appears ${hits.length} times; include more surrounding lines` : "FIND text not found in the script (copy the lines exactly as they are)", find });
+    // A single-line FIND that is one unique piece of a line (bounded by non-identifier characters).
+    if (find.length === 1 && rep.length <= 1) {
+      const needle = find[0].trim();
+      const isWord = (ch) => ch !== undefined && /[\w.]/.test(ch);
+      let at = -1, col = -1, n = 0;
+      for (let i = 0; i < lines.length && n < 2; i++) {
+        for (let c = lines[i].indexOf(needle); c >= 0 && n < 2; c = lines[i].indexOf(needle, c + needle.length)) {
+          if (isWord(lines[i][c - 1]) && /[\w.]/.test(needle[0])) continue;
+          if (isWord(lines[i][c + needle.length]) && /\w/.test(needle[needle.length - 1])) continue;
+          n++; at = i; col = c;
+        }
+      }
+      if (n === 1) { lines[at] = lines[at].slice(0, col) + (rep[0] || "").trim() + lines[at].slice(col + needle.length); applied++; continue; }
+      if (n > 1) { fail("FIND text appears several times; copy the whole line and its neighbours so it is unique"); continue; }
+    }
+    fail("FIND text not found in the script (copy the lines exactly as they are)");
   }
-  return { code, applied, failed };
+  return { code: lines.join("\n"), applied, failed };
+}
+
+// True when the change a failed edit asked for is visible in `codeLines` (a Set of trimmed lines).
+function editIsPresent(edit, codeLines) {
+  if (edit.synthetic) return false;
+  const rep = String(edit.replace || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  if (rep.length) return rep.every((l) => codeLines.has(l));
+  const first = String(edit.find || "").split("\n").map((l) => l.trim()).find(Boolean);
+  return first ? !codeLines.has(first) : true; // a deletion: its first line is gone
 }
 
 // ---------- prompts ----------
@@ -112,14 +169,15 @@ const clip = (s, n) => (s.length > n ? s.slice(0, n) + "\n[... truncated ...]" :
 
 function historyToMessages(history) {
   const msgs = [];
-  for (const m of history || []) {
+  for (const m of (history || []).slice(-24)) {
     const role = m.role === "assistant" ? "assistant" : "user";
     let text = "";
     if (typeof m.content === "string") text = m.content;
     else if (Array.isArray(m.content)) text = m.content.filter((b) => b && b.type === "text").map((b) => b.text).join("\n");
     text = clip(String(text || "").trim(), 3000);
     if (!text) continue;
-    if (msgs.length && msgs[msgs.length - 1].role === role) msgs[msgs.length - 1].content += "\n\n" + text;
+    // Same-role turns are merged (the API needs alternating roles); the merged turn stays bounded.
+    if (msgs.length && msgs[msgs.length - 1].role === role) msgs[msgs.length - 1].content = clip(msgs[msgs.length - 1].content + "\n\n" + text, 6000);
     else msgs.push({ role, content: text });
   }
   // The API needs the conversation to start with a user turn.
@@ -131,6 +189,19 @@ function scriptBlock(code) {
   return "CURRENT SCRIPT:\n```pine\n" + code.trimEnd() + "\n```";
 }
 
+// Attachments are rebuilt from validated fields: only inline base64 images and PDFs of a bounded size reach the
+// model API (no URLs, no extra options).
+const IMAGE_TYPES = /^image\/(?:jpeg|png|webp|gif)$/;
+const MAX_IMAGE_B64 = 2_000_000; // ~1.5 MB
+const MAX_PDF_B64 = 1_500_000; // ~1.1 MB
+export function safeAttachment(b) {
+  const s = b && b.source;
+  if (!s || s.type !== "base64" || typeof s.data !== "string" || typeof s.media_type !== "string") return null;
+  if (b.type === "image" && IMAGE_TYPES.test(s.media_type) && s.data.length <= MAX_IMAGE_B64) return { type: "image", source: { type: "base64", media_type: s.media_type, data: s.data } };
+  if (b.type === "document" && s.media_type === "application/pdf" && s.data.length <= MAX_PDF_B64) return { type: "document", source: { type: "base64", media_type: "application/pdf", data: s.data } };
+  return null;
+}
+
 // Builds the message list for a first-pass request.
 export function buildMessages({ mode, lang, history, userContent, currentCode, tvError, check }) {
   const prior = historyToMessages(history);
@@ -138,37 +209,44 @@ export function buildMessages({ mode, lang, history, userContent, currentCode, t
   if (prior.length && prior[prior.length - 1].role === "user") prior.pop(); // never two user turns in a row
   const blocks = [];
   let text = "";
+  let pdfs = 0;
   if (Array.isArray(userContent)) {
     for (const b of userContent) {
       if (!b) continue;
-      if (b.type === "text") text += (text ? "\n" : "") + b.text;
-      else if ((b.type === "image" || b.type === "document") && blocks.length < 4) blocks.push(b);
+      if (b.type === "text") text += (text ? "\n" : "") + String(b.text || "");
+      else if (blocks.length < 3) {
+        const a = safeAttachment(b);
+        if (a && (a.type !== "document" || ++pdfs <= 1)) blocks.push(a);
+      }
     }
   } else text = String(userContent || "");
   const parts = [modeInstructions(mode, lang)];
   if (currentCode) parts.push(scriptBlock(currentCode));
   if (mode === "fix" && tvError) parts.push("TRADINGVIEW REPORTED (copied by the user from the Pine Editor):\n" + clip(String(tvError).trim(), 2500));
   // Findings on the current script are useful in every mode: an edit request should not leave them behind.
-  if (currentCode && check && (!check.clean || (mode === "fix" && check.shouldFix.length))) parts.push("AUTOMATIC CHECKER FINDINGS for the current script (fix these too):\n" + describeDiagnostics(check));
+  if (currentCode && check && (check.errors.length || check.mustFix.length || (mode === "fix" && check.shouldFix.length))) parts.push("AUTOMATIC CHECKER FINDINGS for the current script (fix these too):\n" + describeDiagnostics(check));
   parts.push("USER REQUEST:\n" + (clip(text.trim(), 12000) || (mode === "fix" ? "Fix the script." : "Design an indicator from the attachment.")));
   blocks.push({ type: "text", text: parts.join("\n\n") });
   return prior.concat([{ role: "user", content: blocks }]);
 }
 
-function repairMessages({ lang, request, code, check, failedEdits }) {
+function repairMessages({ lang, request, code, check, pending }) {
   const parts = [modeInstructions("repair", lang)];
   parts.push("WHAT THE USER ASKED FOR (context only):\n" + clip(request || "(no text)", 1500));
   parts.push(scriptBlock(code));
-  if (failedEdits && failedEdits.length) {
-    parts.push("YOUR PREVIOUS EDITS THAT COULD NOT BE APPLIED (redo them against the CURRENT SCRIPT above):\n" + failedEdits.slice(0, 6).map((f) => `- ${f.reason}:\n${clip(f.find, 400)}`).join("\n"));
+  const real = pending.filter((f) => !f.synthetic);
+  if (real.length) {
+    parts.push("YOUR PREVIOUS EDITS THAT COULD NOT BE APPLIED (redo them against the CURRENT SCRIPT above):\n" + real.slice(0, 6).map((f) => `- ${f.reason}:\n${clip(f.find, 400)}${f.replace ? "\n  wanted instead:\n" + clip(f.replace, 400) : "\n  (the lines were to be deleted)"}`).join("\n"));
   }
+  if (pending.some((f) => f.synthetic)) parts.push("YOUR PREVIOUS REPLY WAS CUT OFF before all edits were written. Compare the CURRENT SCRIPT with what the user asked for and send the edits that are still missing.");
   if (check.errors.length || check.mustFix.length || check.shouldFix.length) parts.push("CHECKER FINDINGS:\n" + describeDiagnostics(check));
   return [{ role: "user", content: [{ type: "text", text: parts.join("\n\n") }] }];
 }
 
 // ---------- pipeline ----------
 
-function scoreOf(check, failedEdits) { return check.errors.length * 100 + (failedEdits ? failedEdits.length : 0) * 10 + check.mustFix.length; }
+// Lower is better. Should-fix findings only break ties, so a round that clears them can be adopted.
+function scoreOf(check, pending) { return check.errors.length * 100 + pending.length * 10 + check.mustFix.length + check.shouldFix.length * 0.01; }
 
 function fileNameFor(parsed, fallback) {
   let f = parsed.file || fallback || "nexus_indicator.pine";
@@ -176,16 +254,19 @@ function fileNameFor(parsed, fallback) {
   return f;
 }
 
+function abortError() { const e = new Error("The request was cancelled."); e.name = "AbortError"; return e; }
+
 /**
  * Runs one request.
- * opts: { mode: "build"|"fix", lang, history, userContent, currentCode, currentFile, tvError, callModel, emit, deadline, maxRounds }
- * callModel({ messages, effort, onText }) -> { text, stopReason, usage, model }
+ * opts: { mode: "build"|"fix", lang, history, userContent, currentCode, currentFile, tvError, callModel, emit, deadline, maxRounds, signal }
+ * callModel({ messages, effort, maxTokens, onText, onThinking }) -> { text, stopReason, usage, model }
  * emit(event) receives stage / code / explain events for the UI.
  */
 export async function runPipeline(opts) {
   const emit = opts.emit || (() => {});
   const maxRounds = opts.maxRounds ?? MAX_REPAIR_ROUNDS;
   const timeLeft = () => (opts.deadline ? opts.deadline - Date.now() : Infinity);
+  const checkAbort = () => { if (opts.signal && opts.signal.aborted) throw abortError(); };
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, calls: 0 };
   const addUsage = (u) => { if (!u) return; usage.calls++; usage.input += u.input || 0; usage.output += u.output || 0; usage.cacheRead += u.cacheRead || 0; usage.cacheWrite += u.cacheWrite || 0; };
 
@@ -196,6 +277,7 @@ export async function runPipeline(opts) {
   else requestText = String(opts.userContent || "");
 
   // ---- pass 1: the model's answer ----
+  checkAbort();
   emit({ t: "stage", id: "write" });
   const streamer = makeStreamer(emit);
   let thinkingAnnounced = false;
@@ -207,32 +289,47 @@ export async function runPipeline(opts) {
   });
   addUsage(first.usage);
   let parsed = parseReply(first.text);
-  let modelUsed = first.model;
+  const modelUsed = first.model;
 
   if (first.stopReason === "refusal") {
     return { kind: "text", explain: opts.lang === "en" ? "I can't help with that request. Describe the TradingView indicator you want and I'll build it." : "ما بقدر ساعد بهالطلب. وصّفلي مؤشر TradingView اللي بدك ياه وببنيه.", usage, model: modelUsed };
   }
+  if (!String(first.text || "").trim()) { const e = new Error("empty reply"); e.kind = "empty"; throw e; }
 
-  // Truncated NEW script: ask once for the remainder.
-  if (parsed.base === "NEW" && parsed.code !== null && !parsed.codeClosed && first.stopReason === "max_tokens" && timeLeft() > 40000) {
-    emit({ t: "stage", id: "continue" });
-    const cont = await opts.callModel({
-      messages: [{ role: "user", content: [{ type: "text", text: "Your previous reply was cut off by the length limit. Below is the script as far as it got. Continue it from exactly where it stops: output ONLY the remaining lines (no repetition of what is already written), then close with </code>, an <explain> block in the user's language, and </nexus>.\n\n<code>\n" + parsed.code + "" }] }],
-      effort: "low",
-      onText: () => {},
-    });
-    addUsage(cont.usage);
-    const rest = cont.text.replace(/^[\s\S]*?<code>\n?/i, "");
-    const merged = "<nexus><base>NEW</base><title>" + parsed.title + "</title><file>" + parsed.file + "</file><code>" + parsed.code + (rest.startsWith("\n") || parsed.code.endsWith("\n") ? "" : "\n") + rest;
-    const p2 = parseReply(merged.includes("</code>") ? merged : merged + "</code>");
-    if (p2.code) parsed = { ...p2, title: parsed.title || p2.title, file: parsed.file || p2.file };
+  // Truncated NEW script: ask once for the remainder, from the last complete line.
+  let codeTruncated = false;
+  if (parsed.base === "NEW" && parsed.code !== null && !parsed.codeClosed && first.stopReason === "max_tokens") {
+    codeTruncated = true;
+    if (timeLeft() > 40000) {
+      checkAbort();
+      emit({ t: "stage", id: "continue" });
+      const cut = parsed.code.lastIndexOf("\n");
+      const head = cut >= 0 ? parsed.code.slice(0, cut + 1) : "";
+      const cont = await opts.callModel({
+        messages: [{ role: "user", content: [{ type: "text", text: "Your previous reply was cut off by the length limit. Below is the script up to its last complete line. Continue it: output ONLY the lines that come next, starting with a whole new line (do not repeat anything already written), then close with </code>, an <explain> block in the user's language, and </nexus>.\n\n<code>\n" + head }] }],
+        effort: "low",
+        maxTokens: 16000,
+        onText: () => {},
+      });
+      addUsage(cont.usage);
+      const rest = cont.text.replace(/\r\n?/g, "\n").replace(/^[\s\S]*?<code>\n?/i, "").replace(/^\n+/, "");
+      const merged = "<nexus><base>NEW</base><title>" + parsed.title + "</title><file>" + parsed.file + "</file><code>" + head + rest;
+      const p2 = parseReply(merged);
+      if (p2.code !== null && p2.codeClosed && cont.stopReason !== "max_tokens") { parsed = { ...p2, title: parsed.title || p2.title, file: parsed.file || p2.file }; codeTruncated = false; }
+    }
   }
 
+  const hasCode = parsed.code !== null && parsed.code.trim() !== "";
+  const editsCutOff = parsed.editsIncomplete && first.stopReason === "max_tokens";
   const noScript = parsed.base === "NONE"
-    || (parsed.base === "NEW" && parsed.code === null)
-    || (parsed.base === "CURRENT" && parsed.code === null && !parsed.edits.length)
-    || (parsed.base === "CURRENT" && !current && parsed.code === null);
-  if (noScript) return { kind: "text", explain: parsed.explain || first.text.replace(/<[^>]+>/g, "").trim(), usage, model: modelUsed };
+    || (parsed.base === "NEW" && !hasCode)
+    || (parsed.base === "CURRENT" && !hasCode && !parsed.edits.length && !editsCutOff)
+    || (parsed.base === "CURRENT" && !current && !hasCode);
+  if (noScript) {
+    const explain = parsed.explain || first.text.replace(/<[^>]+>/g, "").trim();
+    if (!explain) { const e = new Error("empty reply"); e.kind = "empty"; throw e; }
+    return { kind: "text", explain, usage, model: modelUsed };
+  }
 
   // ---- materialise the script ----
   let baseCode = "";
@@ -245,54 +342,71 @@ export async function runPipeline(opts) {
   } else if (parsed.base === "CURRENT") baseCode = current;
 
   let code = "";
-  let failedEdits = [];
-  if (parsed.code !== null && (parsed.base === "NEW" || !baseCode)) code = sanitizeCode(parsed.code);
-  else {
+  let pending = []; // changes that were asked for but are not in the script yet
+  // A full script in <code> wins when there are no edits, whatever <base> says (the model rewrote instead of editing).
+  if (hasCode && (parsed.base === "NEW" || !baseCode || !parsed.edits.length)) {
+    code = sanitizeCode(parsed.code);
+    if (codeTruncated) pending.push({ synthetic: true, reason: "the script was cut off by the length limit" });
+  } else {
     const r = applyEdits(baseCode, parsed.edits);
     code = sanitizeCode(r.code);
-    failedEdits = r.failed;
+    pending = r.failed;
+    // Edits cut off by the length limit: what was written is applied, the rest is still owed.
+    if (editsCutOff) pending.push({ synthetic: true, reason: "the reply was cut off before all edits were written" });
   }
   if (!code.trim()) {
     return { kind: "text", explain: parsed.explain || (opts.lang === "en" ? "I could not produce a script for that. Please describe the indicator again." : "ما قدرت اطلّع سكربت لهالطلب. وصّفلي المؤشر مرة تانية."), usage, model: modelUsed };
   }
 
   let check = checkPine(code);
-  let best = { code: check.code, check, failedEdits };
+  let best = { code: check.code, check, pending };
   emit({ t: "stage", id: "check", errors: check.errors.length, warnings: check.mustFix.length, round: 0 });
 
   // ---- repair loop ----
   let rounds = 0;
+  let fixed = 0; // rounds whose result was adopted
   let shouldFixTried = false;
   let stagnant = 0;
-  const history = [{ round: 0, errors: check.errors.length, mustFix: check.mustFix.length, failedEdits: failedEdits.length }];
+  const history = [{ round: 0, errors: check.errors.length, mustFix: check.mustFix.length, failedEdits: pending.length }];
   while (rounds < maxRounds && timeLeft() > 25000) {
-    const needs = !check.clean || failedEdits.length > 0 || (!shouldFixTried && check.shouldFix.length > 0);
-    if (!needs) break;
-    if (check.clean && !failedEdits.length) shouldFixTried = true;
+    const fixable = check.errors.length > 0 || check.mustFix.length > 0 || pending.length > 0;
+    if (!fixable && (shouldFixTried || !check.shouldFix.length)) break;
+    if (!fixable) shouldFixTried = true;
+    checkAbort();
     rounds++;
     emit({ t: "stage", id: "fix", round: rounds, errors: check.errors.length, warnings: check.mustFix.length });
     let rep;
     try {
-      rep = await opts.callModel({ messages: repairMessages({ lang: opts.lang, request: requestText, code: check.code, check, failedEdits }), effort: "medium", onText: () => {} });
-    } catch (e) { history.push({ round: rounds, error: String((e && e.message) || e) }); break; }
+      rep = await opts.callModel({ messages: repairMessages({ lang: opts.lang, request: requestText, code: check.code, check, pending }), effort: "medium", maxTokens: 12000, onText: () => {} });
+    } catch (e) {
+      if (e && e.name === "AbortError" && opts.signal && opts.signal.aborted) throw e;
+      history.push({ round: rounds, error: String((e && e.message) || e).slice(0, 200) });
+      break;
+    }
     addUsage(rep.usage);
     const rp = parseReply(rep.text);
-    let next = check.code;
+    const cutOff = rep.stopReason === "max_tokens";
+    let next = null;
     let nextFailed = [];
-    if (rp.code !== null && rp.base === "NEW") next = sanitizeCode(rp.code);
+    // A rewritten script is only usable when it arrived whole.
+    if (rp.code !== null && rp.code.trim() && (rp.base === "NEW" || !rp.edits.length)) { if (rp.codeClosed && !cutOff) next = sanitizeCode(rp.code); }
     else if (rp.edits.length) { const r = applyEdits(check.code, rp.edits); next = sanitizeCode(r.code); nextFailed = r.failed; }
-    else { history.push({ round: rounds, note: "no edits returned" }); break; }
+    if (next === null) { history.push({ round: rounds, note: cutOff ? "reply cut off" : "no usable edits returned" }); stagnant++; if (stagnant >= 2) break; continue; }
     const nextCheck = checkPine(next);
-    history.push({ round: rounds, errors: nextCheck.errors.length, mustFix: nextCheck.mustFix.length, failedEdits: nextFailed.length });
+    // Earlier failed edits stay owed until their change shows up in the script.
+    const lineSet = new Set(nextCheck.code.split("\n").map((l) => l.trim()));
+    const nextPending = pending.filter((e) => (e.synthetic ? cutOff : !editIsPresent(e, lineSet))).concat(nextFailed);
+    history.push({ round: rounds, errors: nextCheck.errors.length, mustFix: nextCheck.mustFix.length, failedEdits: nextPending.length });
     emit({ t: "stage", id: "check", errors: nextCheck.errors.length, warnings: nextCheck.mustFix.length, round: rounds });
-    if (scoreOf(nextCheck, nextFailed) < scoreOf(best.check, best.failedEdits)) {
-      best = { code: nextCheck.code, check: nextCheck, failedEdits: nextFailed };
+    if (scoreOf(nextCheck, nextPending) < scoreOf(best.check, best.pending)) {
+      best = { code: nextCheck.code, check: nextCheck, pending: nextPending };
+      fixed++;
       stagnant = 0;
     } else stagnant++;
     if (stagnant >= 2) break;
     // Always continue from the best version seen so far.
     check = best.check;
-    failedEdits = best.failedEdits;
+    pending = best.pending;
   }
 
   const final = best;
@@ -305,7 +419,7 @@ export async function runPipeline(opts) {
     title: parsed.title || (template ? template.title.en : ""),
     explain,
     base: template && baseKind === "TEMPLATE" ? "template:" + template.id : baseKind === "CURRENT" ? "edit" : "new",
-    report: { ...summarizeCheck(final.check), rounds, history, unappliedEdits: final.failedEdits.length, verified: final.check.clean && final.failedEdits.length === 0 },
+    report: { ...summarizeCheck(final.check), rounds, fixed, history, unappliedEdits: final.pending.length, verified: final.check.clean && final.pending.length === 0 },
     usage,
     model: modelUsed,
   };
@@ -332,9 +446,10 @@ export function makeStreamer(emit) {
       if (c && c.to - c.from > codeSent) { const d = buf.slice(c.from + codeSent, c.to); codeSent += d.length; if (d) emit({ t: "code", d }); }
       const x = section("<explain>", "</explain>");
       if (x && x.to - x.from > explainSent) { const d = buf.slice(x.from + explainSent, x.to); explainSent += d.length; if (d) emit({ t: "explain", d }); }
-      if (!c && !x) {
-        const b = /<base>\s*(TEMPLATE\s*:\s*\w+|CURRENT)/i.exec(buf);
-        if (b && !announced) { announced = true; emit({ t: "stage", id: /CURRENT/i.test(b[1]) ? "edit" : "template", template: /TEMPLATE/i.test(b[1]) ? b[1].split(":")[1].trim().toLowerCase() : undefined }); }
+      if (!c && !x && !announced) {
+        // Wait for the closing "<" so a template id is never announced half-written.
+        const b = /<base>\s*(TEMPLATE\s*:\s*\w+|CURRENT)\s*</i.exec(buf);
+        if (b) { announced = true; emit({ t: "stage", id: /CURRENT/i.test(b[1]) ? "edit" : "template", template: /TEMPLATE/i.test(b[1]) ? b[1].split(":")[1].trim().toLowerCase() : undefined }); }
       }
     },
     text: () => buf,

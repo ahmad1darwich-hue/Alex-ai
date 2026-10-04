@@ -1,6 +1,8 @@
 // Brain — general assistant (Vercel EDGE function, streaming).
 // Edge + streaming avoids the 10s serverless cap, so long answers finish.
 // Can fetch live prices (gold/silver/crypto) before answering. Uses env ANTHROPIC_API_KEY.
+// Private: every request must carry the owner's key (see _brain/lock.js).
+import { brainAuth, lockedReply } from "./_brain/lock.js";
 export const config = { runtime: "edge" };
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-4-5";
@@ -74,12 +76,15 @@ function mapMessages(history) {
 }
 function textOf(c) { if (typeof c === "string") return c; if (Array.isArray(c)) return c.filter(b => b && b.type === "text").map(b => b.text).join(" "); return ""; }
 
-function jsonResp(obj) { return new Response(JSON.stringify(obj), { headers: { "content-type": "application/json" } }); }
+function jsonResp(obj, status) { return new Response(JSON.stringify(obj), { status: status || 200, headers: { "content-type": "application/json", "cache-control": "no-store" } }); }
 
 export default async function handler(req) {
   const key = process.env.ANTHROPIC_API_KEY;
-  if (req.method === "GET") return jsonResp({ ok: true, hasKey: !!key, model: MODEL, streaming: true });
+  const auth = brainAuth(req.headers.get("x-brain-key"));
+  // The status call tells the page whether this device is activated; it reveals nothing else to other callers.
+  if (req.method === "GET") return jsonResp(auth === "ok" ? { ok: true, auth, hasKey: !!key, model: MODEL, streaming: true } : { ok: true, auth });
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
+  if (auth !== "ok") return jsonResp({ locked: true, reply: lockedReply(auth) }, auth === "unset" ? 503 : 401);
 
   let body = {};
   try { body = await req.json(); } catch (e) {}

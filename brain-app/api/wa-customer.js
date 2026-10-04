@@ -10,6 +10,10 @@
 //   WA_BIZ_VERIFY_TOKEN - any secret string; enter the SAME value in Meta's webhook config
 // Optional:
 //   BRAIN_MODEL         - overrides the model (default claude-sonnet-4-5)
+//   WA_BIZ_APP_SECRET   - the Meta app secret of the business app (falls back to WA_APP_SECRET; required): calls
+//                         that are not signed by Meta are ignored.
+// Without WA_BIZ_TOKEN, WA_BIZ_PHONE_ID and the app secret the bot is off: nothing is sent to the model.
+import { metaSignatureOk } from "./_brain/lock.js";
 export const config = { runtime: "edge" };
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-4-5";
@@ -89,8 +93,15 @@ export default async function handler(req) {
   if (req.method === "GET") return verify(req);
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
 
+  // Not configured: the bot cannot answer anyone, so no model call is made for whoever posts here.
+  const secret = (process.env.WA_BIZ_APP_SECRET || process.env.WA_APP_SECRET || "").trim();
+  if (!process.env.WA_BIZ_TOKEN || !process.env.WA_BIZ_PHONE_ID || !secret) return jsonResp({ ok: true, off: true });
+  let raw = "";
+  try { raw = await req.text(); } catch (e) {}
+  if (raw.length > 200000 || !(await metaSignatureOk(raw, req.headers.get("x-hub-signature-256"), secret))) return jsonResp({ ok: true, ignored: "signature" });
   let body = {};
-  try { body = await req.json(); } catch (e) {}
+  try { body = JSON.parse(raw); } catch (e) {}
+  if (!body || typeof body !== "object") body = {};
   try {
     const key = process.env.ANTHROPIC_API_KEY;
     const entry = (body.entry && body.entry[0]) || {};

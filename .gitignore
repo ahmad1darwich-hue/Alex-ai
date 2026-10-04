@@ -5,3 +5,4 @@ data/alex-ai.db
 data/uploads
 .DS_Store
 .env
+data/*.db*

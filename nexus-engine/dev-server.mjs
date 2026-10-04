@@ -1,10 +1,11 @@
 // Local development server for the Nexus pages and engine.
 //   node nexus-engine/dev-server.mjs            -> http://localhost:8787  (model calls are simulated)
 //   ANTHROPIC_API_KEY=... node nexus-engine/dev-server.mjs   -> real model calls
-// Pages: /            Nexus site (indicator-build)        /indicators   Brain Indicators
-// API:   /api/indicator and /api/nexus (same engine as production)
+// Pages: /            Nexus site (indicator-build)        /indicators   Brain Indicators      /brain   Brain (private app)
+// API:   /api/indicator and /api/nexus (same engine as production); /api/agent and /api/email (Brain, need the owner key)
 import http from "node:http";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -39,7 +40,8 @@ if (SIMULATED) {
     if (rep.status) return new Response(JSON.stringify(rep.body), { status: rep.status });
     const enc = new TextEncoder();
     const ev = (o) => enc.encode("event: x\ndata: " + JSON.stringify(o) + "\n\n");
-    const speed = Number(process.env.SIM_SPEED || 1);
+    // "sim:slow" in the request keeps one call slow (for testing Stop and other mid-request actions) whatever SIM_SPEED is.
+    const speed = /sim:slow/.test(prompt) ? 0.5 : Number(process.env.SIM_SPEED || 1);
     const stream = new ReadableStream({
       async start(c) {
         const wait = (ms) => new Promise((r) => setTimeout(r, ms / speed));
@@ -56,13 +58,32 @@ if (SIMULATED) {
 }
 
 const { handle } = await import("../brain-app/api/_nexus/handler.js");
+// Brain's private endpoints, locked with a development key (printed at start).
+if (!process.env.BRAIN_KEY) process.env.BRAIN_KEY = crypto.randomBytes(24).toString("base64url");
+const { default: brainAgent } = await import("../brain-app/api/agent.js");
+let brainEmail = null;
+try { ({ default: brainEmail } = await import("../brain-app/api/email.js")); } catch (e) { /* imapflow is not installed locally */ }
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json" };
 const pages = {
   "/": () => fs.readFileSync(path.join(root, "indicator-build", "index.html"), "utf8").replace(/https:\/\/brain-ahmad-93cb\.vercel\.app\/api\/indicator/g, "/api/indicator"),
   "/indicators": () => fs.readFileSync(path.join(root, "brain-app", "indicators.html"), "utf8"),
   "/nexus-next": () => fs.readFileSync(path.join(root, "brain-app", "nexus-next.html"), "utf8"),
+  "/brain": () => fs.readFileSync(path.join(root, "brain-app", "index.html"), "utf8"),
 };
+
+// The Nexus page is served with the same headers as production (indicator-build/vercel.json). The script hashes of
+// the policy are recomputed here because the local copy of the page calls the local API.
+function nexusHeaders(html) {
+  const out = {};
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, "indicator-build", "vercel.json"), "utf8"));
+    for (const h of cfg.headers[0].headers) out[h.key.toLowerCase()] = h.value;
+    const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => "'sha256-" + crypto.createHash("sha256").update(m[1], "utf8").digest("base64") + "'");
+    if (out["content-security-policy"]) out["content-security-policy"] = out["content-security-policy"].replace(/script-src [^;]*/, "script-src " + hashes.join(" "));
+  } catch (e) {}
+  return out;
+}
 
 http.createServer(async (req, res) => {
   try {
@@ -76,8 +97,22 @@ http.createServer(async (req, res) => {
       if (response.body) { const reader = response.body.getReader(); for (;;) { const { done, value } = await reader.read(); if (done) break; res.write(value); } }
       return res.end();
     }
+    if (url.pathname === "/api/agent") {
+      const chunks = [];
+      for await (const ch of req) chunks.push(ch);
+      const response = await brainAgent(new Request(url, { method: req.method, headers: req.headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : Buffer.concat(chunks) }));
+      res.writeHead(response.status, Object.fromEntries(response.headers));
+      if (response.body) { const reader = response.body.getReader(); for (;;) { const { done, value } = await reader.read(); if (done) break; res.write(value); } }
+      return res.end();
+    }
+    if (url.pathname === "/api/email" && brainEmail) return await brainEmail(req, res);
     const page = pages[url.pathname.replace(/\.html$/, "")];
-    if (page) { const html = page(); res.writeHead(200, { "content-type": TYPES[".html"], etag: '"' + html.length + '"' }); return res.end(req.method === "HEAD" ? undefined : html); }
+    if (page) {
+      const html = page();
+      const etag = '"' + crypto.createHash("sha1").update(html).digest("hex").slice(0, 16) + '"';
+      res.writeHead(200, { ...(url.pathname === "/" ? nexusHeaders(html) : {}), "content-type": TYPES[".html"], etag });
+      return res.end(req.method === "HEAD" ? undefined : html);
+    }
     res.writeHead(404, { "content-type": "text/plain" }); res.end("not found");
   } catch (e) { res.writeHead(500, { "content-type": "text/plain" }); res.end(String((e && e.stack) || e)); }
-}).listen(PORT, () => console.log(`Nexus dev server on http://localhost:${PORT} (${SIMULATED ? "simulated model" : "real model"})`));
+}).listen(PORT, "127.0.0.1", () => console.log(`Nexus dev server on http://localhost:${PORT} (${SIMULATED ? "simulated model" : "real model"})\nBrain: http://localhost:${PORT}/brain#key=${process.env.BRAIN_KEY}`));

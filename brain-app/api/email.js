@@ -9,7 +9,9 @@
 //   EMAIL_SINCE_DAYS    - how far back (default 7)
 //   EMAIL_MAX           - max emails to read (default 20)
 //   BRAIN_MODEL         - model (default claude-sonnet-4-5)
+// Private: every request must carry the owner's key (see _brain/lock.js).
 import { ImapFlow } from "imapflow";
+import { brainAuth, lockedReply } from "./_brain/lock.js";
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-4-5";
 const ANTHROPIC = "https://api.anthropic.com/v1/messages";
@@ -22,13 +24,16 @@ const SYSTEM = `You are Brain, doing a quick WORK EMAIL check-up for Ahmad's lan
 - Collapse newsletters/promos into one line: "+N نشرات/إعلانات تجاهلها".
 - You only see senders + subjects (not full bodies) — say "حسب العنوان" when guessing. Keep it tight, no fluff.`;
 
-function send(res, obj) { res.setHeader("content-type", "application/json; charset=utf-8"); res.statusCode = 200; res.end(JSON.stringify(obj)); }
+function send(res, obj, status) { res.setHeader("content-type", "application/json; charset=utf-8"); res.setHeader("cache-control", "no-store"); res.statusCode = status || 200; res.end(JSON.stringify(obj)); }
 
 export default async function handler(req, res) {
   const GPASS = process.env.GMAIL_APP_PASSWORD || process.env.APP_PASSWORD;
   const ready = !!(process.env.GMAIL_USER && GPASS);
-  if (req.method === "GET") return send(res, { ok: true, connected: ready });
+  const auth = brainAuth(req.headers["x-brain-key"]);
+  if (req.method === "GET") return send(res, auth === "ok" ? { ok: true, auth, connected: ready } : { ok: true, auth });
   if (req.method !== "POST") { res.statusCode = 405; return res.end("POST only"); }
+  // The inbox is read only for the owner.
+  if (auth !== "ok") return send(res, { locked: true, reply: lockedReply(auth) }, auth === "unset" ? 503 : 401);
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!ready) return send(res, { reply: "📧 الإيميل لسّا مش مربوط ببراين.\nمحتاج إعداد لمرة وحدة: فعّل التحقّق بخطوتين على usws.sydney.w@gmail.com، أنشئ App Password، وحطّه مع الإيميل بإعدادات Vercel (GMAIL_USER و GMAIL_APP_PASSWORD). قلّي \"جهّزنا\" لما تخلّص." });

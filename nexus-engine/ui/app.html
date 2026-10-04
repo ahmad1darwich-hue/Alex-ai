@@ -1,41 +1,41 @@
 <!-- ===================== APP ===================== -->
 <div id="appview"{{APP_ON}}>
 <header>
-<button class="icbtn" id="menu" data-i18n-title="t_menu" title="القائمة" aria-label="Menu">☰</button>
-<div class="logo">∿</div>
+<button class="icbtn" id="menu" type="button" data-i18n-title="t_menu" data-i18n-aria="t_menu" title="القائمة" aria-label="القائمة" aria-expanded="false" aria-controls="drawer">☰</button>
+<div class="logo" aria-hidden="true">∿</div>
 <div class="hbrand"><b>{{BRAND}}</b><small>{{BRAND_SUB}}</small></div>
 <div class="hright">
 <button class="pill" id="langA" type="button">EN</button>
-<button class="pill" id="home" type="button" data-i18n-title="t_home" title="الرئيسية"{{HOME_HIDDEN}}>⌂</button>
+<button class="pill" id="home" type="button" data-i18n-title="t_home" data-i18n-aria="t_home" title="الرئيسية" aria-label="الرئيسية"{{HOME_HIDDEN}}>⌂</button>
 <button class="pill" id="newchat" type="button" data-i18n="btn_new" data-i18n-title="t_new" title="محادثة جديدة">+ جديد</button>
-<div class="status"><span class="dot" id="dot"></span><span id="stat">…</span></div>
+<div class="status"><span class="dot" id="dot" aria-hidden="true"></span><span id="stat">…</span></div>
 </div>
 </header>
 
 <div class="scrim" id="scrim"></div>
-<nav class="drawer" id="drawer" aria-label="Menu">
+<nav class="drawer" id="drawer" data-i18n-aria="t_menu" aria-label="القائمة">
 <h2 data-i18n="dw_title">∿ بناء المؤشرات</h2>
 <div class="dsec"><div class="t" data-i18n="dw_ready">مؤشرات جاهزة ومفحوصة · فورية</div>
 <div id="dwTpl"></div>
 </div>
 <div class="dsec"><div class="t" data-i18n="dw_tools">أدوات</div>
-<button type="button" data-tool="idea"><span class="em">💡</span> <span data-i18n="dw_idea">حوّل فكرتي لمؤشر</span></button>
-<button type="button" data-tool="check"><span class="em">🛠️</span> <span data-i18n="dw_check">افحص وصلّح كودي</span></button>
-<button type="button" data-tool="strategy"><span class="em">🧪</span> <span data-i18n="dw_strat">حوّله لستراتيجي (باك-تست)</span></button>
-<button type="button" data-tool="explain"><span class="em">📖</span> <span data-i18n="dw_explain">اشرحلي الكود</span></button>
-<button type="button" data-tool="image"><span class="em">🖼️</span> <span data-i18n="dw_img">صمّم من صورة</span></button>
-<button type="button" data-tool="file"><span class="em">📎</span> <span data-i18n="dw_upload">ارفع ملف Pine أو مواصفات</span></button>
+<button type="button" data-tool="idea"><span class="em" aria-hidden="true">💡</span> <span data-i18n="dw_idea">حوّل فكرتي لمؤشر</span></button>
+<button type="button" data-tool="check"><span class="em" aria-hidden="true">🛠️</span> <span data-i18n="dw_check">افحص وصلّح كودي</span></button>
+<button type="button" data-tool="strategy"><span class="em" aria-hidden="true">🧪</span> <span data-i18n="dw_strat">حوّله لستراتيجي (باك-تست)</span></button>
+<button type="button" data-tool="explain"><span class="em" aria-hidden="true">📖</span> <span data-i18n="dw_explain">اشرحلي الكود</span></button>
+<button type="button" data-tool="image"><span class="em" aria-hidden="true">🖼️</span> <span data-i18n="dw_img">صمّم من صورة</span></button>
+<button type="button" data-tool="file"><span class="em" aria-hidden="true">📎</span> <span data-i18n="dw_upload">ارفع ملف Pine أو مواصفات</span></button>
 </div>
 <div class="dsec"><div class="t" data-i18n="dw_help">مساعدة</div>
-<button type="button" data-tool="how"><span class="em">❓</span> <span data-i18n="dw_how">كيف بحطّ المؤشر بـ TradingView؟</span></button>
+<button type="button" data-tool="how"><span class="em" aria-hidden="true">❓</span> <span data-i18n="dw_how">كيف بحطّ المؤشر بـ TradingView؟</span></button>
 </div>
-<div class="dnote" data-i18n="dw_note">كل كود بينفحص تلقائياً قبل ما يوصلك. إذا TradingView طلّع خطأ، الصقه تحت المؤشر وبيتصلّح.</div>
+<div class="dnote" data-i18n="dw_note">كل كود بينفحص تلقائياً قبل ما يوصلك، ونتيجة الفحص بتبيّن فوقه. إذا TradingView طلّع خطأ، الصقه تحت المؤشر وبينبعت للتصليح والفحص من جديد.</div>
 </nav>
 
 <div class="wrap" id="wrap"><div class="thread" id="thread">
 <div class="intro" id="intro">
 <h1 data-i18n="intro_h">شو المؤشر اللي بدك ياه؟</h1>
-<p data-i18n="intro_p">اختار مؤشر جاهز ومفحوص وبيوصلك فوراً، أو وصّف فكرتك بكلماتك وبينبنى إلك مؤشر خاص، مفحوص وجاهز للصق بـ TradingView.</p>
+<p data-i18n="intro_p">اختار مؤشر جاهز ومفحوص وبيوصلك فوراً، أو وصّف فكرتك بكلماتك وبينبنى إلك مؤشر خاص وبينفحص تلقائياً قبل ما يوصلك.</p>
 <div class="sect" data-i18n="intro_ready">جاهزة ومفحوصة · فورية</div>
 <div class="tgrid" id="tgrid"></div>
 <div class="sect" data-i18n="intro_custom">أو جرّب طلب خاص</div>
@@ -44,21 +44,21 @@
 </div></div>
 
 <div class="composer">
-<div class="ctx" id="ctx"><span>📄</span><span class="cf" id="ctxFile"></span><span class="cn" data-i18n="ctx_note">· طلبك الجاي بيعدّل عليه</span><span class="qe" id="qe"></span><button class="cx" id="ctxNew" type="button" data-i18n="ctx_new">مؤشر جديد ✕</button></div>
+<div class="ctx" id="ctx"><span aria-hidden="true">📄</span><span class="cf" id="ctxFile"></span><span class="cn" data-i18n="ctx_note">· طلبك الجاي بيعدّل عليه</span><button class="cx" id="ctxNew" type="button" data-i18n="ctx_new">مؤشر جديد ✕</button><span class="qe" id="qe"></span></div>
 <div class="chips" id="chips"></div>
 <div class="cform">
-<button class="attbtn" id="att" type="button" data-i18n-title="t_att" title="ارفع صورة أو ملف" aria-label="Attach">📎</button>
-<button class="micbtn" id="mic" type="button" data-i18n-title="t_mic" title="تكلّم" aria-label="Voice">🎤</button>
-<textarea id="in" rows="1" dir="auto" data-i18n-ph="ph_in" placeholder="وصّف المؤشر اللي بدك ياه…"></textarea>
-<button class="send" id="send" type="button" data-i18n-title="t_send" title="إرسال" aria-label="Send"><span>➤</span></button>
+<button class="attbtn" id="att" type="button" data-i18n-title="t_att" data-i18n-aria="t_att" title="ارفع صورة أو ملف" aria-label="ارفع صورة أو ملف">📎</button>
+<button class="micbtn" id="mic" type="button" data-i18n-title="t_mic" data-i18n-aria="t_mic" title="تكلّم" aria-label="تكلّم">🎤</button>
+<textarea id="in" rows="1" dir="rtl" data-i18n-ph="ph_in" data-i18n-aria="a_in" aria-label="طلبك" placeholder="وصّف المؤشر اللي بدك ياه…"></textarea>
+<button class="send" id="send" type="button" data-i18n-title="t_send" data-i18n-aria="t_send" title="إرسال" aria-label="إرسال"><span aria-hidden="true">➤</span></button>
 </div>
 <div class="hint" data-i18n="hint">{{HINT}}</div>
 </div>
-<input type="file" id="file" accept="image/*,.pine,.txt,.pdf" style="display:none">
+<input type="file" id="file" accept="image/*,.pine,.txt,.pdf" hidden tabindex="-1" aria-hidden="true">
 
-<div class="modal" id="howModal" role="dialog" aria-modal="true">
+<div class="modal" id="howModal" role="dialog" aria-modal="true" aria-labelledby="howTitle">
 <div class="mcard">
-<div class="mhead"><b data-i18n="how_title">كيف بحطّ المؤشر بـ TradingView؟</b><button class="btn2 close" type="button" data-close="1">✕</button></div>
+<div class="mhead"><b id="howTitle" data-i18n="how_title">كيف بحطّ المؤشر بـ TradingView؟</b><button class="btn2 close" type="button" data-close="1" data-i18n-title="t_close" data-i18n-aria="t_close" title="إغلاق" aria-label="إغلاق">✕</button></div>
 <div class="mbody">
 <ol>
 <li data-i18n="how_1">اضغط «نسخ الكود» تحت المؤشر هون.</li>
@@ -68,21 +68,22 @@
 <li data-i18n="how_5">للتنبيهات: اضغط ⏰ Alert، وبخانة Condition اختار اسم المؤشر وبعدها التنبيه اللي بدك ياه.</li>
 <li data-i18n="how_6">إذا طلع سطر أحمر (خطأ) تحت المحرّر: انسخه، ارجع لهون، واضغط «طلع خطأ بـ TradingView؟» تحت المؤشر.</li>
 </ol>
-<div class="note" data-i18n="how_note">على الموبايل: تطبيق TradingView ممكن ما يكون فيه Pine Editor. افتح tradingview.com من متصفح اللابتوب، احفظ المؤشر مرّة وحدة، وبعدها بتلاقيه بالتطبيق تحت Indicators ← My scripts.</div>
+<div class="note" data-i18n="how_note">على الموبايل: تطبيق TradingView ممكن ما يكون فيه Pine Editor. افتح tradingview.com من متصفح اللابتوب، احفظ المؤشر مرّة وحدة، وبعدها بتلاقيه بالتطبيق تحت Indicators → My scripts.</div>
 </div>
 </div>
 </div>
 
-<div class="modal" id="checkModal" role="dialog" aria-modal="true">
+<div class="modal" id="checkModal" role="dialog" aria-modal="true" aria-labelledby="checkTitle">
 <div class="mcard">
-<div class="mhead"><b data-i18n="chk_title">افحص وصلّح كودي</b><button class="btn2 close" type="button" data-close="1">✕</button></div>
+<div class="mhead"><b id="checkTitle" data-i18n="chk_title">افحص وصلّح كودي</b><button class="btn2 close" type="button" data-close="1" data-i18n-title="t_close" data-i18n-aria="t_close" title="إغلاق" aria-label="إغلاق">✕</button></div>
 <div class="mbody">
-<p style="margin:0 0 10px;color:var(--mut);font-size:13.5px" data-i18n="chk_p">الصق كود Pine Script كامل. الفحص فوري ومجاني، وإذا في أخطاء بتقدر تصلّحها بكبسة.</p>
-<textarea id="checkIn" spellcheck="false" placeholder="//@version=6&#10;indicator(&quot;My script&quot;)&#10;..."></textarea>
+<p class="mlead" data-i18n="chk_p">الصق كود Pine Script كامل. الفحص فوري ومجاني. إذا لقى أخطاء بتقدر تطلب تصليحها، والتصليح بينحسب طلب عادي.</p>
+<textarea id="checkIn" spellcheck="false" data-i18n-aria="chk_title" aria-label="افحص وصلّح كودي" placeholder="//@version=6&#10;indicator(&quot;My script&quot;)&#10;..."></textarea>
 </div>
 <div class="mfoot"><button class="btn2" type="button" data-close="1" data-i18n="cancel">إلغاء</button><button class="btn2 pri" type="button" id="checkGo" data-i18n="chk_go">افحص الكود</button></div>
 </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr" id="live" role="status" aria-live="polite"></div>
 </div>
