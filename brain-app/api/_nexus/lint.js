@@ -17,9 +17,20 @@ const MUST_FIX_RULES = new Set([
   "NX_SHORTTITLE",
   "NX_UNUSED_INPUT",
   "NX_IMPORT",
+  "NX_ARRAY_INDEX",
 ]);
+// Nexus rules that reproduce TradingView compile errors the type checker lets through.
+const ERROR_RULES = new Set(["NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE"]);
 // Worth one repair attempt, but never block delivery on them.
 const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING"]);
+
+// Type-checker findings that TradingView's compiler does not report (confirmed on the real compiler): dropped.
+const KNOWN_FALSE_POSITIVES = [
+  // text.format_bold + text.format_italic is the documented way to combine text formats.
+  (e) => /"operator \+"/.test(e.message) && /text_format/.test(e.message),
+  // request.currency_rate(syminfo.currency, strategy.account_currency) is valid.
+  (e, src) => /"strategy\.account_currency" cannot be used/.test(e.message) && /request\.currency_rate\s*\(/.test(src),
+];
 
 const INVISIBLE = /[​-‏‪-‮⁦-⁩﻿­]/g;
 
@@ -117,26 +128,29 @@ function runtimeCulprit(expr, masked, depth, seen) {
   return "";
 }
 
-function constStringRule(lines, push) {
-  const maskedLines = lines.map(stripStringsAndComments);
-  const masked = maskedLines.join("\n");
+// Splits the top-level arguments of the call whose "(" is at `open` (strings are already blanked in `masked`).
+// Returns null when the parenthesis never closes.
+function splitArgs(masked, open) {
+  const args = [];
+  let depth = 0, start = open + 1;
+  for (let i = open; i < masked.length; i++) {
+    const ch = masked[i];
+    if (ch === '"' || ch === "'") { const q = masked.indexOf(ch, i + 1); if (q < 0) return null; i = q; continue; }
+    if (ch === "(" || ch === "[") depth++;
+    else if (ch === ")" || ch === "]") { depth--; if (depth === 0) { args.push(masked.slice(start, i)); return args; } }
+    else if (ch === "," && depth === 1) { args.push(masked.slice(start, i)); start = i + 1; }
+  }
+  return null;
+}
+
+function constStringRule(masked, push) {
   const callRe = /(^|[^\w.])(plotshape|plotchar|plotarrow|plotcandle|plotbar|plot|hline|fill|bgcolor|barcolor|alertcondition|indicator|strategy|input(?:\.\w+)?)[ \t]*\(/gm;
   let m;
   while ((m = callRe.exec(masked)) !== null) {
     const fn = m[2];
     const spec = CONST_STRING_PARAMS[fn.startsWith("input") ? "input" : fn];
-    const open = m.index + m[0].length - 1;
-    // Walk to the matching parenthesis, splitting top-level arguments.
-    const args = [];
-    let depth = 0, start = open + 1, end = -1;
-    for (let i = open; i < masked.length; i++) {
-      const ch = masked[i];
-      if (ch === '"' || ch === "'") { const q = masked.indexOf(ch, i + 1); if (q < 0) break; i = q; continue; }
-      if (ch === "(" || ch === "[") depth++;
-      else if (ch === ")" || ch === "]") { depth--; if (depth === 0) { args.push(masked.slice(start, i)); end = i; break; } }
-      else if (ch === "," && depth === 1) { args.push(masked.slice(start, i)); start = i + 1; }
-    }
-    if (end < 0) continue;
+    const args = splitArgs(masked, m.index + m[0].length - 1);
+    if (!args) continue;
     let positional = true;
     for (let k = 0; k < args.length; k++) {
       const named = /^\s*([A-Za-z_]\w*)\s*=(?!=)([\s\S]*)$/.exec(args[k]);
@@ -155,11 +169,96 @@ function constStringRule(lines, push) {
   }
 }
 
+// ---------- mistakes TradingView rejects that the type checker lets through ----------
+// Each rule below reproduces a compile error confirmed on TradingView's compiler.
+function compilerGapRules(masked, push) {
+  const lineOf = (index) => masked.slice(0, index).split("\n").length;
+
+  // fill() takes two plots or two hlines, never one of each.
+  const kinds = new Map();
+  for (const m of masked.matchAll(/^[ \t]*(?:[A-Za-z_][\w.<>]*[ \t]+)?([A-Za-z_]\w*)[ \t]*=[ \t]*(plot|hline)[ \t]*\(/gm)) kinds.set(m[1], kinds.has(m[1]) && kinds.get(m[1]) !== m[2] ? "mixed" : m[2]);
+  for (const m of masked.matchAll(/(^|[^\w.])fill[ \t]*\(/gm)) {
+    const args = splitArgs(masked, m.index + m[0].length - 1);
+    if (!args || args.length < 2) continue;
+    const a = kinds.get(args[0].trim()), b = kinds.get(args[1].trim());
+    if ((a === "plot" && b === "hline") || (a === "hline" && b === "plot")) {
+      push(lineOf(m.index + m[1].length), 1, "NX_FILL_KINDS", `Cannot call "fill" with "${args[0].trim()}" and "${args[1].trim()}": fill() needs two plot() results or two hline() results, not one of each. Replace the hline() with plot(level) (a constant series) so both are plots.`);
+    }
+  }
+
+  // str.tostring(value, format): format is a string, not a number of decimals.
+  for (const m of masked.matchAll(/(^|[^\w.])str\.tostring[ \t]*\(/gm)) {
+    const args = splitArgs(masked, m.index + m[0].length - 1);
+    if (!args || args.length < 2) continue;
+    if (/^-?\d+(\.\d+)?$/.test(args[1].replace(/^\s*format\s*=/, "").trim())) {
+      push(lineOf(m.index + m[1].length), 1, "NX_TOSTRING_FORMAT", 'Cannot call "str.tostring" with a number as "format": the second argument is a format string, not a count of decimals. Use "#.##" (two decimals), format.mintick or format.percent.');
+    }
+  }
+
+  // Declaration limits.
+  const decl = /(^|\n)[ \t]*(indicator|strategy)[ \t]*\(/.exec(masked);
+  if (decl) {
+    const args = splitArgs(masked, decl.index + decl[0].length - 1) || [];
+    // Only max_bars_back is rejected at compile time (object counts above 500 are accepted by the compiler).
+    const limits = { max_bars_back: 5000 };
+    for (const arg of args) {
+      const named = /^\s*(\w+)\s*=\s*(\d+)\s*$/.exec(arg);
+      if (named && limits[named[1]] !== undefined && Number(named[2]) > limits[named[1]]) {
+        push(lineOf(decl.index + decl[1].length), 1, "NX_DECLARATION_LIMIT", `Invalid value "${named[2]}" for "${named[1]}" in ${decl[2]}(): it must be between 0 and ${limits[named[1]]}.`);
+      }
+    }
+  }
+
+  // Syntax borrowed from other languages.
+  const semi = masked.indexOf(";");
+  if (semi >= 0) push(lineOf(semi), 1, "NX_FOREIGN_SYNTAX", 'Pine Script has no ";": write one statement per line.');
+  const brace = masked.search(/[{}]/);
+  if (brace >= 0) push(lineOf(brace), 1, "NX_FOREIGN_SYNTAX", 'Pine Script has no "{ }" blocks: a block is the lines indented by 4 spaces under its if / for / while / function line.');
+
+  const ret = /^[ \t]+return\b/m.exec(masked);
+  if (ret) push(lineOf(ret.index), 1, "NX_FOREIGN_SYNTAX", 'Pine Script has no "return": the value of the last line of a function is its result.');
+
+  // Style constants belong to their own namespace: hline.style_* for hline(), plot.style_* / plot.linestyle_* for plot().
+  for (const m of masked.matchAll(/(^|[^\w.])(hline|plot)[ \t]*\(/gm)) {
+    const args = splitArgs(masked, m.index + m[0].length - 1);
+    if (!args) continue;
+    for (const arg of args) {
+      const named = /^\s*(linestyle|style)\s*=\s*([A-Za-z_][\w.]*)\s*$/.exec(arg);
+      if (!named) continue;
+      const want = m[2] === "hline" ? "hline.style_" : named[1] === "style" ? "plot.style_" : "plot.linestyle_";
+      const got = named[2];
+      if (/^(line|hline|plot|label)\.(style|linestyle)_\w+$|^shape\.\w+$/.test(got) && !got.startsWith(want)) {
+        push(lineOf(m.index + m[1].length), 1, "NX_STYLE_NAMESPACE", `Invalid argument "${named[1]}" in "${m[2]}" call: "${got}" belongs to another function. Use one of the ${want}* constants (for example ${want}${want === "plot.style_" ? "line" : "dashed"}).`);
+      }
+    }
+  }
+
+  // obj.field = value: fields are reassigned with ":=".
+  for (const m of masked.matchAll(/^[ \t]*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)[ \t]*=(?![=>])/gm)) {
+    push(lineOf(m.index), 1, "NX_FIELD_ASSIGN", `To assign a new value to an object's field, use ":=" instead of "=" ("${m[1]} := ...").`);
+  }
+
+  // name[i] on an array is the history operator (the array ID from i bars ago), not element access.
+  const arrays = new Set();
+  for (const m of masked.matchAll(/^[ \t]*(?:(?:var|varip)[ \t]+)?(?:array<[^=\n]+>[ \t]+|[A-Za-z_][\w.]*\[\][ \t]+)?([A-Za-z_]\w*)[ \t]*=[ \t]*array\.(?:new\w*|from)\b/gm)) arrays.add(m[1]);
+  for (const name of arrays) {
+    const use = new RegExp("(^|[^\\w.])" + escapeRe(name) + "[ \\t]*\\[(?!\\])", "gm");
+    let u, shown = 0;
+    while ((u = use.exec(masked)) !== null && shown < 2) {
+      shown++;
+      push(lineOf(u.index + u[1].length), 1, "NX_ARRAY_INDEX", `"${name}[...]" does not read an element: on an array, [] is the history operator. Use ${name}.get(index) (and ${name}.set(index, value) to write).`);
+    }
+  }
+}
+
 function nexusRules(code) {
   const diags = [];
   const lines = code.split("\n");
   const push = (line, col, rule, message) => diags.push({ line, col, endLine: line, endCol: col + 1, message, stage: "nexus", rule });
-  try { constStringRule(lines, push); } catch (e) { /* a heuristic must never break the check */ }
+  const masked = lines.map(stripStringsAndComments).join("\n");
+  // A heuristic must never break the check.
+  try { constStringRule(masked, push); } catch (e) { /* ignore */ }
+  try { compilerGapRules(masked, push); } catch (e) { /* ignore */ }
 
   for (let i = 0; i < lines.length; i++) {
     if (/^import[ \t]+[\w-]+\/[\w-]+\/\d+/.test(lines[i])) push(i + 1, 1, "NX_IMPORT", "Imported libraries cannot be verified by the checker. Do not import libraries: write the needed logic directly in the script.");
@@ -203,7 +302,15 @@ export function checkPine(input) {
   const notes = [];
 
   if (base.crashed) notes.push({ line: 1, col: 1, message: "Checker could not analyse the script: " + base.crashed, rule: "NX_CHECKER_CRASH", stage: "internal" });
-  for (const e of base.errors || []) errors.push(e);
+  const srcLines = code.split("\n");
+  const seen = new Set();
+  for (const e of base.errors || []) {
+    if (KNOWN_FALSE_POSITIVES.some((fp) => fp(e, srcLines[e.line - 1] || ""))) continue;
+    const key = e.line + ":" + e.col + ":" + e.message;
+    if (seen.has(key)) continue; // the same finding can be reported by two checker passes
+    seen.add(key);
+    errors.push(e);
+  }
 
   const inputNames = new Set();
   for (const m of code.matchAll(/^[ \t]*(?:[A-Za-z_][\w.<>]*[ \t]+)?([A-Za-z_]\w*)[ \t]*=[ \t]*input(?:\.\w+)?\s*\(/gm)) inputNames.add(m[1]);
@@ -226,8 +333,8 @@ export function checkPine(input) {
   for (const d of nexusRules(code)) {
     if (d.rule === "NX_VERSION" || d.rule === "NX_FENCE" || d.rule === "NX_NO_DECLARATION") {
       if (!errors.some((e) => e.line === d.line && e.message === d.message)) errors.push(d);
-    } else if (d.rule === "NX_CONST_STRING") {
-      // The type checker already reports the direct cases; only add what it missed.
+    } else if (ERROR_RULES.has(d.rule)) {
+      // The parser / type checker may report the same line itself: keep one finding per line.
       if (!errors.some((e) => e.line === d.line)) errors.push(d);
     } else if (MUST_FIX_RULES.has(d.rule)) {
       // Report each rule once per line, at most 5 lines per rule, to keep repair prompts short.

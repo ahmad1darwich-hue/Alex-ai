@@ -55,8 +55,23 @@ Requests without `v` get the legacy plain-text reply.
 - `NEXUS_ADMIN_TOKEN` - optional operator token (16+ characters). With it, `POST { mode: "stats", admin }` returns
   the daily counters, and requests carrying `admin` skip the per-IP cap and may set `debug`, `model`, `effort`.
 
+## Checker calibration
+
+The checker is calibrated against TradingView's own compiler (the Pine Editor): the scripts of the Pine manual and
+several hundred single-mistake probes (typical model errors: series values in `simple` arguments, reserved names,
+unknown drawing methods, numbers passed as text, legacy syntax ...) were compiled there and compared with
+`checkPine()`. Gaps found this way are closed in two places:
+
+- `vendor/patch-pine-lint.mjs` - small, documented patches on the bundled linter (run it after re-bundling).
+- `brain-app/api/_nexus/lint.js` - Nexus rules (`NX_*`) and the list of confirmed false positives.
+
+Each patch and rule states the TradingView behaviour it reproduces; `tests/lint.test.mjs` holds one case per rule.
+When a user reports a TradingView error that the checker missed, add the smallest script that reproduces it as a
+test and extend the rules.
+
 ## Third-party code
 
 `brain-app/api/_nexus/pine-lint.mjs` is a bundle of the linter core of
 [pine-tools](https://github.com/folknor/pine-tools) (MIT, commit 3dd9f3c), with documentation prose removed from
-its language data. The license text is in `brain-app/api/_nexus/LICENSE-pine-tools.txt`.
+its language data and the Nexus patches from `vendor/patch-pine-lint.mjs` applied. The license text is in
+`brain-app/api/_nexus/LICENSE-pine-tools.txt`.

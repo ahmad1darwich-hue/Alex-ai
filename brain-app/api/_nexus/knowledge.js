@@ -57,11 +57,16 @@ Types
 - Declare na with a type: "float level = na", "var line ln = na", "var label lb = na".
 - "=" declares a variable once per scope; ":=" reassigns it ("+=", "-=" also reassign). Declaring the same name twice in one scope is an error; using ":=" on an undeclared name is an error.
 - A function cannot reassign a global variable. Return the value, or mutate a global array / object (arrays and user-defined-type objects can be modified inside functions).
-- Mixing string and number needs str.tostring(): "TP " + str.tostring(price, format.mintick).
+- Mixing string and number needs str.tostring(): "TP " + str.tostring(price, format.mintick). Every text argument is a string too: label.new(x, y, str.tostring(value)), lbl.set_text(...), table.cell(...) never take a bare number. The second argument of str.tostring is a format string ("#.##", format.mintick, format.percent), not a number of decimals.
+- Object fields are reassigned with ":=" ("zone.top := high"), never with "=".
+- Arrays are read with arr.get(i) and sized with arr.size(). "arr[i]" is the history operator, and ".length" does not exist.
+- Some arguments must be "simple": fixed for the whole chart - a literal, an input, syminfo.* / timeframe.* values, or math on those. That is the length of ta.ema, ta.rma, ta.rsi, ta.atr, ta.hma, ta.rci, ta.macd, ta.dmi, ta.tsi and ta.kc, the atrPeriod of ta.supertrend, the mult of ta.bb / ta.kc, every argument of ta.sar, offset / sigma of ta.alma, occurrence of ta.valuewhen and offset of ta.linreg. A value that can change from bar to bar - anything computed from close, volume, bar_index, ta.*(), request.*(), barstate.*, session.*, an array element, an object field, or a variable reassigned under such a condition - is a compile error there. For a length that adapts to the market, use functions that accept a series length (ta.sma, ta.wma, ta.vwma, ta.highest, ta.lowest, ta.stdev, ta.linreg, ta.cci, ta.mfi, ta.stoch, ta.change, ta.mom, ta.roc) or keep your own average in a var.
+- In your own functions write length parameters as "simple int len". A parameter with a type but no qualifier ("int len") is series unless the body needs it simple, and then the function result is series too: it cannot feed a simple argument.
 
 Global-scope-only calls
 - plot, plotshape, plotchar, plotarrow, plotcandle, plotbar, hline, fill, bgcolor, barcolor, alertcondition, every input.*() and the declaration can only be called at the global scope: never inside if / for / while / switch or inside a function. Make them conditional through their arguments: plot(show ? value : na), plotshape(cond and show, ...).
 - These parameters need a constant string (a literal, or a const built from literals): every "title", the "text" of plotshape/plotchar, the "title" and "message" of alertcondition, and input titles/tooltips/groups/inline. str.tostring() or any series there is a compile error. For dynamic text use label.new() (text can change) and alert() (message can change).
+- The look of plot-family calls is fixed for the script: linewidth, style, linestyle, display, offset and show_last of plot(); style, location, size and char of plotshape() / plotchar(); price, color, linestyle and linewidth of hline(). They take literals or inputs (an input-based ternary is fine), never a value that changes per bar. What may change per bar is the plotted series and the color of plot / plotshape / plotchar / bgcolor / barcolor / fill. To change a line's thickness or style by condition, draw two plots and show one at a time with "cond ? value : na".
 
 Series functions run on every bar
 - Functions that depend on history - all ta.*() (ta.ema, ta.rsi, ta.atr, ta.crossover, ta.crossunder, ta.change, ta.highest, ta.lowest, ta.pivothigh, ta.pivotlow, ta.barssince, ta.valuewhen, ta.cum ...), math.sum and request.*() - must execute on every bar. Call them at the global scope and store the result in a variable; then use the variable inside if / ternary / loops.
@@ -75,7 +80,8 @@ Removed or renamed things (never use them)
 - Comparing timeframe.period: daily is "1D", weekly "1W", monthly "1M" (never "D"). Prefer timeframe.isintraday / isdaily / isweekly.
 
 Names
-- Do not use Pine keywords or built-ins as variable names: once, type, method, enum, var, varip, export, import, switch, for, in, while, if, else, and, or, not, true, false, na, open, high, low, close, volume, time, hl2, ohlc4, bar_index, label, line, box, table, color, size, position, strategy, ta, math, str, array, map, matrix, input, request, session, syminfo, timeframe, plot. ("once" became a keyword in 2026.)
+- "range" and "text" are reserved words: never use them as the name of a variable, a function parameter or a type field (write barRange, labelText). Same for the keywords once, type, method, enum, var, varip, export, import, switch, for, in, to, by, while, if, else, and, or, not, true, false, na. ("once" became a keyword in 2026.)
+- Do not reuse built-in names for your own variables: open, high, low, close, volume, time, hl2, ohlc4, bar_index, label, line, box, table, color, size, position, strategy, ta, math, str, array, map, matrix, input, request, session, syminfo, timeframe, plot.
 - In tuple declarations every element needs its own unique name: [macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9). No var on tuples, no := on tuples.
 
 Line wrapping and layout
@@ -98,9 +104,11 @@ Exact parameter names (the ones that get mixed up)
 - alertcondition(condition, title, message); alert(message, freq) with alert.freq_once_per_bar_close
 - request.security(symbol, timeframe, expression, gaps, lookahead, ignore_invalid_symbol, currency, calc_bars_count)
 - input.int / input.float(defval, title, minval, maxval, step, tooltip, inline, group, confirm, display, active); input.bool / input.color / input.string(defval, title, [options], tooltip, inline, group, ...); input.timeframe, input.session, input.source, input.symbol, input.time
+- The usual methods on drawings - do not invent others, an unknown method is a compile error. label: set_text, set_xy, set_x, set_y, set_color (the background), set_textcolor, set_style, set_size, set_tooltip, set_textalign, get_x, get_y, get_text, delete. line: set_xy1, set_xy2, set_x1, set_x2, set_y1, set_y2, set_color, set_style, set_width, set_extend, get_x1, get_x2, get_y1, get_y2, get_price, delete. box: set_left, set_right, set_top, set_bottom, set_lefttop, set_rightbottom, set_bgcolor, set_border_color, set_border_width, set_border_style, set_extend, set_text, set_text_color, set_text_size, get_left, get_right, get_top, get_bottom, delete. table: cell, cell_set_text, cell_set_bgcolor, cell_set_text_color, merge_cells, clear, delete.
+- fill() takes two plot() results or two hline() results, never one of each (use plot(level) for a constant level you want to fill against).
 - ta.supertrend(factor, atrPeriod) returns [line, direction] and direction is NEGATIVE in an uptrend; ta.macd returns [macd, signal, hist]; ta.bb returns [middle, upper, lower]; ta.dmi(diLength, adxSmoothing) returns [plusDI, minusDI, adx]; ta.pivothigh(source, leftbars, rightbars) returns the pivot price on the confirmation bar (rightbars later) and na otherwise.
 - strategy.entry(id, direction, qty, limit, stop, ...); strategy.exit(id, from_entry, qty, qty_percent, profit, limit, loss, stop, trail_price, trail_points, trail_offset, ...); strategy.close(id, comment, qty, qty_percent, alert_message, immediately)
-- Constants: shape.triangleup / triangledown / labelup / labeldown / circle / diamond / cross / xcross / arrowup / arrowdown / flag / square; location.abovebar / belowbar / top / bottom / absolute; label.style_label_up / label_down / label_left / label_right / label_lower_left / none / circle; line.style_solid / dashed / dotted; extend.none / right / left / both; size.tiny / small / normal / large / huge; position.top_right etc.; plot.style_line / linebr / stepline / histogram / columns / area / circles / cross; text.align_left / center / right / top / bottom; xloc.bar_index / bar_time; yloc.price / abovebar / belowbar; barmerge.lookahead_on / lookahead_off / gaps_on / gaps_off; format.mintick / percent / volume.
+- Constants: shape.triangleup / triangledown / labelup / labeldown / circle / diamond / cross / xcross / arrowup / arrowdown / flag / square; location.abovebar / belowbar / top / bottom / absolute; label.style_label_up / label_down / label_left / label_right / label_lower_left / none / circle; line.style_solid / dashed / dotted (lines and box borders only; hline uses hline.style_solid / dashed / dotted and plot uses plot.linestyle_solid / dashed / dotted); extend.none / right / left / both; size.tiny / small / normal / large / huge; position.top_right etc.; plot.style_line / linebr / stepline / histogram / columns / area / circles / cross; text.align_left / center / right / top / bottom; xloc.bar_index / bar_time; yloc.price / abovebar / belowbar; barmerge.lookahead_on / lookahead_off / gaps_on / gaps_off; format.mintick / percent / volume.
 
 Limits
 - At most 64 plot counts: plot, plotshape, plotchar, plotarrow, plotcandle, bgcolor, barcolor, alertcondition and series-colored fill all count.
@@ -111,7 +119,7 @@ Limits
 # RUNTIME SAFETY
 
 - The first bars have na values: guard arithmetic and comparisons that feed drawings ("if not na(atr)").
-- Guard divisions: "range > 0 ? body / range : 0".
+- Guard divisions: "barRange > 0 ? body / barRange : 0".
 - Keep history offsets small and bounded. If you will need the price of an old bar later, store it in a var variable (or object) when the event happens instead of looking back with a large or growing offset.
 - array.get / array.remove on an empty array or a bad index is a runtime error: check size first.
 - Volume can be missing on forex / CFD symbols: treat "na(volume) or volume == 0" as "filter passed" and say so.
@@ -145,6 +153,7 @@ Read your script once as the compiler would, line by line:
 - every named argument exists for that function (see the list above) and appears once
 - parentheses and brackets balance; blocks are indented by 4 spaces; no wrapped expression outside parentheses
 - no bool is na; no numeric used as a condition
+- nothing is named range or text; every length given to ta.ema / ta.rma / ta.rsi / ta.atr / ta.supertrend is an input or a constant; plot linewidth / style / display and plotshape style / location / size are literals or inputs
 Then read it once as the chart would show it: how many markers after 1000 bars with the default settings (hundreds means it needs a filter or a cooldown)? Can the same signal direction print twice in a row? Does anything repeat every bar? Does every zone get removed? Do alerts match what is drawn?`;
 
 function templateSection() {
