@@ -487,9 +487,11 @@ test("voice input keeps finished phrases and stops with Send", async () => {
       start() { this.started++; this.running = true; }
       stop() { this.running = false; setTimeout(() => { if (this.onresult) this.fire([["late words", true]], 9); if (this.onend) this.onend(); }, 30); }
       fire(list, resultIndex) {
-        const results = []; const idx = resultIndex || 0;
-        for (let i = 0; i < idx; i++) results.push(Object.assign([{ transcript: "" }], { isFinal: true }));
-        list.forEach(([text, fin]) => results.push(Object.assign([{ transcript: text }], { isFinal: fin })));
+        // Like the real API: the list holds every result of the session; an event replaces the ones from resultIndex on.
+        const idx = resultIndex || 0; this.all = (this.all || []).slice(0, idx);
+        while (this.all.length < idx) this.all.push(Object.assign([{ transcript: "" }], { isFinal: true }));
+        list.forEach(([text, fin]) => this.all.push(Object.assign([{ transcript: text }], { isFinal: fin })));
+        const results = this.all;
         this.onresult({ resultIndex: idx, results });
       }
     }

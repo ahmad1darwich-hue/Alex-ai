@@ -982,10 +982,11 @@
     function off() { on = false; discard = false; btn.classList.remove('rec'); btn.setAttribute('aria-pressed', 'false'); }
     rec.onresult = function (e) {
       if (discard) return;
-      // Finished phrases are kept; only the phrase being spoken is replaced by each new event.
-      var interim = '';
-      for (var i = e.resultIndex; i < e.results.length; i++) { var r = e.results[i]; if (r.isFinal) finalTx += r[0].transcript + ' '; else interim += r[0].transcript; }
-      var spoken = (finalTx + interim).replace(/\s+/g, ' ').trim();
+      // The whole session is rebuilt on every event, so finished phrases are never dropped. Some phones repeat the
+      // text so far in each new result: a result that starts with the previous one replaces it.
+      var parts = [];
+      for (var i = 0; i < e.results.length; i++) { var x = String(e.results[i][0].transcript || '').trim(); if (!x) continue; var last = parts[parts.length - 1]; if (last && x.indexOf(last) === 0) parts[parts.length - 1] = x; else parts.push(x); }
+      var spoken = parts.join(' ').replace(/\s+/g, ' ').trim();
       input.value = (base ? base.replace(/\s+$/, '') + ' ' : '') + spoken; grow();
     };
     rec.onend = off;

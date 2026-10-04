@@ -311,7 +311,10 @@ var recRef=null;
   var mic=document.getElementById('mic');var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR||!mic){if(mic)mic.style.display='none';return;}
   var rec=new SR();recRef=rec;rec.lang=L?'en-US':'ar-SA';rec.interimResults=true;rec.continuous=true;var on=false,base='';
-  rec.onresult=function(e){var tx='';for(var i=e.resultIndex;i<e.results.length;i++)tx+=e.results[i][0].transcript;input.value=(base+' '+tx).trim();input.dispatchEvent(new Event('input'));};
+  /* The whole session is rebuilt on every event, so earlier phrases are never dropped. Some phones repeat the
+     text so far in each new result: a result that starts with the previous one replaces it. */
+  rec.onresult=function(e){var parts=[];for(var i=0;i<e.results.length;i++){var x=String(e.results[i][0].transcript||'').trim();if(!x)continue;var last=parts[parts.length-1];if(last&&x.indexOf(last)===0)parts[parts.length-1]=x;else parts.push(x);}
+    input.value=((base?base.replace(/\s+$/,'')+' ':'')+parts.join(' ')).trim();input.dispatchEvent(new Event('input'));};
   rec.onend=function(){on=false;mic.classList.remove('rec');};
   rec.onerror=function(){on=false;mic.classList.remove('rec');};
   mic.onclick=function(){if(on){rec.stop();return;}base=input.value;try{rec.start();on=true;mic.classList.add('rec');input.focus();}catch(e){}};
