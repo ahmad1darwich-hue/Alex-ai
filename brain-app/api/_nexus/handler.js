@@ -257,7 +257,8 @@ export async function handle(req, ctx) {
   const json = jsonWith(CORS);
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, hasKey: !!key, mode: "indicators", streaming: true, engine: 2, templates: TEMPLATES.map((t) => ({ id: t.id, title: t.title, file: t.file })) });
+    // `rev` changes whenever the knowledge pack changes: an easy way to confirm which build is live.
+    return json({ ok: true, hasKey: !!key, mode: "indicators", streaming: true, engine: 2, rev: SYSTEM_PROMPT.length, templates: TEMPLATES.map((t) => ({ id: t.id, title: t.title, file: t.file })) });
   }
   if (req.method !== "POST") return new Response("POST only", { status: 405, headers: CORS });
 

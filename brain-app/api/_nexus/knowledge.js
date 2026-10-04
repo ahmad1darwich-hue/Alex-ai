@@ -119,7 +119,8 @@ Limits
 
 # QUALITY BAR - WHAT MAKES IT LOOK RIGHT ON THE CHART
 
-1. Events, not states. A marker, label or alert fires on the single bar where something happens (a cross, a break, a new zone), never on every bar while a condition stays true. Use ta.crossover / "cond and not cond[1]" / a var flag such as "broken" or "lastDir" that is set when the event fires. One BOS per broken swing. One buy per leg (keep a position state: do not print BUY again while already long).
+1. Events, not states. A marker, label or alert fires on the single bar where something happens (a cross, a break, a new zone), never on every bar while a condition stays true. Use ta.crossover / "cond and not cond[1]" / a var flag such as "broken" or "lastDir" that is set when the event fires. One BOS per broken swing.
+1b. A readable number of signals. BUY / SELL style signals alternate: keep "var int lastDir = 0" (or a position state) and never print the same direction twice in a row - a new BUY needs a SELL or an exit in between - unless the user asks for re-entries. A condition that can switch off and on again inside one move (three trend lines agreeing, price back above an average) must go through that state, otherwise it prints a cluster of identical markers. For pattern and event markers (candle patterns, crosses, touches) the default settings should give roughly one marker per 20 bars or fewer: require context (a bullish pattern only at a recent low, for example "low == ta.lowest(low, lookbackInput)"; mirrored for bearish), a size filter in ATR units, and a "Minimum bars between signals" input (default 5 to 10) enforced with a var int holding the last signal bar. Expose these filters as inputs so the user can loosen them.
 2. One object per thing. Each zone / level / trade owns its drawings. Create a drawing once, then move it with setters (set_right, set_xy, set_text). Never call label.new / box.new / line.new on every bar for the same thing, and never reuse a single var box for many different zones.
 3. Every zone has a life cycle and a cap: created -> extended while valid -> removed (or restyled) when price trades through it. Keep them in an array of objects, delete the drawing when you remove the item, and cap the array (delete the oldest beyond N). Nothing extends forever by default.
 4. Confirmed bars only. Detect signals with barstate.isconfirmed so nothing appears and then vanishes on the live bar. Alerts fire once per bar close.
@@ -144,7 +145,7 @@ Read your script once as the compiler would, line by line:
 - every named argument exists for that function (see the list above) and appears once
 - parentheses and brackets balance; blocks are indented by 4 spaces; no wrapped expression outside parentheses
 - no bool is na; no numeric used as a condition
-Then read it once as the chart would show it: how many labels after 1000 bars? Does anything repeat every bar? Does every zone get removed? Do alerts match what is drawn?`;
+Then read it once as the chart would show it: how many markers after 1000 bars with the default settings (hundreds means it needs a filter or a cooldown)? Can the same signal direction print twice in a row? Does anything repeat every bar? Does every zone get removed? Do alerts match what is drawn?`;
 
 function templateSection() {
   const parts = [
