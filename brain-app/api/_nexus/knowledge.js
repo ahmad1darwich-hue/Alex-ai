@@ -175,8 +175,7 @@ export function modeInstructions(mode, lang) {
   if (mode === "repair") {
     return [
       "TASK: the automatic checker found problems in the script you just produced (listed below with line numbers). Fix all of them with <base>CURRENT</base> and minimal edits. Keep everything else exactly as it is.",
-      "In <explain> repeat the user-facing explanation of the script (not the fixes).",
-      langLine,
+      "Put only a single dash in <explain> (the explanation the user already has is kept).",
     ].join("\n");
   }
   return ["TASK: build what the user asks for, following the reply protocol.", langLine].join("\n");

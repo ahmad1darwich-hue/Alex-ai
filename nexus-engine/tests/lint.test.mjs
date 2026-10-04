@@ -63,4 +63,20 @@ t("describeDiagnostics quotes the source line", () => {
   assert.match(d, /line 3/); assert.match(d, /> y = nope \+ 1/);
   assert.equal(summarizeCheck(c).ok, false);
 });
+t("const string through a variable is an error; constants and user functions are not", () => {
+  const H = '//@version=6\nindicator("x", overlay = true)\n';
+  const bad1 = checkPine(H + 'bool up = close > open\nstring txt = up ? "A" : "B"\nplotchar(up, title = "t", char = "R", text = txt)\n');
+  assert.ok(bad1.errors.some((e) => e.rule === "NX_CONST_STRING" && e.line === 5), JSON.stringify(bad1.errors));
+  const bad2 = checkPine(H + 'msg = "Up on " + syminfo.ticker\nalertcondition(close > open, "Up", msg)\n');
+  assert.ok(bad2.errors.some((e) => e.rule === "NX_CONST_STRING" && /alert\(\)/.test(e.message)));
+  const good = checkPine(H + 'GRP = "Main"\nTT = "Tip " + "more"\nmk(a, b) => a + b\nstring ttl = mk("My", " plot")\nlen = input.int(10, "Len", group = GRP, tooltip = TT)\nplot(ta.sma(close, len), title = ttl)\nalertcondition(close > open, "Up", "Up {{ticker}}")\n');
+  assert.equal(good.errors.length, 0, JSON.stringify(good.errors));
+  // The type checker reports the direct case itself: no duplicate from the Nexus rule.
+  const direct = checkPine(H + 'plotshape(close > open, text = str.tostring(close))\n');
+  assert.equal(direct.errors.filter((e) => e.line === 3).length, 1);
+});
+t("library imports are must-fix", () => {
+  const c = checkPine('//@version=6\nindicator("x")\nimport TradingView/ta/9 as tav\nplot(close)\n');
+  assert.ok(c.mustFix.some((w) => w.rule === "NX_IMPORT"));
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

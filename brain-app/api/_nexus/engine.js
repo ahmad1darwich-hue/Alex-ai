@@ -142,15 +142,14 @@ export function buildMessages({ mode, lang, history, userContent, currentCode, t
     for (const b of userContent) {
       if (!b) continue;
       if (b.type === "text") text += (text ? "\n" : "") + b.text;
-      else if (b.type === "image" || b.type === "document") blocks.push(b);
+      else if ((b.type === "image" || b.type === "document") && blocks.length < 4) blocks.push(b);
     }
   } else text = String(userContent || "");
   const parts = [modeInstructions(mode, lang)];
   if (currentCode) parts.push(scriptBlock(currentCode));
-  if (mode === "fix") {
-    if (tvError) parts.push("TRADINGVIEW REPORTED (copied by the user from the Pine Editor):\n" + clip(String(tvError).trim(), 2500));
-    if (check && (!check.clean || check.shouldFix.length)) parts.push("AUTOMATIC CHECKER FINDINGS for the current script:\n" + describeDiagnostics(check));
-  }
+  if (mode === "fix" && tvError) parts.push("TRADINGVIEW REPORTED (copied by the user from the Pine Editor):\n" + clip(String(tvError).trim(), 2500));
+  // Findings on the current script are useful in every mode: an edit request should not leave them behind.
+  if (currentCode && check && (!check.clean || (mode === "fix" && check.shouldFix.length))) parts.push("AUTOMATIC CHECKER FINDINGS for the current script (fix these too):\n" + describeDiagnostics(check));
   parts.push("USER REQUEST:\n" + (clip(text.trim(), 12000) || (mode === "fix" ? "Fix the script." : "Design an indicator from the attachment.")));
   blocks.push({ type: "text", text: parts.join("\n\n") });
   return prior.concat([{ role: "user", content: blocks }]);
@@ -179,7 +178,7 @@ function fileNameFor(parsed, fallback) {
 
 /**
  * Runs one request.
- * opts: { mode: "build"|"fix", lang, history, userContent, currentCode, tvError, callModel, emit, deadline, maxRounds }
+ * opts: { mode: "build"|"fix", lang, history, userContent, currentCode, currentFile, tvError, callModel, emit, deadline, maxRounds }
  * callModel({ messages, effort, onText }) -> { text, stopReason, usage, model }
  * emit(event) receives stage / code / explain events for the UI.
  */
@@ -199,10 +198,12 @@ export async function runPipeline(opts) {
   // ---- pass 1: the model's answer ----
   emit({ t: "stage", id: "write" });
   const streamer = makeStreamer(emit);
+  let thinkingAnnounced = false;
   const first = await opts.callModel({
     messages: buildMessages({ mode: opts.mode, lang: opts.lang, history: opts.history, userContent: opts.userContent, currentCode: current, tvError: opts.tvError, check: currentCheck }),
     effort: opts.effort,
     onText: streamer.push,
+    onThinking: () => { if (!thinkingAnnounced) { thinkingAnnounced = true; emit({ t: "stage", id: "think" }); } },
   });
   addUsage(first.usage);
   let parsed = parseReply(first.text);
@@ -299,7 +300,8 @@ export async function runPipeline(opts) {
   return {
     kind: "script",
     code: final.code,
-    file: fileNameFor(parsed, template ? template.file : ""),
+    // An edit keeps the name of the script it edits.
+    file: baseKind === "CURRENT" && opts.currentFile ? fileNameFor({ file: "" }, opts.currentFile) : fileNameFor(parsed, template ? template.file : opts.currentFile || ""),
     title: parsed.title || (template ? template.title.en : ""),
     explain,
     base: template && baseKind === "TEMPLATE" ? "template:" + template.id : baseKind === "CURRENT" ? "edit" : "new",

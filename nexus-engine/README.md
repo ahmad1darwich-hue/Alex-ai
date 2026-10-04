@@ -20,16 +20,40 @@ The indicator engine behind `brain-app/api/indicator.js` (used by Nexus and Brai
 - `templates/*.pine` - sources of the verified templates (original code; tested on TradingView's compiler).
 - `catalog.mjs` - ids, titles, model-facing descriptions and user-facing explanations (Arabic and English).
 - `build.mjs` - generates `brain-app/api/_nexus/templates.js`. Run `node nexus-engine/build.mjs` after editing.
+- `ui/` - the app client shared by both sites (`app.js`, `app.css`, `app.html`, landing files) and
+  `ui/build-ui.mjs`, which generates `indicator-build/index.html` and `brain-app/indicators.html`.
+  Run `node nexus-engine/ui/build-ui.mjs` after editing anything in `ui/`. Do not edit the generated pages.
+- `dev-server.mjs` - local server for both pages and the engine: `node nexus-engine/dev-server.mjs`
+  (simulated model without a key; real model with `ANTHROPIC_API_KEY` set).
 - `tests/*.test.mjs` - `node nexus-engine/tests/lint.test.mjs`, `engine.test.mjs`, `handler.test.mjs`
   (the model API is mocked; no key or network needed).
+
+Engine code deployed with the Brain project: `brain-app/api/_nexus/` (`handler.js`, `engine.js`, `lint.js`,
+`knowledge.js`, `templates.js`, `pine-lint.mjs`). `brain-app/api/indicator.js` and `brain-app/api/nexus.js` are
+thin Edge entry points for the same handler.
+
+## Request protocol (v2)
+
+`POST /api/indicator` with `{ v: 2, mode, lang, messages, code, file, templateId, tvError }`:
+
+- `mode: "template"` + `templateId` - returns a verified template as JSON. No model call.
+- `mode: "lint"` + `code` - checks pasted code and returns the report as JSON. No model call.
+- `mode: "build"` - builds or edits (`code` = the current script, if any). NDJSON stream of `stage`, `code`,
+  `explain`, `ping` events, then one `final` (or `error`) event.
+- `mode: "fix"` + `code` + optional `tvError` - repairs the given script.
+
+Requests without `v` get the legacy plain-text reply.
 
 ## Configuration (Vercel environment variables of the `brain` project)
 
 - `ANTHROPIC_API_KEY` - required.
 - `NEXUS_MODEL` - model id (default `claude-sonnet-5-5`); `NEXUS_FALLBACK_MODELS` - comma separated fallbacks.
 - `NEXUS_EFFORT` - `low` | `medium` | `high` (default `medium`).
-- `NEXUS_DAILY_PER_IP`, `NEXUS_DAILY_TOTAL` - daily request caps (defaults 80 and 500). They need the KV store
+- `NEXUS_DAILY_PER_IP`, `NEXUS_DAILY_TOTAL` - daily request caps (defaults 40 and 400). They need the KV store
   (`KV_REST_API_URL`, `KV_REST_API_TOKEN`); without it there is no cap.
+- `NEXUS_ALLOWED_ORIGINS` - optional comma separated list of sites allowed to call the API from a browser.
+- `NEXUS_ADMIN_TOKEN` - optional operator token (16+ characters). With it, `POST { mode: "stats", admin }` returns
+  the daily counters, and requests carrying `admin` skip the per-IP cap and may set `debug`, `model`, `effort`.
 
 ## Third-party code
 

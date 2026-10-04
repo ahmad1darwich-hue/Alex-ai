@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 process.env.ANTHROPIC_API_KEY = "test-key";
 process.env.NEXUS_MODEL = "claude-sonnet-5-5";
 process.env.NEXUS_FALLBACK_MODELS = "claude-sonnet-4-5";
+process.env.NEXUS_ADMIN_TOKEN = "test-admin-token-0123456789";
+const ADMIN = process.env.NEXUS_ADMIN_TOKEN;
 delete process.env.KV_REST_API_URL;
 
 const GOOD = '//@version=6\nindicator("Test EMA", shorttitle = "T EMA", overlay = true)\nlenInput = input.int(20, "Length", minval = 1)\nema = ta.ema(close, lenInput)\nplot(ema, "EMA", color = color.teal)\n';
@@ -59,9 +61,9 @@ await t("v2 build repairs a broken script before delivering it", async () => {
 });
 await t("unknown model falls back to the next one", async () => {
   script = [{ status: 404, type: "not_found_error", message: "model: claude-sonnet-5-5" }, { text: "<nexus><base>TEMPLATE:trend</base><edits></edits><explain>ok</explain></nexus>" }];
-  const ev = await ndjson(await post({ v: 2, messages: [{ role: "user", content: "trend indicator" }] }));
+  const ev = await ndjson(await post({ v: 2, debug: true, admin: ADMIN, messages: [{ role: "user", content: "trend indicator" }] }));
   const fin = ev.find((e) => e.t === "final");
-  assert.equal(fin.kind, "script"); assert.equal(fin.model, "claude-sonnet-4-5"); assert.equal(seen[1].thinking, undefined); assert.equal(seen[1].output_config, undefined);
+  assert.equal(fin.kind, "script"); assert.equal(fin.model, "claude-sonnet-4-5"); assert.ok(fin.usage.calls >= 1); assert.equal(seen[1].thinking, undefined); assert.equal(seen[1].output_config, undefined);
 });
 await t("a 400 on the adaptive shape retries the same model without thinking fields", async () => {
   script = [{ status: 400, type: "invalid_request_error", message: "output_config: unexpected field" }, { text: "<nexus><base>NONE</base><explain>hello</explain></nexus>" }];
@@ -88,5 +90,63 @@ await t("legacy follow-up edits the script found in the previous assistant messa
 await t("empty request is rejected without a model call", async () => {
   const j = await (await post({ v: 2, messages: [] })).json();
   assert.equal(j.kind, "error"); assert.equal(seen.length, 0);
+});
+await t("the page language decides the answer language when the request has no Arabic", async () => {
+  script = [{ text: "<nexus><base>NONE</base><explain>x</explain></nexus>" }];
+  await ndjson(await post({ v: 2, lang: "ar", messages: [{ role: "user", content: "RSI divergence with alerts" }] }));
+  assert.match(seen[0].messages.at(-1).content.at(-1).text, /Levantine Arabic/);
+  script = [{ text: "<nexus><base>NONE</base><explain>x</explain></nexus>" }];
+  await ndjson(await post({ v: 2, lang: "en", messages: [{ role: "user", content: "بدي مؤشر RSI" }] }));
+  assert.match(seen[1].messages.at(-1).content.at(-1).text, /Levantine Arabic/);
+  script = [{ text: "<nexus><base>NONE</base><explain>x</explain></nexus>" }];
+  await ndjson(await post({ v: 2, lang: "en", messages: [{ role: "user", content: "RSI divergence" }] }));
+  assert.match(seen[2].messages.at(-1).content.at(-1).text, /in English/);
+});
+await t("a script pasted inside the message becomes the current script and its findings are listed", async () => {
+  const broken = GOOD.replace("lenInput)", "lenInput");
+  script = [{ text: "<nexus><base>CURRENT</base><edits>\n<<<<<<< FIND\nema = ta.ema(close, lenInput\n=======\nema = ta.ema(close, lenInput)\n>>>>>>> END\n</edits><explain>fixed</explain></nexus>" }];
+  const ev = await ndjson(await post({ v: 2, lang: "ar", messages: [{ role: "user", content: "صلّحلي هالكود:\n" + broken + "\nوشكراً" }] }));
+  const fin = ev.find((e) => e.t === "final");
+  assert.equal(fin.kind, "script"); assert.equal(fin.base, "edit"); assert.equal(fin.report.verified, true); assert.equal(fin.code, GOOD);
+  const sent = seen[0].messages.at(-1).content.at(-1).text;
+  assert.match(sent, /CURRENT SCRIPT/); assert.match(sent, /AUTOMATIC CHECKER FINDINGS/); assert.match(sent, /USER REQUEST:\nصلّحلي هالكود:\nوشكراً/);
+});
+await t("thinking is announced once as a stage", async () => {
+  script = [{ text: "<nexus><base>NONE</base><explain>x</explain></nexus>" }];
+  const ev = await ndjson(await post({ v: 2, messages: [{ role: "user", content: "hello" }] }));
+  assert.equal(ev.filter((e) => e.t === "stage" && e.id === "think").length, 1);
+});
+await t("internal details stay on the server and an edit keeps the file name", async () => {
+  script = [{ text: '<nexus><title>Other</title><file>other_name.pine</file><base>CURRENT</base><edits>\n<<<<<<< FIND\nplot(ema, "EMA", color = color.teal)\n=======\nplot(ema, "EMA", color = color.red)\n>>>>>>> END\n</edits><explain>red</explain></nexus>' }];
+  const ev = await ndjson(await post({ v: 2, lang: "en", code: GOOD, file: "my_ema.pine", messages: [{ role: "user", content: "make it red" }] }));
+  const fin = ev.find((e) => e.t === "final");
+  assert.equal(fin.file, "my_ema.pine"); assert.equal(fin.model, undefined); assert.equal(fin.usage, undefined); assert.equal(fin.report.history, undefined); assert.equal(fin.report.verified, true);
+  const g = await (await handler(new Request("https://x.test/api/indicator"))).json();
+  assert.equal(g.model, undefined);
+});
+await t("debug output, model override and stats need the operator token", async () => {
+  script = [{ text: "<nexus><base>NONE</base><explain>x</explain></nexus>" }];
+  let ev = await ndjson(await post({ v: 2, debug: true, model: "claude-opus-5-5", admin: "wrong-token-000000000000000", messages: [{ role: "user", content: "hi" }] }));
+  assert.equal(ev.find((e) => e.t === "final").usage, undefined); assert.equal(seen[0].model, "claude-sonnet-5-5");
+  script = [{ text: "<nexus><base>NONE</base><explain>x</explain></nexus>" }];
+  ev = await ndjson(await post({ v: 2, debug: true, model: "claude-opus-5-5", effort: "high", admin: ADMIN, messages: [{ role: "user", content: "hi" }] }));
+  assert.equal(ev.find((e) => e.t === "final").model, "claude-opus-5-5"); assert.equal(seen[1].model, "claude-opus-5-5"); assert.equal(seen[1].output_config.effort, "high");
+  const denied = await post({ v: 2, mode: "stats" });
+  assert.equal(denied.status, 403);
+  const st = await (await post({ v: 2, mode: "stats", admin: ADMIN })).json();
+  assert.equal(st.ok, false, "no KV configured in tests");
+});
+await t("the second address serves the same engine", async () => {
+  const { default: h2 } = await import("../../brain-app/api/nexus.js");
+  const j = await (await h2(new Request("https://x.test/api/nexus"))).json();
+  assert.equal(j.engine, 2);
+});
+await t("fix mode sends the TradingView error and uses the given script", async () => {
+  script = [{ text: '<nexus><base>CURRENT</base><edits>\n<<<<<<< FIND\nplot(ema, "EMA", color = color.teal)\n=======\nplot(ema, "EMA", color = color.red)\n>>>>>>> END\n</edits><explain>fixed</explain></nexus>' }];
+  const ev = await ndjson(await post({ v: 2, mode: "fix", lang: "ar", code: GOOD, tvError: "Error at 5:1 Something odd", messages: [{ role: "user", content: "صلّح الخطأ" }] }));
+  const fin = ev.find((e) => e.t === "final");
+  assert.equal(fin.kind, "script"); assert.match(fin.code, /color\.red/);
+  const sent = seen[0].messages.at(-1).content.at(-1).text;
+  assert.match(sent, /TRADINGVIEW REPORTED/); assert.match(sent, /Error at 5:1 Something odd/); assert.match(sent, /TASK: fix the CURRENT SCRIPT/);
 });
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

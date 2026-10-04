@@ -4,8 +4,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Nexus — AI Trading Indicator Designer</title>
-<meta name="description" content="Nexus turns your idea into a complete, automatically checked TradingView indicator: SMC, signals, alerts, backtests.">
+<title>Nexus (staging)</title>
+<meta name="description" content="Staging build of the Nexus app.">
 <meta name="theme-color" content="#070b09">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,60 +16,6 @@
 body{min-height:100dvh;background:radial-gradient(1100px 560px at 75% -8%,rgba(25,200,232,.10),transparent),radial-gradient(900px 520px at 12% 108%,rgba(52,227,155,.09),transparent),var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 button{-webkit-tap-highlight-color:transparent}
-
-/* ===== Landing (Nexus site only) ===== */
-.langbtn{font:inherit;font-weight:700;font-size:13px;color:var(--acc);background:var(--panel);border:1.5px solid var(--line2);border-radius:999px;padding:7px 14px;cursor:pointer;flex:none}
-.langbtn:hover{border-color:var(--acc)}
-.lwrap{max-width:1120px;margin:0 auto;padding-inline:22px}
-.lnav{display:flex;align-items:center;gap:12px;padding:20px 0}
-.brandrow{display:flex;align-items:center;gap:11px}
-.mk{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#042016;font-family:var(--disp);font-weight:700;font-size:21px;box-shadow:var(--glow)}
-.bname{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.06em}
-.bname span{color:var(--acc)}
-.lnav .spacer{margin-inline-start:auto}
-.btn{display:inline-flex;align-items:center;gap:9px;font:inherit;font-weight:700;font-size:15px;border-radius:12px;padding:12px 22px;cursor:pointer;border:1.5px solid transparent;transition:transform .12s,filter .2s}
-.btn:active{transform:translateY(1px)}
-.btn-p{background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016;box-shadow:0 8px 26px rgba(52,227,155,.28)}.btn-p:hover{filter:brightness(1.07)}
-.btn-g{background:var(--panel);color:var(--txt);border-color:var(--line2)}.btn-g:hover{border-color:var(--acc)}
-.hero{text-align:center;padding:36px 0 20px}
-.eyebrow{display:inline-block;font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--acc);background:rgba(52,227,155,.08);border:1px solid rgba(52,227,155,.22);padding:7px 15px;border-radius:999px}
-.hero h1{font-family:var(--disp);font-weight:700;font-size:clamp(34px,7vw,66px);line-height:1.12;margin:22px auto 0;max-width:17ch;letter-spacing:-.01em}
-.hero h1 em{font-style:normal;background:linear-gradient(100deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero p.sub{color:var(--mut);font-size:clamp(16px,2.1vw,19.5px);max-width:58ch;margin:20px auto 0;line-height:1.75}
-.hcta{display:flex;flex-wrap:wrap;gap:13px;justify-content:center;margin-top:30px}
-.hstat{display:flex;flex-wrap:wrap;gap:10px 30px;justify-content:center;margin-top:32px;color:var(--mut);font-size:14px}
-.hstat b{color:var(--txt);font-family:var(--disp)}
-.mock{max-width:900px;margin:48px auto 0;border:1px solid var(--line2);border-radius:18px;background:linear-gradient(180deg,var(--panel),var(--panel2));box-shadow:var(--glow);overflow:hidden}
-.mock .bar{display:flex;align-items:center;gap:7px;padding:12px 15px;border-bottom:1px solid var(--line);direction:ltr}
-.mock .bar i{width:11px;height:11px;border-radius:50%;background:#2a3a30;display:inline-block}
-.mock .bar i:first-child{background:#ef6a5e}.mock .bar i:nth-child(2){background:#f5bd4f}.mock .bar i:nth-child(3){background:var(--acc)}
-.mock .bar span{margin-left:auto;color:var(--mut);font-size:12px;font-family:ui-monospace,monospace}
-.mock .bar em{font-style:normal;font-size:11.5px;font-weight:700;color:#04160d;background:var(--acc);border-radius:999px;padding:2px 9px;margin-left:10px}
-.mock pre{margin:0;padding:18px 20px;overflow:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,Menlo,Consolas,monospace;color:#bfe9d4;direction:ltr;text-align:left}
-.mock pre .c{color:#5f8a73}.mock pre .k{color:var(--acc2)}.mock pre .s{color:var(--acc)}
-.sec{padding:60px 0}
-.kick{text-align:center;color:var(--acc);font-weight:700;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase}
-.sh{text-align:center;font-family:var(--disp);font-weight:700;font-size:clamp(25px,4vw,38px);margin-top:10px}
-.spp{text-align:center;color:var(--mut);font-size:16px;max-width:60ch;margin:12px auto 0;line-height:1.7}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:38px}
-@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.grid{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;transition:border-color .2s,transform .2s}
-.card:hover{border-color:var(--acc2);transform:translateY(-3px)}
-.card .ic{width:44px;height:44px;border-radius:12px;background:rgba(52,227,155,.1);border:1px solid rgba(52,227,155,.2);display:grid;place-items:center;font-size:22px}
-.card h3{font-family:var(--disp);font-size:18px;margin:14px 0 7px}
-.card p{color:var(--mut);font-size:14.5px;line-height:1.7;margin:0}
-#lgrid{margin-top:34px}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:38px}
-@media(max-width:720px){.steps{grid-template-columns:1fr}}
-.step{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:22px}
-.step b.n{font-family:var(--disp);font-size:14px;color:#042016;background:linear-gradient(145deg,var(--acc),var(--acc2));width:30px;height:30px;border-radius:9px;display:grid;place-items:center}
-.step h4{font-family:var(--disp);font-size:16.5px;margin:13px 0 6px}.step p{color:var(--mut);font-size:14.5px;margin:0;line-height:1.7}
-.bigcta{text-align:center;background:linear-gradient(135deg,rgba(52,227,155,.1),rgba(25,200,232,.06));border:1px solid var(--line2);border-radius:22px;padding:46px 26px;margin:10px 0 64px}
-.bigcta h2{font-family:var(--disp);font-size:clamp(24px,3.6vw,34px);margin:0}
-.bigcta p{color:var(--mut);margin:12px 0 0}
-.lfoot{border-top:1px solid var(--line);padding:26px 0;color:var(--mut);font-size:13px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.lfoot .mk{width:30px;height:30px;border-radius:9px;font-size:15px}
-.lfoot .r{margin-inline-start:auto}
 
 /* Nexus app view (shared by indicator-build and brain-app/indicators). Built into the pages by nexus-engine/ui/build-ui.mjs */
 #appview{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg);z-index:100}
@@ -232,91 +178,16 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 </style>
 </head>
 <body>
-<!-- ===================== LANDING ===================== -->
-<div id="landing">
-<div class="lwrap">
-  <nav class="lnav">
-    <div class="brandrow"><span class="mk">∿</span><span class="bname">NE<span>XUS</span></span></div>
-    <span class="spacer"></span>
-    <button class="langbtn" id="langL" type="button">EN</button>
-    <button class="btn btn-p" type="button" onclick="NexusApp.launch()" data-i18n="nav_cta">ابدأ التصميم ↗</button>
-  </nav>
-
-  <section class="hero">
-    <span class="eyebrow" data-i18n="eyebrow">⚡ مصمّم مؤشرات TradingView بالذكاء الاصطناعي</span>
-    <h1 data-i18n-html="hero_h1">صمّم مؤشّرك. <em>بكلماتك.</em></h1>
-    <p class="sub" data-i18n="hero_sub">احكي فكرتك بالعربي، وNexus بيبني مؤشر TradingView كامل، بيفحصه تلقائياً، وبيسلّمك كود جاهز للصق.</p>
-    <div class="hcta">
-      <button class="btn btn-p" type="button" onclick="NexusApp.launch()" data-i18n="hero_cta1">ابدأ هلّق →</button>
-      <button class="btn btn-g" type="button" onclick="NexusApp.demo()" data-i18n="hero_cta2">جرّب مؤشر جاهز</button>
-    </div>
-    <div class="hstat">
-      <span data-i18n-html="stat1"><b>Pine v6</b> · أحدث نسخة</span>
-      <span data-i18n-html="stat2"><b>فحص تلقائي</b> · قبل التسليم</span>
-      <span data-i18n-html="stat3"><b>9 مؤشرات</b> · جاهزة فوراً</span>
-    </div>
-
-    <div class="mock">
-      <div class="bar"><i></i><i></i><i></i><span>nexus_smc.pine</span><em data-i18n="mock_badge">✓ انفحص · 0 أخطاء</em></div>
-<pre><span class="c">//@version=6</span>
-<span class="k">indicator</span>(<span class="s">"Nexus SMC - Structure, Order Blocks, FVG &amp; Liquidity"</span>, shorttitle = <span class="s">"Nexus SMC"</span>, overlay = <span class="k">true</span>)
-<span class="c">// BOS / CHoCH once per broken swing, order blocks, fair value gaps, liquidity sweeps</span>
-<span class="k">int</span> swingLenInput = <span class="k">input.int</span>(10, <span class="s">"Swing length"</span>, minval = 2, maxval = 100, group = GRP_ST)
-<span class="k">alertcondition</span>(sBullBos, <span class="s">"Bullish BOS"</span>, <span class="s">"Nexus SMC: bullish BOS on {{ticker}} {{interval}} at {{close}}"</span>)
-<span class="c">// ... 233 lines, checked and ready to paste into TradingView</span></pre>
-    </div>
-  </section>
-
-  <section class="sec">
-    <div class="kick" data-i18n="feat_kick">ليش Nexus</div>
-    <div class="sh" data-i18n="feat_sh">مؤشر بيشتغل من أول لصقة</div>
-    <div class="grid">
-      <div class="card"><div class="ic">🗣️</div><h3 data-i18n="f1h">بيفهم عليك</h3><p data-i18n="f1p">اكتب أو احكي بالصوت، بالعربي أو الإنجليزي، أو ارفع صورة شارت.</p></div>
-      <div class="card"><div class="ic">✅</div><h3 data-i18n="f2h">فحص تلقائي</h3><p data-i18n="f2p">كل كود بيمرّ على فاحص Pine v6 حقيقي، والأخطاء بتتصلّح قبل ما توصلك.</p></div>
-      <div class="card"><div class="ic">⚡</div><h3 data-i18n="f3h">مؤشرات جاهزة فورية</h3><p data-i18n="f3p">SMC، اتجاه، إشارات مع أهداف، دعوم ومقاومات وغيرها، مفحوصة وجاهزة بكبسة.</p></div>
-      <div class="card"><div class="ic">🛠️</div><h3 data-i18n="f4h">تصليح بلصقة</h3><p data-i18n="f4p">إذا TradingView طلّع خطأ، الصقه وبيتصلّح على نفس المؤشر.</p></div>
-    </div>
-  </section>
-
-  <section class="sec" style="padding-top:0">
-    <div class="kick" data-i18n="gal_kick">مؤشرات جاهزة</div>
-    <div class="sh" data-i18n="gal_sh">جرّب واحد هلّق، فوري</div>
-    <p class="spp" data-i18n="gal_p">اضغط على أي مؤشر وبيوصلك الكود فوراً. بعدها اطلب أي تعديل عليه بكلماتك.</p>
-    <div class="tgrid" id="lgrid"></div>
-  </section>
-
-  <section class="sec" style="padding-top:0">
-    <div class="kick" data-i18n="how_kick">كيف بيشتغل</div>
-    <div class="sh" data-i18n="how_sh">من فكرة لمؤشّر بـ ٣ خطوات</div>
-    <div class="steps">
-      <div class="step"><b class="n">1</b><h4 data-i18n="s1h">احكي فكرتك</h4><p data-i18n="s1p">مثلاً: «إشارة شراء لما RSI يطلع فوق 30 والسعر فوق EMA 200، مع تنبيه».</p></div>
-      <div class="step"><b class="n">2</b><h4 data-i18n="s2h">Nexus بيبني وبيفحص</h4><p data-i18n="s2p">بينكتب الكود، بينفحص تلقائياً، وبتتصلّح الأخطاء قبل التسليم.</p></div>
-      <div class="step"><b class="n">3</b><h4 data-i18n="s3h">الصق بـ TradingView</h4><p data-i18n="s3p">انسخ الكود، الصقه بالـ Pine&nbsp;Editor واضغط Add&nbsp;to&nbsp;chart.</p></div>
-    </div>
-  </section>
-
-  <div class="bigcta">
-    <h2 data-i18n="big_h">جاهز تبني مؤشّرك الأول؟</h2>
-    <p data-i18n="big_p">بدون برمجة. بس فكرة.</p>
-    <div class="hcta"><button class="btn btn-p" type="button" onclick="NexusApp.launch()" data-i18n="big_cta">ابدأ هلّق ↗</button></div>
-  </div>
-
-  <div class="lfoot">
-    <span class="mk">∿</span><span data-i18n="foot_l">© {yr} Nexus — مصمّم مؤشرات التداول</span>
-    <span class="r" data-i18n="foot_r">مؤشرات أصلية · أداة تعليمية، مش نصيحة مالية</span>
-  </div>
-</div>
-</div>
 
 <!-- ===================== APP ===================== -->
-<div id="appview">
+<div id="appview" class="on">
 <header>
 <button class="icbtn" id="menu" data-i18n-title="t_menu" title="القائمة" aria-label="Menu">☰</button>
 <div class="logo">∿</div>
-<div class="hbrand"><b>NEXUS</b><small>Indicator Designer</small></div>
+<div class="hbrand"><b>NEXUS</b><small>staging</small></div>
 <div class="hright">
 <button class="pill" id="langA" type="button">EN</button>
-<button class="pill" id="home" type="button" data-i18n-title="t_home" title="الرئيسية">⌂</button>
+<button class="pill" id="home" type="button" data-i18n-title="t_home" title="الرئيسية" style="display:none">⌂</button>
 <button class="pill" id="newchat" type="button" data-i18n="btn_new" data-i18n-title="t_new" title="محادثة جديدة">+ جديد</button>
 <div class="status"><span class="dot" id="dot"></span><span id="stat">…</span></div>
 </div>
@@ -362,7 +233,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 <textarea id="in" rows="1" dir="auto" data-i18n-ph="ph_in" placeholder="وصّف المؤشر اللي بدك ياه…"></textarea>
 <button class="send" id="send" type="button" data-i18n-title="t_send" title="إرسال" aria-label="Send"><span>➤</span></button>
 </div>
-<div class="hint" data-i18n="hint">Nexus · Pine Script v6 · أداة تعليمية، مش نصيحة مالية</div>
+<div class="hint" data-i18n="hint">نسخة تجريبية</div>
 </div>
 <input type="file" id="file" accept="image/*,.pine,.txt,.pdf" style="display:none">
 
@@ -397,7 +268,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 <div class="toast" id="toast"></div>
 </div>
 
-<script>window.NEXUS_CONFIG={"endpoint":"https://brain-ahmad-93cb.vercel.app/api/indicator","store":"nexus_v2","templates":[{"id":"smc","icon":"📦","title":{"ar":"SMC كامل","en":"Full SMC"},"blurb":{"ar":"هيكل السوق، Order Blocks، FVG وسيولة","en":"Structure, order blocks, FVG, liquidity"}},{"id":"trend","icon":"📈","title":{"ar":"اتجاه + تنبيه","en":"Trend + alerts"},"blurb":{"ar":"صاعد / هابط / محايد مع تنبيه عند التغيّر","en":"Up / down / neutral with change alerts"}},{"id":"signals","icon":"🔔","title":{"ar":"إشارات Buy/Sell مع أهداف","en":"Buy/Sell signals with targets"},"blurb":{"ar":"دخول، وقف وثلاث أهداف لكل إشارة","en":"Entry, stop and three targets per signal"}},{"id":"sr","icon":"📐","title":{"ar":"دعوم ومقاومات","en":"Support & Resistance"},"blurb":{"ar":"مناطق بتتحدّث لحالها وبتنمسح لما تنكسر","en":"Zones that update and clear when broken"}},{"id":"scalper","icon":"⚡","title":{"ar":"سكالبينغ / زخم","en":"Scalping / momentum"},"blurb":{"ar":"دخول سريع على فريمات 1 إلى 15 دقيقة","en":"Fast entries for 1 to 15 minute charts"}},{"id":"mtf","icon":"🧭","title":{"ar":"جدول متعدّد الفريمات","en":"Multi-timeframe table"},"blurb":{"ar":"اتجاه أربع فريمات بجدول واحد","en":"Trend on four timeframes in one table"}},{"id":"sessions","icon":"🕒","title":{"ar":"جلسات ومستويات أمس","en":"Sessions & previous levels"},"blurb":{"ar":"آسيا، لندن، نيويورك وقمة وقاع اليوم السابق","en":"Asia, London, New York and yesterday's range"}},{"id":"rsi_div","icon":"〽️","title":{"ar":"دايفرجنس RSI","en":"RSI divergence"},"blurb":{"ar":"عادي ومخفي، مع خطوط وتنبيهات","en":"Regular and hidden, with lines and alerts"}},{"id":"strategy","icon":"🧪","title":{"ar":"قالب ستراتيجي (باك-تست)","en":"Strategy template (backtest)"},"blurb":{"ar":"مخاطرة ثابتة، وقف ATR وهدف","en":"Fixed risk, ATR stop and target"}}],"landing":true,"hintAr":"Nexus · Pine Script v6 · أداة تعليمية، مش نصيحة مالية","hintEn":"Nexus · Pine Script v6 · educational tool, not financial advice","i18n":{"nav_cta":["ابدأ التصميم ↗","Start designing ↗"],"eyebrow":["⚡ مصمّم مؤشرات TradingView بالذكاء الاصطناعي","⚡ AI indicator designer for TradingView"],"hero_h1":["صمّم مؤشّرك. \u003cem>بكلماتك.\u003c/em>","Design your indicator. \u003cem>In your own words.\u003c/em>"],"hero_sub":["احكي فكرتك بالعربي، وNexus بيبني مؤشر TradingView كامل، بيفحصه تلقائياً، وبيسلّمك كود جاهز للصق.","Describe your idea in plain words. Nexus builds a complete TradingView indicator, checks it automatically and hands you code that is ready to paste."],"hero_cta1":["ابدأ هلّق →","Start now →"],"hero_cta2":["جرّب مؤشر جاهز","Try a ready indicator"],"stat1":["\u003cb>Pine v6\u003c/b> · أحدث نسخة","\u003cb>Pine v6\u003c/b> · latest version"],"stat2":["\u003cb>فحص تلقائي\u003c/b> · قبل التسليم","\u003cb>Automatic check\u003c/b> · before delivery"],"stat3":["\u003cb>9 مؤشرات\u003c/b> · جاهزة فوراً","\u003cb>9 indicators\u003c/b> · ready instantly"],"mock_badge":["✓ انفحص · 0 أخطاء","✓ Checked · 0 errors"],"feat_kick":["ليش Nexus","Why Nexus"],"feat_sh":["مؤشر بيشتغل من أول لصقة","An indicator that works on the first paste"],"f1h":["بيفهم عليك","Understands you"],"f1p":["اكتب أو احكي بالصوت، بالعربي أو الإنجليزي، أو ارفع صورة شارت.","Type or speak, in Arabic or English, or upload a chart image."],"f2h":["فحص تلقائي","Automatic check"],"f2p":["كل كود بيمرّ على فاحص Pine v6 حقيقي، والأخطاء بتتصلّح قبل ما توصلك.","Every script goes through a real Pine v6 checker, and errors are fixed before you get it."],"f3h":["مؤشرات جاهزة فورية","Instant ready indicators"],"f3p":["SMC، اتجاه، إشارات مع أهداف، دعوم ومقاومات وغيرها، مفحوصة وجاهزة بكبسة.","SMC, trend, signals with targets, support & resistance and more, checked and one click away."],"f4h":["تصليح بلصقة","Fix by pasting"],"f4p":["إذا TradingView طلّع خطأ، الصقه وبيتصلّح على نفس المؤشر.","If TradingView shows an error, paste it and the same script gets fixed."],"gal_kick":["مؤشرات جاهزة","Ready indicators"],"gal_sh":["جرّب واحد هلّق، فوري","Try one now, instantly"],"gal_p":["اضغط على أي مؤشر وبيوصلك الكود فوراً. بعدها اطلب أي تعديل عليه بكلماتك.","Click any indicator to get its code instantly. Then ask for any change in your own words."],"how_kick":["كيف بيشتغل","How it works"],"how_sh":["من فكرة لمؤشّر بـ ٣ خطوات","From idea to indicator in 3 steps"],"s1h":["احكي فكرتك","Describe your idea"],"s1p":["مثلاً: «إشارة شراء لما RSI يطلع فوق 30 والسعر فوق EMA 200، مع تنبيه».","For example: \"a buy signal when RSI crosses above 30 while price is above the 200 EMA, with an alert\"."],"s2h":["Nexus بيبني وبيفحص","Nexus builds and checks"],"s2p":["بينكتب الكود، بينفحص تلقائياً، وبتتصلّح الأخطاء قبل التسليم.","The code is written, checked automatically, and errors are fixed before delivery."],"s3h":["الصق بـ TradingView","Paste into TradingView"],"s3p":["انسخ الكود، الصقه بالـ Pine Editor واضغط Add to chart.","Copy the code, paste it into the Pine Editor and click Add to chart."],"big_h":["جاهز تبني مؤشّرك الأول؟","Ready to build your first indicator?"],"big_p":["بدون برمجة. بس فكرة.","No coding. Just an idea."],"big_cta":["ابدأ هلّق ↗","Start now ↗"],"foot_l":["© {yr} Nexus — مصمّم مؤشرات التداول","© {yr} Nexus — trading indicator designer"],"foot_r":["مؤشرات أصلية · أداة تعليمية، مش نصيحة مالية","Original indicators · educational tool, not financial advice"]}};</script>
+<script>window.NEXUS_CONFIG={"endpoint":"/api/nexus","store":"nexus_stage_v2","templates":[{"id":"smc","icon":"📦","title":{"ar":"SMC كامل","en":"Full SMC"},"blurb":{"ar":"هيكل السوق، Order Blocks، FVG وسيولة","en":"Structure, order blocks, FVG, liquidity"}},{"id":"trend","icon":"📈","title":{"ar":"اتجاه + تنبيه","en":"Trend + alerts"},"blurb":{"ar":"صاعد / هابط / محايد مع تنبيه عند التغيّر","en":"Up / down / neutral with change alerts"}},{"id":"signals","icon":"🔔","title":{"ar":"إشارات Buy/Sell مع أهداف","en":"Buy/Sell signals with targets"},"blurb":{"ar":"دخول، وقف وثلاث أهداف لكل إشارة","en":"Entry, stop and three targets per signal"}},{"id":"sr","icon":"📐","title":{"ar":"دعوم ومقاومات","en":"Support & Resistance"},"blurb":{"ar":"مناطق بتتحدّث لحالها وبتنمسح لما تنكسر","en":"Zones that update and clear when broken"}},{"id":"scalper","icon":"⚡","title":{"ar":"سكالبينغ / زخم","en":"Scalping / momentum"},"blurb":{"ar":"دخول سريع على فريمات 1 إلى 15 دقيقة","en":"Fast entries for 1 to 15 minute charts"}},{"id":"mtf","icon":"🧭","title":{"ar":"جدول متعدّد الفريمات","en":"Multi-timeframe table"},"blurb":{"ar":"اتجاه أربع فريمات بجدول واحد","en":"Trend on four timeframes in one table"}},{"id":"sessions","icon":"🕒","title":{"ar":"جلسات ومستويات أمس","en":"Sessions & previous levels"},"blurb":{"ar":"آسيا، لندن، نيويورك وقمة وقاع اليوم السابق","en":"Asia, London, New York and yesterday's range"}},{"id":"rsi_div","icon":"〽️","title":{"ar":"دايفرجنس RSI","en":"RSI divergence"},"blurb":{"ar":"عادي ومخفي، مع خطوط وتنبيهات","en":"Regular and hidden, with lines and alerts"}},{"id":"strategy","icon":"🧪","title":{"ar":"قالب ستراتيجي (باك-تست)","en":"Strategy template (backtest)"},"blurb":{"ar":"مخاطرة ثابتة، وقف ATR وهدف","en":"Fixed risk, ATR stop and target"}}],"landing":false,"hintAr":"نسخة تجريبية","hintEn":"staging build"};</script>
 <script>
 /* Nexus app client (protocol v2). Shared by indicator-build and brain-app/indicators; built by nexus-engine/ui/build-ui.mjs */
 (function () {

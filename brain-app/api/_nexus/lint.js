@@ -16,6 +16,7 @@ const MUST_FIX_RULES = new Set([
   "NX_NON_ASCII",
   "NX_SHORTTITLE",
   "NX_UNUSED_INPUT",
+  "NX_IMPORT",
 ]);
 // Worth one repair attempt, but never block delivery on them.
 const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING"]);
@@ -55,10 +56,114 @@ function stripStringsAndComments(line) {
   return out;
 }
 
+// ---------- const-string arguments ----------
+// TradingView requires a "const string" for titles, plotshape/plotchar text and alertcondition messages. The type
+// checker reports the direct cases; this pass adds the ones that go through a variable (for example
+// `string txt = up ? "A" : "B"` followed by `plotchar(..., text = txt)`).
+
+const CONST_STRING_PARAMS = {
+  indicator: { names: ["title", "shorttitle"], pos: { 0: "title", 1: "shorttitle" } },
+  strategy: { names: ["title", "shorttitle"], pos: { 0: "title", 1: "shorttitle" } },
+  plot: { names: ["title"], pos: { 1: "title" } },
+  plotshape: { names: ["title", "text"], pos: { 1: "title", 6: "text" } },
+  plotchar: { names: ["title", "text"], pos: { 1: "title", 6: "text" } },
+  plotarrow: { names: ["title"], pos: { 1: "title" } },
+  plotcandle: { names: ["title"], pos: { 4: "title" } },
+  plotbar: { names: ["title"], pos: { 4: "title" } },
+  hline: { names: ["title"], pos: { 1: "title" } },
+  fill: { names: ["title"], pos: {} },
+  bgcolor: { names: ["title"], pos: { 4: "title" } },
+  barcolor: { names: ["title"], pos: { 4: "title" } },
+  alertcondition: { names: ["title", "message"], pos: { 1: "title", 2: "message" } },
+  input: { names: ["title", "tooltip", "inline", "group"], pos: { 1: "title" } },
+};
+const RUNTIME_NAMESPACES = new Set(["syminfo", "timeframe", "barstate", "session", "chart", "strategy", "earnings", "dividends", "splits", "ta", "request", "str", "math", "array", "map", "matrix", "input"]);
+const RUNTIME_NAMES = new Set(["open", "high", "low", "close", "volume", "time", "hl2", "hlc3", "ohlc4", "hlcc4", "bar_index", "timenow", "last_bar_index", "last_bar_time", "time_close", "time_tradingday", "dayofmonth", "dayofweek", "hour", "minute", "month", "year", "weekofyear", "second", "ask", "bid"]);
+const WORD_OPERATORS = new Set(["and", "or", "not", "true", "false", "na"]);
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Returns the name that makes `expr` (strings already blanked) change at runtime, or "" when it looks constant.
+function runtimeCulprit(expr, masked, depth, seen) {
+  const src = expr.replace(/"[^"]*"|'[^']*'/g, " ");
+  const re = /[A-Za-z_][\w.]*/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const name = m[0];
+    const after = src.slice(m.index + name.length).trimStart();
+    const dot = name.indexOf(".");
+    if (after.startsWith("(")) {
+      // Built-in calls never return a const string. A user function may (its arguments are scanned next).
+      if (name === "input" || (dot > 0 && RUNTIME_NAMESPACES.has(name.slice(0, dot)))) return name + "()";
+      continue;
+    }
+    if (WORD_OPERATORS.has(name)) continue;
+    if (dot > 0) { if (RUNTIME_NAMESPACES.has(name.slice(0, dot))) return name; continue; } // color.red, shape.* ... are constants
+    if (RUNTIME_NAMES.has(name)) return name;
+    if (depth >= 4 || seen.has(name)) continue;
+    seen.add(name);
+    const n = escapeRe(name);
+    if (new RegExp("(^|[^\\w.])" + n + "[ \\t]*(?::=|\\+=|-=|\\*=|/=)", "m").test(masked)) return name;
+    const decl = new RegExp("^[ \\t]*(?:(?:var|varip)[ \\t]+)?(?:(const|simple|series|input)[ \\t]+)?(?:[A-Za-z_][\\w.<>]*[ \\t]+)?" + n + "[ \\t]*=(?!=)[ \\t]*(.*)$", "gm");
+    const found = [];
+    let d;
+    while ((d = decl.exec(masked)) !== null) found.push(d);
+    if (found.length !== 1) continue; // a parameter, a tuple element or several scopes: unknown, stay quiet
+    const qualifier = found[0][1];
+    const rhs = found[0][2];
+    if (qualifier && qualifier !== "const") return name;
+    if (/^(?:switch|if|for|while)\b/.test(rhs.trim())) return name;
+    if (runtimeCulprit(rhs, masked, depth + 1, seen)) return name;
+  }
+  return "";
+}
+
+function constStringRule(lines, push) {
+  const maskedLines = lines.map(stripStringsAndComments);
+  const masked = maskedLines.join("\n");
+  const callRe = /(^|[^\w.])(plotshape|plotchar|plotarrow|plotcandle|plotbar|plot|hline|fill|bgcolor|barcolor|alertcondition|indicator|strategy|input(?:\.\w+)?)[ \t]*\(/gm;
+  let m;
+  while ((m = callRe.exec(masked)) !== null) {
+    const fn = m[2];
+    const spec = CONST_STRING_PARAMS[fn.startsWith("input") ? "input" : fn];
+    const open = m.index + m[0].length - 1;
+    // Walk to the matching parenthesis, splitting top-level arguments.
+    const args = [];
+    let depth = 0, start = open + 1, end = -1;
+    for (let i = open; i < masked.length; i++) {
+      const ch = masked[i];
+      if (ch === '"' || ch === "'") { const q = masked.indexOf(ch, i + 1); if (q < 0) break; i = q; continue; }
+      if (ch === "(" || ch === "[") depth++;
+      else if (ch === ")" || ch === "]") { depth--; if (depth === 0) { args.push(masked.slice(start, i)); end = i; break; } }
+      else if (ch === "," && depth === 1) { args.push(masked.slice(start, i)); start = i + 1; }
+    }
+    if (end < 0) continue;
+    let positional = true;
+    for (let k = 0; k < args.length; k++) {
+      const named = /^\s*([A-Za-z_]\w*)\s*=(?!=)([\s\S]*)$/.exec(args[k]);
+      let param = "", expr = args[k];
+      if (named) { positional = false; param = named[1]; expr = named[2]; }
+      else if (positional) param = spec.pos[k] || "";
+      if (!param || !spec.names.includes(param)) continue;
+      const culprit = runtimeCulprit(expr, masked, 0, new Set());
+      if (!culprit) continue;
+      const line = masked.slice(0, m.index + m[1].length).split("\n").length;
+      const hint = param === "message" ? "For a changing message call alert() instead of alertcondition(), or use placeholders such as {{ticker}} and {{close}}."
+        : param === "text" ? "Use a literal string here; for text that changes use label.new(), or one " + fn + "() call per fixed text."
+        : "Use a literal string.";
+      push(line, 1, "NX_CONST_STRING", `Cannot call "${fn}" with argument "${param}": a "const string" is required but the value depends on "${culprit}", which can change at runtime. ${hint}`);
+    }
+  }
+}
+
 function nexusRules(code) {
   const diags = [];
   const lines = code.split("\n");
   const push = (line, col, rule, message) => diags.push({ line, col, endLine: line, endCol: col + 1, message, stage: "nexus", rule });
+  try { constStringRule(lines, push); } catch (e) { /* a heuristic must never break the check */ }
+
+  for (let i = 0; i < lines.length; i++) {
+    if (/^import[ \t]+[\w-]+\/[\w-]+\/\d+/.test(lines[i])) push(i + 1, 1, "NX_IMPORT", "Imported libraries cannot be verified by the checker. Do not import libraries: write the needed logic directly in the script.");
+  }
 
   if (!/^\s*\/\/@version=6\s*$/m.test(code)) push(1, 1, "NX_VERSION", "The script must start with //@version=6.");
   if (/^\s*```/m.test(code)) push(1, 1, "NX_FENCE", "Markdown code fences are not Pine Script. Remove the ``` lines.");
@@ -121,6 +226,9 @@ export function checkPine(input) {
   for (const d of nexusRules(code)) {
     if (d.rule === "NX_VERSION" || d.rule === "NX_FENCE" || d.rule === "NX_NO_DECLARATION") {
       if (!errors.some((e) => e.line === d.line && e.message === d.message)) errors.push(d);
+    } else if (d.rule === "NX_CONST_STRING") {
+      // The type checker already reports the direct cases; only add what it missed.
+      if (!errors.some((e) => e.line === d.line)) errors.push(d);
     } else if (MUST_FIX_RULES.has(d.rule)) {
       // Report each rule once per line, at most 5 lines per rule, to keep repair prompts short.
       if (mustFix.filter((x) => x.rule === d.rule).length < 5) mustFix.push(d);

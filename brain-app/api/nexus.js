@@ -1,4 +1,4 @@
-// Nexus / Brain Indicators endpoint (Vercel Edge). The engine lives in ./_nexus (see nexus-engine/README.md).
+// Second address of the Nexus engine (same handler as api/indicator.js). Used to stage and verify new engine versions.
 export const config = { runtime: "edge" };
 
 import { handle } from "./_nexus/handler.js";
