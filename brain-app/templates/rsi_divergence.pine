@@ -1,0 +1,79 @@
+//@version=6
+indicator("Nexus RSI Divergence", shorttitle = "Nexus RSI Div", overlay = false, max_lines_count = 200, max_labels_count = 200)
+
+// ───────────── Inputs ─────────────
+string GRP_R = "RSI"
+int    rsiLenInput  = input.int(14, "RSI length", minval = 2, group = GRP_R)
+int    obInput      = input.int(70, "Overbought", minval = 50, maxval = 100, group = GRP_R)
+int    osInput      = input.int(30, "Oversold", minval = 0, maxval = 50, group = GRP_R)
+string GRP_D = "Divergence"
+int    pivLenInput  = input.int(5, "Pivot length", minval = 2, maxval = 30, group = GRP_D, tooltip = "A divergence is confirmed this many bars after the RSI pivot forms.")
+int    minBarsInput = input.int(5, "Minimum bars between pivots", minval = 1, group = GRP_D)
+int    maxBarsInput = input.int(60, "Maximum bars between pivots", minval = 5, group = GRP_D)
+bool   showHiddenInput = input.bool(false, "Show hidden divergences", group = GRP_D)
+string GRP_V = "Visuals"
+color  bullColorInput = input.color(#089981, "Bullish", group = GRP_V, inline = "c")
+color  bearColorInput = input.color(#F23645, "Bearish", group = GRP_V, inline = "c")
+
+// ───────────── Calculations ─────────────
+float rsi = ta.rsi(close, rsiLenInput)
+float rsiPl = ta.pivotlow(rsi, pivLenInput, pivLenInput)
+float rsiPh = ta.pivothigh(rsi, pivLenInput, pivLenInput)
+
+// Previous RSI pivot and the price at that pivot.
+var float prevLowRsi   = na
+var float prevLowPrice = na
+var int   prevLowBar   = na
+var float prevHighRsi   = na
+var float prevHighPrice = na
+var int   prevHighBar   = na
+
+bool regBull = false
+bool hidBull = false
+bool regBear = false
+bool hidBear = false
+
+if not na(rsiPl)
+    float priceLow = low[pivLenInput]
+    int   pivBar   = bar_index - pivLenInput
+    if not na(prevLowRsi)
+        int gap = pivBar - prevLowBar
+        if gap >= minBarsInput and gap <= maxBarsInput
+            // Regular bullish: price lower low, RSI higher low. Hidden bullish: price higher low, RSI lower low.
+            regBull := priceLow < prevLowPrice and rsiPl > prevLowRsi
+            hidBull := showHiddenInput and priceLow > prevLowPrice and rsiPl < prevLowRsi
+            if regBull or hidBull
+                line.new(prevLowBar, prevLowRsi, pivBar, rsiPl, color = bullColorInput, width = 2, style = regBull ? line.style_solid : line.style_dashed)
+                label.new(pivBar, rsiPl, regBull ? "Bull" : "H Bull", style = label.style_label_up, color = color.new(bullColorInput, 100), textcolor = bullColorInput, size = size.tiny)
+    prevLowRsi   := rsiPl
+    prevLowPrice := priceLow
+    prevLowBar   := pivBar
+
+if not na(rsiPh)
+    float priceHigh = high[pivLenInput]
+    int   pivBar    = bar_index - pivLenInput
+    if not na(prevHighRsi)
+        int gap = pivBar - prevHighBar
+        if gap >= minBarsInput and gap <= maxBarsInput
+            // Regular bearish: price higher high, RSI lower high. Hidden bearish: price lower high, RSI higher high.
+            regBear := priceHigh > prevHighPrice and rsiPh < prevHighRsi
+            hidBear := showHiddenInput and priceHigh < prevHighPrice and rsiPh > prevHighRsi
+            if regBear or hidBear
+                line.new(prevHighBar, prevHighRsi, pivBar, rsiPh, color = bearColorInput, width = 2, style = regBear ? line.style_solid : line.style_dashed)
+                label.new(pivBar, rsiPh, regBear ? "Bear" : "H Bear", style = label.style_label_down, color = color.new(bearColorInput, 100), textcolor = bearColorInput, size = size.tiny)
+    prevHighRsi   := rsiPh
+    prevHighPrice := priceHigh
+    prevHighBar   := pivBar
+
+// ───────────── Visuals ─────────────
+pRsi = plot(rsi, "RSI", color = #7E57C2, linewidth = 2)
+hOb  = hline(obInput, "Overbought", color = color.new(color.gray, 40), linestyle = hline.style_dashed)
+hMid = hline(50, "Middle", color = color.new(color.gray, 70), linestyle = hline.style_dotted)
+hOs  = hline(osInput, "Oversold", color = color.new(color.gray, 40), linestyle = hline.style_dashed)
+fill(hOb, hOs, color = color.new(#7E57C2, 94), title = "Range fill")
+
+// ───────────── Alerts ─────────────
+alertcondition(regBull, "Bullish divergence", "Nexus RSI: bullish divergence on {{ticker}} {{interval}}")
+alertcondition(regBear, "Bearish divergence", "Nexus RSI: bearish divergence on {{ticker}} {{interval}}")
+alertcondition(hidBull, "Hidden bullish divergence", "Nexus RSI: hidden bullish divergence on {{ticker}} {{interval}}")
+alertcondition(hidBear, "Hidden bearish divergence", "Nexus RSI: hidden bearish divergence on {{ticker}} {{interval}}")

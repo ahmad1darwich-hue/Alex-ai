@@ -1,0 +1,64 @@
+//@version=6
+indicator("Nexus Trend - EMA & ATR Trail", shorttitle = "Nexus Trend", overlay = true, max_labels_count = 500)
+
+// ───────────── Inputs ─────────────
+string GRP_T = "Trend engine"
+int    emaLenInput    = input.int(50, "Baseline EMA length", minval = 2, group = GRP_T, tooltip = "Price must be on the trend side of this EMA.")
+int    atrLenInput    = input.int(10, "ATR length", minval = 1, group = GRP_T)
+float  atrMultInput   = input.float(3.0, "ATR trail multiplier", minval = 0.5, step = 0.1, group = GRP_T, tooltip = "Higher = fewer, slower trend changes.")
+bool   useHtfInput    = input.bool(false, "Require higher-timeframe agreement", group = GRP_T, inline = "htf")
+string htfInput       = input.timeframe("240", "", group = GRP_T, inline = "htf", tooltip = "Uses the last CLOSED higher-timeframe bar, so it does not repaint.")
+
+string GRP_V = "Visuals"
+color  upColorInput   = input.color(#089981, "Up", group = GRP_V, inline = "c")
+color  dnColorInput   = input.color(#F23645, "Down", group = GRP_V, inline = "c")
+color  flatColorInput = input.color(#787B86, "Neutral", group = GRP_V, inline = "c")
+bool   showTrailInput = input.bool(true, "Show ATR trail", group = GRP_V)
+bool   showCloudInput = input.bool(true, "Shade between price and trail", group = GRP_V)
+bool   colorBarsInput = input.bool(false, "Color bars by trend", group = GRP_V)
+bool   showMarksInput = input.bool(true, "Mark trend changes", group = GRP_V)
+
+// ───────────── Calculations ─────────────
+float ema = ta.ema(close, emaLenInput)
+[trail, stDir] = ta.supertrend(atrMultInput, atrLenInput)
+// ta.supertrend(): direction < 0 while price is above the trail (uptrend).
+bool trailUp = stDir < 0
+bool trailDn = stDir > 0
+
+// Higher-timeframe bias from the last closed HTF bar (offset + lookahead_on = no repainting).
+float htfClose = request.security(syminfo.tickerid, htfInput, close[1], lookahead = barmerge.lookahead_on)
+float htfEma   = request.security(syminfo.tickerid, htfInput, ta.ema(close, emaLenInput)[1], lookahead = barmerge.lookahead_on)
+bool  htfUp    = not useHtfInput or htfClose > htfEma
+bool  htfDn    = not useHtfInput or htfClose < htfEma
+
+// State: 1 up, -1 down, 0 neutral (trail and baseline disagree).
+int state = trailUp and close > ema and htfUp ? 1 : trailDn and close < ema and htfDn ? -1 : 0
+
+// A change is reported once, on the bar close where a NEW directional state appears.
+// Neutral bars do not reset it, so up -> neutral -> up prints nothing.
+var int lastDir = 0
+bool turnedUp = false
+bool turnedDn = false
+if barstate.isconfirmed and state != 0 and state != lastDir
+    turnedUp := state == 1
+    turnedDn := state == -1
+    lastDir  := state
+
+color stateColor = state == 1 ? upColorInput : state == -1 ? dnColorInput : flatColorInput
+
+// ───────────── Visuals ─────────────
+plot(ema, "Baseline EMA", color = stateColor, linewidth = 2)
+pPrice   = plot(showCloudInput ? hl2 : na, "Mid price", color = na, editable = false, display = display.none)
+// Two series so the trail breaks cleanly when it flips sides (no vertical connector).
+pTrailUp = plot(showTrailInput and trailUp ? trail : na, "ATR trail (up)", color = upColorInput, style = plot.style_linebr, linewidth = 1)
+pTrailDn = plot(showTrailInput and trailDn ? trail : na, "ATR trail (down)", color = dnColorInput, style = plot.style_linebr, linewidth = 1)
+fill(pPrice, pTrailUp, color = showCloudInput ? color.new(upColorInput, 90) : na, title = "Up shade")
+fill(pPrice, pTrailDn, color = showCloudInput ? color.new(dnColorInput, 90) : na, title = "Down shade")
+barcolor(colorBarsInput ? stateColor : na, title = "Bar color")
+plotshape(showMarksInput and turnedUp, "Trend up", shape.labelup, location.belowbar, color = upColorInput, text = "UP", textcolor = color.white, size = size.tiny)
+plotshape(showMarksInput and turnedDn, "Trend down", shape.labeldown, location.abovebar, color = dnColorInput, text = "DOWN", textcolor = color.white, size = size.tiny)
+
+// ───────────── Alerts ─────────────
+alertcondition(turnedUp, "Trend turned up", "Nexus Trend: UP on {{ticker}} {{interval}} at {{close}}")
+alertcondition(turnedDn, "Trend turned down", "Nexus Trend: DOWN on {{ticker}} {{interval}} at {{close}}")
+alertcondition(turnedUp or turnedDn, "Any trend change", "Nexus Trend: trend changed on {{ticker}} {{interval}} at {{close}}")

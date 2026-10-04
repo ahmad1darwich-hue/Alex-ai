@@ -1,0 +1,76 @@
+//@version=6
+indicator("Nexus Sessions & Previous Levels", shorttitle = "Nexus Sessions", overlay = true, max_boxes_count = 200, max_lines_count = 100, max_labels_count = 100)
+
+// ───────────── Inputs ─────────────
+string GRP_S = "Sessions (times in the timezone below)"
+string tzInput     = input.string("America/New_York", "Timezone", options = ["America/New_York", "Europe/London", "Asia/Tokyo", "Australia/Sydney", "Asia/Dubai", "UTC"], group = GRP_S, tooltip = "IANA timezone: follows daylight saving automatically.")
+bool   showAsiaInput = input.bool(true, "Asia", group = GRP_S, inline = "a")
+string asiaInput   = input.session("2000-0000", "", group = GRP_S, inline = "a")
+color  asiaColorInput = input.color(#B8860B, "", group = GRP_S, inline = "a")
+bool   showLonInput = input.bool(true, "London", group = GRP_S, inline = "l")
+string lonInput    = input.session("0200-0500", "", group = GRP_S, inline = "l")
+color  lonColorInput = input.color(#2962FF, "", group = GRP_S, inline = "l")
+bool   showNyInput = input.bool(true, "New York", group = GRP_S, inline = "n")
+string nyInput     = input.session("0930-1100", "", group = GRP_S, inline = "n")
+color  nyColorInput = input.color(#089981, "", group = GRP_S, inline = "n")
+
+string GRP_P = "Previous levels"
+bool   showPdInput = input.bool(true, "Previous day high / low", group = GRP_P)
+bool   showPwInput = input.bool(false, "Previous week high / low", group = GRP_P)
+color  lvlColorInput = input.color(#787B86, "Level color", group = GRP_P)
+
+// Sessions are an intraday concept: hide them on daily and higher charts.
+bool intraday = timeframe.isintraday
+
+// One box per session: created on the first bar, stretched while the session runs.
+sessionBox(string sess, bool show, color c, string name) =>
+    var box  b = na
+    var label l = na
+    bool inSess  = show and intraday and not na(time(timeframe.period, sess, tzInput))
+    bool started = inSess and not inSess[1]
+    if started
+        b := box.new(bar_index, high, bar_index, low, border_color = color.new(c, 60), bgcolor = color.new(c, 90))
+        l := label.new(bar_index, high, name, style = label.style_label_lower_left, color = color.new(c, 100), textcolor = c, size = size.tiny)
+    else if inSess and not na(b)
+        b.set_right(bar_index)
+        b.set_top(math.max(b.get_top(), high))
+        b.set_bottom(math.min(b.get_bottom(), low))
+        l.set_y(b.get_top())
+    started
+
+bool asiaStart = sessionBox(asiaInput, showAsiaInput, asiaColorInput, "Asia")
+bool lonStart  = sessionBox(lonInput, showLonInput, lonColorInput, "London")
+bool nyStart   = sessionBox(nyInput, showNyInput, nyColorInput, "New York")
+
+// Previous completed day/week: offset 1 + lookahead_on returns confirmed values without repainting.
+[pdh, pdl] = request.security(syminfo.tickerid, "1D", [high[1], low[1]], lookahead = barmerge.lookahead_on)
+[pwh, pwl] = request.security(syminfo.tickerid, "1W", [high[1], low[1]], lookahead = barmerge.lookahead_on)
+
+// One line + label per level, moved (never recreated) as new bars arrive.
+levelLine(float price, string name, bool show) =>
+    var line  ln = line.new(na, na, na, na, color = lvlColorInput, style = line.style_dashed)
+    var label lb = label.new(na, na, name, style = label.style_label_left, color = color.new(lvlColorInput, 100), textcolor = lvlColorInput, size = size.tiny)
+    if barstate.islast
+        if show and not na(price)
+            ln.set_xy1(bar_index - 50, price)
+            ln.set_xy2(bar_index + 5, price)
+            lb.set_xy(bar_index + 5, price)
+            lb.set_text(name)
+        else
+            ln.set_xy1(na, na)
+            ln.set_xy2(na, na)
+            lb.set_xy(na, na)
+
+levelLine(pdh, "PDH", showPdInput and timeframe.isintraday)
+levelLine(pdl, "PDL", showPdInput and timeframe.isintraday)
+levelLine(pwh, "PWH", showPwInput and not timeframe.isweekly and not timeframe.ismonthly)
+levelLine(pwl, "PWL", showPwInput and not timeframe.isweekly and not timeframe.ismonthly)
+
+// Crosses are computed on every bar first, then gated (v6 evaluates `and` lazily).
+bool crossPdh = ta.crossover(close, pdh)
+bool crossPdl = ta.crossunder(close, pdl)
+bool pdhBreak = showPdInput and crossPdh
+bool pdlBreak = showPdInput and crossPdl
+alertcondition(asiaStart or lonStart or nyStart, "Session started", "Nexus Sessions: a session started on {{ticker}}")
+alertcondition(pdhBreak, "Close above previous day high", "Nexus Sessions: close above PDH on {{ticker}} {{interval}}")
+alertcondition(pdlBreak, "Close below previous day low", "Nexus Sessions: close below PDL on {{ticker}} {{interval}}")
