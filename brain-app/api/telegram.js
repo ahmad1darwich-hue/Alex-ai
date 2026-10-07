@@ -91,34 +91,67 @@ async function transcribe(audioUrl) {
   } catch (e) { return { text: "" }; }
 }
 
-// Text-to-speech via ElevenLabs (Arabic + English). Returns mp3 bytes or null.
-async function tts(text) {
-  const key = process.env.ELEVENLABS_API_KEY;
+// Split text into <=190-char chunks on sentence/space boundaries (Groq TTS caps at 200).
+function chunkForTTS(text, maxLen, maxChunks) {
+  const out = [];
+  let s = String(text || "").replace(/\s+/g, " ").trim();
+  while (s.length && out.length < maxChunks) {
+    if (s.length <= maxLen) { out.push(s); break; }
+    let cut = s.lastIndexOf(" ", maxLen);
+    const punct = Math.max(s.lastIndexOf(". ", maxLen), s.lastIndexOf("، ", maxLen), s.lastIndexOf("؟ ", maxLen), s.lastIndexOf("! ", maxLen), s.lastIndexOf("\n", maxLen));
+    if (punct > maxLen * 0.5) cut = punct + 1;
+    if (cut <= 0) cut = maxLen;
+    out.push(s.slice(0, cut).trim());
+    s = s.slice(cut).trim();
+  }
+  return out;
+}
+
+// One Groq Orpheus TTS clip (WAV). Arabic text -> Arabic model/voice, else English.
+async function ttsGroqClip(text) {
+  const key = process.env.GROQ_API_KEY;
   if (!key) return null;
-  const voice = process.env.ELEVEN_VOICE_ID || "21m00Tcm4TlvDq8ikWAM"; // multilingual default; override via env
-  const say = String(text || "").slice(0, 900); // keep clips short to save free quota
+  const isAr = /[؀-ۿ]/.test(text);
+  const model = isAr ? "canopylabs/orpheus-arabic-saudi" : "canopylabs/orpheus-v1-english";
+  const voice = isAr ? (process.env.ORPHEUS_VOICE_AR || "Fahad") : (process.env.ORPHEUS_VOICE_EN || "Daniel");
   try {
-    const r = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voice + "?output_format=mp3_44100_128", {
+    const r = await fetch("https://api.groq.com/openai/v1/audio/speech", {
       method: "POST",
-      headers: { "xi-api-key": key, "content-type": "application/json", "accept": "audio/mpeg" },
-      body: JSON.stringify({ text: say, model_id: "eleven_multilingual_v2", voice_settings: { stability: 0.5, similarity_boost: 0.75 } })
+      headers: { authorization: "Bearer " + key, "content-type": "application/json" },
+      body: JSON.stringify({ model, voice, input: text.slice(0, 200), response_format: "wav" })
     });
     if (!r.ok) return null;
     return await r.arrayBuffer();
   } catch (e) { return null; }
 }
 
-async function sendTGVoiceReply(token, chatId, text) {
-  const audio = await tts(text);
-  if (!audio) return false;
+async function tgSendAudioBytes(token, chatId, audio, method, field, filename, mime) {
   try {
     const fd = new FormData();
     fd.append("chat_id", String(chatId));
-    fd.append("audio", new Blob([audio], { type: "audio/mpeg" }), "brain.mp3");
-    fd.append("title", "Brain");
-    await fetch(tgApi(token, "sendAudio"), { method: "POST", body: fd });
-    return true;
+    fd.append(field, new Blob([audio], { type: mime }), filename);
+    if (method === "sendAudio") fd.append("title", "Brain");
+    const r = await fetch(tgApi(token, method), { method: "POST", body: fd });
+    const j = await r.json().catch(() => ({}));
+    return !!(j && j.ok);
   } catch (e) { return false; }
+}
+
+// Speak a reply back as 1-3 Groq WAV clips. Telegram wants OGG/MP3, so WAV goes as an
+// audio file, and if that is rejected we fall back to a document (still plays inline).
+async function sendTGVoiceReply(token, chatId, text) {
+  const chunks = chunkForTTS(text, 190, 3);
+  let sent = 0, useDoc = false;
+  for (const c of chunks) {
+    if (!c) continue;
+    const audio = await ttsGroqClip(c);
+    if (!audio) break;
+    let ok = false;
+    if (!useDoc) ok = await tgSendAudioBytes(token, chatId, audio, "sendAudio", "audio", "brain.wav", "audio/wav");
+    if (!ok) { ok = await tgSendAudioBytes(token, chatId, audio, "sendDocument", "document", "brain.wav", "audio/wav"); if (ok) useDoc = true; }
+    if (ok) sent++; else break;
+  }
+  return sent > 0;
 }
 
 async function sendTG(token, chatId, text) {
