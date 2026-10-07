@@ -124,9 +124,15 @@ export default async function handler(req) {
     }
     if (!token || !chatId) return jsonResp({ ok: true });
 
+    // non-text content (voice note, audio, photo, etc.) — not supported yet
+    const hasMedia = msg.voice || msg.audio || msg.video_note || msg.photo || msg.video || msg.document || msg.sticker;
+    if (!text && hasMedia) {
+      await sendTG(token, chatId, "🎤 لساتني ما بسمع الرسائل الصوتية ولا بشوف الصور — اكتبلي نص وبجاوبك فوراً على أي شي. (الصوت بنضيفه قريباً.)");
+      return jsonResp({ ok: true });
+    }
     // /start and empty
     if (!text || text === "/start") {
-      await sendTG(token, chatId, "👋 أهلاً، أنا Brain. احكيني أي شي وبردّ عليك — بالعربي أو الإنجليزي. (تداول، رسائل زبائن، أفكار، أي سؤال.)");
+      await sendTG(token, chatId, "👋 أهلاً، أنا Brain. احكيني أي شي بالنص وبردّ عليك — بالعربي أو الإنجليزي. (تداول، رسائل زبائن، أفكار، أي سؤال.)");
       return jsonResp({ ok: true });
     }
 
