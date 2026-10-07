@@ -59,6 +59,38 @@ async function askBrain(key, userText) {
   return txt || "…";
 }
 
+async function tgFileUrl(token, fileId) {
+  try {
+    const r = await fetch(tgApi(token, "getFile") + "?file_id=" + encodeURIComponent(fileId));
+    const j = await r.json();
+    if (!j.ok || !j.result || !j.result.file_path) return null;
+    return "https://api.telegram.org/file/bot" + token + "/" + j.result.file_path;
+  } catch (e) { return null; }
+}
+
+// Transcribe a voice note using Groq (free) or OpenAI Whisper, whichever key is set.
+async function transcribe(audioUrl) {
+  const groq = process.env.GROQ_API_KEY, oai = process.env.OPENAI_API_KEY;
+  if (!groq && !oai) return { none: true };
+  try {
+    const a = await fetch(audioUrl);
+    const buf = await a.arrayBuffer();
+    const blob = new Blob([buf], { type: "audio/ogg" });
+    const fd = new FormData();
+    fd.append("file", blob, "voice.ogg");
+    if (groq) {
+      fd.append("model", "whisper-large-v3-turbo");
+      const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { authorization: "Bearer " + groq }, body: fd });
+      const j = await r.json();
+      return { text: (j && j.text) || "" };
+    }
+    fd.append("model", "whisper-1");
+    const r = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { authorization: "Bearer " + oai }, body: fd });
+    const j = await r.json();
+    return { text: (j && j.text) || "" };
+  } catch (e) { return { text: "" }; }
+}
+
 async function sendTG(token, chatId, text) {
   if (!token || !chatId) return;
   // Telegram text max is 4096 chars — split long replies.
@@ -124,10 +156,30 @@ export default async function handler(req) {
     }
     if (!token || !chatId) return jsonResp({ ok: true });
 
-    // non-text content (voice note, audio, photo, etc.) — not supported yet
-    const hasMedia = msg.voice || msg.audio || msg.video_note || msg.photo || msg.video || msg.document || msg.sticker;
-    if (!text && hasMedia) {
-      await sendTG(token, chatId, "🎤 لساتني ما بسمع الرسائل الصوتية ولا بشوف الصور — اكتبلي نص وبجاوبك فوراً على أي شي. (الصوت بنضيفه قريباً.)");
+    const key = process.env.ANTHROPIC_API_KEY;
+
+    // voice note / audio -> transcribe, then answer
+    const voiceObj = msg.voice || msg.audio || msg.video_note;
+    if (!text && voiceObj) {
+      const tr = await transcribe(await tgFileUrl(token, voiceObj.file_id));
+      if (tr.none) {
+        await sendTG(token, chatId, "🎤 عشان أفهم الصوت لازم مفتاح تحويل صوت لنص (مجاني من Groq). قلّي وبجهّزلك إياه — أو اكتبلي نص لهلّأ.");
+        return jsonResp({ ok: true });
+      }
+      const heard = (tr.text || "").trim();
+      if (!heard) {
+        await sendTG(token, chatId, "🎤 ما قدرت أفهم الصوت، جرّب تسجّل كمان مرة بوضوح.");
+        return jsonResp({ ok: true });
+      }
+      if (!key) { await sendTG(token, chatId, "🔌 Brain غير مفعّل — ناقص ANTHROPIC_API_KEY."); return jsonResp({ ok: true }); }
+      const reply = await askBrain(key, heard);
+      await sendTG(token, chatId, "🎙️ سمعت: " + heard + "\n\n" + reply);
+      return jsonResp({ ok: true });
+    }
+
+    // other media (photo, video, document, sticker) — not supported yet
+    if (!text && (msg.photo || msg.video || msg.document || msg.sticker)) {
+      await sendTG(token, chatId, "📎 لساتني ما بشوف الصور والملفات — اكتبلي نص أو سجّلّي صوت وبجاوبك.");
       return jsonResp({ ok: true });
     }
     // /start and empty
@@ -136,7 +188,6 @@ export default async function handler(req) {
       return jsonResp({ ok: true });
     }
 
-    const key = process.env.ANTHROPIC_API_KEY;
     if (!key) { await sendTG(token, chatId, "🔌 Brain غير مفعّل — ناقص ANTHROPIC_API_KEY."); return jsonResp({ ok: true }); }
 
     const reply = await askBrain(key, text);
