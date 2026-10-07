@@ -91,6 +91,36 @@ async function transcribe(audioUrl) {
   } catch (e) { return { text: "" }; }
 }
 
+// Text-to-speech via ElevenLabs (Arabic + English). Returns mp3 bytes or null.
+async function tts(text) {
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (!key) return null;
+  const voice = process.env.ELEVEN_VOICE_ID || "21m00Tcm4TlvDq8ikWAM"; // multilingual default; override via env
+  const say = String(text || "").slice(0, 900); // keep clips short to save free quota
+  try {
+    const r = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voice + "?output_format=mp3_44100_128", {
+      method: "POST",
+      headers: { "xi-api-key": key, "content-type": "application/json", "accept": "audio/mpeg" },
+      body: JSON.stringify({ text: say, model_id: "eleven_multilingual_v2", voice_settings: { stability: 0.5, similarity_boost: 0.75 } })
+    });
+    if (!r.ok) return null;
+    return await r.arrayBuffer();
+  } catch (e) { return null; }
+}
+
+async function sendTGVoiceReply(token, chatId, text) {
+  const audio = await tts(text);
+  if (!audio) return false;
+  try {
+    const fd = new FormData();
+    fd.append("chat_id", String(chatId));
+    fd.append("audio", new Blob([audio], { type: "audio/mpeg" }), "brain.mp3");
+    fd.append("title", "Brain");
+    await fetch(tgApi(token, "sendAudio"), { method: "POST", body: fd });
+    return true;
+  } catch (e) { return false; }
+}
+
 async function sendTG(token, chatId, text) {
   if (!token || !chatId) return;
   // Telegram text max is 4096 chars — split long replies.
@@ -173,7 +203,9 @@ export default async function handler(req) {
       }
       if (!key) { await sendTG(token, chatId, "🔌 Brain غير مفعّل — ناقص ANTHROPIC_API_KEY."); return jsonResp({ ok: true }); }
       const reply = await askBrain(key, heard);
+      // voice in -> reply with BOTH text and voice (if TTS key set)
       await sendTG(token, chatId, "🎙️ سمعت: " + heard + "\n\n" + reply);
+      await sendTGVoiceReply(token, chatId, reply);
       return jsonResp({ ok: true });
     }
 
