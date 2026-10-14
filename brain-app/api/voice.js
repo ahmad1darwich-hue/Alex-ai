@@ -51,6 +51,26 @@ async function transcribe(buf, type) {
   return { text };
 }
 
+// ElevenLabs: one clean, natural take of the whole answer (mp3), reading the text in whatever dialect it is
+// written. ELEVENLABS_API_KEY, ELEVEN_VOICE_ID (pick a voice whose accent Ahmad likes), ELEVEN_MODEL.
+async function speakEleven(text) {
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (!key) return null;
+  const voice = process.env.ELEVEN_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
+  const models = [process.env.ELEVEN_MODEL || "eleven_multilingual_v2", "eleven_flash_v2_5"].filter((m, i, a) => a.indexOf(m) === i);
+  for (const model_id of models) {
+    const r = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(voice) + "?output_format=mp3_44100_128", {
+      method: "POST", headers: { "xi-api-key": key, "content-type": "application/json", accept: "audio/mpeg" },
+      body: JSON.stringify({ text, model_id, voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true } }),
+    });
+    if (r.ok) return r.arrayBuffer();
+    const t = await r.text().catch(() => "");
+    console.log("VOICE_TTS eleven " + model_id + " " + r.status + " " + t.slice(0, 160).replace(/\s+/g, " "));
+    if (r.status === 401 || r.status === 402 || /quota|unusual|voice_not_found/i.test(t)) break;
+  }
+  return null;
+}
+
 async function speak(text) {
   const key = process.env.GROQ_API_KEY;
   if (!key) return null;
@@ -63,7 +83,7 @@ async function speak(text) {
 export default async function handler(req) {
   const auth = brainAuth(req.headers.get("x-brain-key"));
   if (auth !== "ok") return json({ locked: true, reply: lockedReply(auth) }, auth === "unset" ? 503 : 401);
-  if (req.method === "GET") return json({ ok: true, stt: !!(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY), tts: !!process.env.GROQ_API_KEY });
+  if (req.method === "GET") return json({ ok: true, stt: !!(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY), tts: !!(process.env.GROQ_API_KEY || process.env.ELEVENLABS_API_KEY), full: !!process.env.ELEVENLABS_API_KEY });
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
   const type = req.headers.get("content-type") || "";
   try {
@@ -75,10 +95,18 @@ export default async function handler(req) {
     }
     let body = {};
     try { body = await req.json(); } catch (e) {}
+    if (body.full) {
+      // The whole answer in one natural take; the page falls back to short clips when this is not available.
+      const all = speakable(body.tts, 1500);
+      if (!all) return json({ error: "empty" }, 400);
+      const mp3 = await speakEleven(all);
+      if (!mp3) return json({ error: "no_full" }, 503);
+      return new Response(mp3, { headers: { "content-type": "audio/mpeg", "cache-control": "no-store", "x-tts": "eleven" } });
+    }
     const text = speakable(body.tts, 200);
     if (!text) return json({ error: "empty" }, 400);
     const audio = await speak(text);
-    if (!audio) return json({ error: "no_tts" }, 503);
+    if (!audio) { console.log("VOICE_TTS groq failed"); return json({ error: "no_tts" }, 503); }
     return new Response(audio, { headers: { "content-type": "audio/wav", "cache-control": "no-store" } });
   } catch (e) {
     return json({ error: "failed" }, 500);

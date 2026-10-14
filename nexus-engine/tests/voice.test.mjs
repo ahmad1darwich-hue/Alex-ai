@@ -1,10 +1,11 @@
 // Brain voice endpoint (brain-app/api/voice.js) and voice turns in agent.js.   node nexus-engine/tests/voice.test.mjs
 import assert from "node:assert/strict";
-process.env.BRAIN_KEY = "owner-key-0123456789abcdefghij"; process.env.GROQ_API_KEY = "g"; process.env.ANTHROPIC_API_KEY = "k";
+process.env.BRAIN_KEY = "owner-key-0123456789abcdefghij"; process.env.GROQ_API_KEY = "g"; process.env.ELEVENLABS_API_KEY = "e"; let elevenFail = 0; process.env.ANTHROPIC_API_KEY = "k";
 const calls = [];
 globalThis.fetch = async (url, init) => {
   const u = String(url); calls.push({ u, init });
   if (u.endsWith("/audio/transcriptions")) return new Response(JSON.stringify({ text: "شو سعر الذهب هلّق" }), { status: 200 });
+  if (u.includes("api.elevenlabs.io")) { calls[calls.length - 1].body = JSON.parse(init.body); if (elevenFail) return new Response('{"detail":{"status":"quota_exceeded"}}', { status: elevenFail }); return new Response(new Uint8Array([73, 68, 51]), { status: 200, headers: { "content-type": "audio/mpeg" } }); }
   if (u.endsWith("/audio/speech")) return new Response(new Uint8Array([82, 73, 70, 70]), { status: 200, headers: { "content-type": "audio/wav" } });
   if (u.includes("api.anthropic.com")) { calls[calls.length - 1].body = JSON.parse(init.body); return new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"ok"}}\n\n')); c.close(); } }), { status: 200 }); }
   return new Response("{}", { status: 200 });
@@ -40,5 +41,17 @@ await t("a voice turn asks the model for a short spoken answer", async () => {
   calls.length = 0;
   await (await agent(new Request("https://b.test/api/agent", { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: "hi" }] }) }))).text();
   assert.doesNotMatch(calls.find((c) => c.body).body.system, /VOICE CONVERSATION/);
+});
+await t("whole answer in one natural ElevenLabs take; 503 so the page falls back when it fails", async () => {
+  const req = () => voice(new Request("https://b.test/api/voice", { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ full: true, tts: "أهلين أحمد، الذهب طالع اليوم شوي.\n———\n- تفاصيل" }) }));
+  const r = await req(); assert.equal(r.headers.get("content-type"), "audio/mpeg");
+  assert.equal(calls[0].body.text, "أهلين أحمد، الذهب طالع اليوم شوي."); assert.equal(calls[0].body.model_id, "eleven_multilingual_v2");
+  const st = await (await voice(new Request("https://b.test/api/voice", { headers: H }))).json(); assert.equal(st.full, true);
+  elevenFail = 401; calls.length = 0; const r2 = await req(); elevenFail = 0;
+  assert.equal(r2.status, 503); assert.equal(calls.filter((c) => c.u.includes("elevenlabs")).length, 1);
+});
+await t("voice answers mirror his dialect, never formal Arabic by default", async () => {
+  await (await agent(new Request("https://b.test/api/agent", { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ voice: true, messages: [{ role: "user", content: "كيفك" }] }) }))).text();
+  assert.match(calls.find((c) => c.body && c.body.system).body.system, /EXACTLY the language and dialect/);
 });
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
