@@ -77,7 +77,9 @@ async function speak(text) {
   const ar = hasArabic(text);
   const body = { model: ar ? "canopylabs/orpheus-arabic-saudi" : "canopylabs/orpheus-v1-english", voice: ar ? (process.env.ORPHEUS_VOICE_AR || "Fahad") : (process.env.ORPHEUS_VOICE_EN || "Daniel"), input: text.slice(0, 200), response_format: "wav" };
   const r = await fetch("https://api.groq.com/openai/v1/audio/speech", { method: "POST", headers: { authorization: "Bearer " + key, "content-type": "application/json" }, body: JSON.stringify(body) });
-  return r.ok ? r.arrayBuffer() : null;
+  if (r.ok) return r.arrayBuffer();
+  console.log("VOICE_TTS groq " + body.model + " " + r.status + " " + (await r.text().catch(() => "")).slice(0, 160).replace(/\s+/g, " "));
+  return null;
 }
 
 export default async function handler(req) {
@@ -106,7 +108,7 @@ export default async function handler(req) {
     const text = speakable(body.tts, 200);
     if (!text) return json({ error: "empty" }, 400);
     const audio = await speak(text);
-    if (!audio) { console.log("VOICE_TTS groq failed"); return json({ error: "no_tts" }, 503); }
+    if (!audio) return json({ error: "no_tts" }, 503);
     return new Response(audio, { headers: { "content-type": "audio/wav", "cache-control": "no-store" } });
   } catch (e) {
     return json({ error: "failed" }, 500);
