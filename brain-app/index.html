@@ -106,6 +106,16 @@ html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on,.drawer.on{transform:none}
 <nav class="drawer" id="drawer">
 <h2 data-i18n="dw_title">◇ Brain — كل شي بمكان واحد</h2>
 
+<div class="dsec"><div class="t" data-i18n="dw_pro">شغل احترافي</div>
+<button data-mode="deep" data-p="بحث عميق: " data-pen="Deep research: "><span class="em">🔬</span> <span data-i18n="dw_deep">بحث عميق (مصادر متعددة)</span></button>
+<button data-mode="workflow" data-p="نفّذلي هالمهمة كاملة خطوة بخطوة: " data-pen="Run this whole task for me step by step: "><span class="em">⚙️</span> <span data-i18n="dw_flow">Workflow — نفّذ مهمة كاملة</span></button>
+<button data-mode="plan" data-img="1" data-p="هاد مخطط / خريطة / صورة موقع شغل. اقراه، احسب المساحات والكميات، وطلّعلي قائمة مواد وعرض سعر." data-pen="This is a site plan / map / job-site photo. Read it, work out areas and quantities, and give me a materials list and a quote outline."><span class="em">🗺️</span> <span data-i18n="dw_map">حلّل مخطط أو خريطة شغل</span></button>
+<button data-mode="files" data-file="1" data-p="افحص هالملف كامل: لخّصه، طلّع الأرقام والتواريخ والالتزامات، ونبّهني لأي غلط أو خطر." data-pen="Inspect this file fully: summarize it, extract numbers, dates and obligations, and flag anything wrong or risky."><span class="em">📄</span> <span data-i18n="dw_fcheck">فحص ملف (عقد، فاتورة، Excel)</span></button>
+<button data-mode="security" data-p="افحص أمان موقعي usws.com.au وقلّي شو لازم صلّح." data-pen="Check the security of my website usws.com.au and tell me what to fix."><span class="em">🛡️</span> <span data-i18n="dw_sec">فحص أمان واختراقات</span></button>
+<button data-mode="security" data-p="هالإيميل/الرسالة احتيال؟ الصقها هون: " data-pen="Is this email/message a scam? Paste it here: "><span class="em">🎣</span> <span data-i18n="dw_phish">هالرسالة احتيال؟</span></button>
+<button data-action="emailq"><span class="em">📨</span> <span data-i18n="dw_emailq">اقرأ الإيميل واسأله</span></button>
+</div>
+
 <div class="dsec"><div class="t" data-i18n="dw_cust">الزباين والواتساب</div>
 <button data-p="اكتبلي رد واتساب احترافي وجاهز للإرسال لزبون سأل عن سعر. اسألني عن التفاصيل الناقصة باختصار." data-pen="Write a professional, ready-to-send WhatsApp reply for a customer who asked about a price. Briefly ask me for any missing details."><span class="em">💬</span> <span data-i18n="dw_reply">رد على زبون</span></button>
 <button data-p="اكتبلي نص عرض سعر (quote) مرتّب وواضح لزبون landscaping. خليه احترافي وفيه خطوة تالية." data-pen="Write a tidy, clear quote for a landscaping customer. Keep it professional with a clear next step."><span class="em">🧾</span> <span data-i18n="dw_quote">عرض سعر</span></button>
@@ -152,7 +162,7 @@ html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on,.drawer.on{transform:none}
 </div>
 <div class="hint" data-i18n="hint">Powered by Claude · مفتاحك محفوظ على الخادم</div>
 </div>
-<input type="file" id="file" accept="image/*,.pdf,.txt,.csv,.md" style="display:none">
+<input type="file" id="file" accept="image/*,.pdf,.txt,.csv,.md,.json,.xml,.html,.log,.pine,.js,.tsv" style="display:none">
 
 <div class="modal" id="tvmodal">
 <div class="mcard">
@@ -172,7 +182,7 @@ var I18N={
  brand_sub:["مساعدك","Your assistant"],
  btn_new:["+ جديد","+ New"],
  dw_title:["◇ Brain — كل شي بمكان واحد","◇ Brain — everything in one place"],
- dw_cust:["الزباين والواتساب","Customers & WhatsApp"],
+ dw_cust:["الزباين والواتساب","Customers & WhatsApp"],dw_pro:['شغل احترافي','Pro work'],dw_deep:['بحث عميق (مصادر متعددة)','Deep research (many sources)'],dw_flow:['Workflow — نفّذ مهمة كاملة','Workflow — run a whole task'],dw_map:['حلّل مخطط أو خريطة شغل','Analyze a site plan or map'],dw_fcheck:['فحص ملف (عقد، فاتورة، Excel)','Inspect a file (contract, invoice, sheet)'],dw_sec:['فحص أمان واختراقات','Security & breach check'],dw_phish:['هالرسالة احتيال؟','Is this message a scam?'],dw_emailq:['اقرأ الإيميل واسأله','Read & ask my email'],
  dw_reply:["رد على زبون","Reply to a customer"],
  dw_quote:["عرض سعر","Quote"],
  dw_follow:["رسالة متابعة","Follow-up message"],
@@ -288,6 +298,8 @@ drawer.addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
   if(b.getAttribute('data-tv')){closeDrawer();openTV();return;}
   if(b.getAttribute('data-action')==='email'){closeDrawer();emailCheckup();return;}
+  if(b.getAttribute('data-action')==='emailq'){closeDrawer();var q=input.value.trim();if(q){emailCheckup(q);input.value='';}else{input.value=L?'Email: ':'إيميل: ';input.focus();toast2(L?'Type your question about the inbox, then press 📨 again or send it starting with "Email:"':'اكتب سؤالك عن الإيميل وابعته بيبلّش بـ "إيميل:"');}return;}
+  setMode(b.getAttribute('data-mode')||'');
   var p=L?(b.getAttribute('data-pen')||b.getAttribute('data-p')):b.getAttribute('data-p');if(!p)return;
   closeDrawer();
   if(b.getAttribute('data-img')){attachMode='image';pickFile();input.value=p;input.focus();return;}
@@ -324,10 +336,17 @@ fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)han
 /* paste image from clipboard (Ctrl+V / screenshot) */
 document.addEventListener('paste',function(e){var items=(e.clipboardData&&e.clipboardData.items)||[];var got=false;for(var i=0;i<items.length;i++){var it=items[i];if(it.kind==='file'){var f=it.getAsFile();if(f){handleFile(f);got=true;}}}if(got){e.preventDefault();input.focus();}});
 
+var curMode='';
+var MODE_NAMES={deep:['🔬 بحث عميق','🔬 Deep research'],workflow:['⚙️ Workflow','⚙️ Workflow'],plan:['🗺️ مخطط/خريطة','🗺️ Plan/map'],files:['📄 فحص ملف','📄 File check'],security:['🛡️ فحص أمان','🛡️ Security check']};
+function setMode(m){curMode=MODE_NAMES[m]?m:'';var el=document.getElementById('modechip');
+  if(!el){el=document.createElement('div');el.id='modechip';el.className='chip';el.style.cssText='margin:0 auto 8px;max-width:860px;width:max-content;border-color:var(--acc)';var c=document.getElementById('chips');c.parentNode.insertBefore(el,c);}
+  if(!curMode){el.style.display='none';return;}
+  el.style.display='flex';el.innerHTML='';var s1=document.createElement('span');s1.textContent=(L?'Mode: ':'الوضع: ')+MODE_NAMES[curMode][L?1:0];var x=document.createElement('span');x.className='x';x.textContent='✕';x.onclick=function(){setMode('');};el.appendChild(s1);el.appendChild(x);}
+function toast2(msg){var d=document.createElement('div');d.textContent=msg;d.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--acc);color:var(--txt);padding:8px 14px;border-radius:12px;z-index:300;font-size:13px;max-width:90vw;text-align:center';document.body.appendChild(d);setTimeout(function(){d.remove();},3500);}
 function handleFile(f){
   if(f.size>8*1024*1024){alert(t('big'));return;}
   if(/^image\//.test(f.type)){
-    resizeImage(f,1280,function(b64){pending.push({kind:'image',media_type:'image/jpeg',data:b64,name:f.name,preview:'data:image/jpeg;base64,'+b64});renderChips();});
+    resizeImage(f,curMode==='plan'?2000:1280,function(b64){pending.push({kind:'image',media_type:'image/jpeg',data:b64,name:f.name,preview:'data:image/jpeg;base64,'+b64});renderChips();});
   } else if(f.type==='application/pdf'){
     readB64(f,function(b64){pending.push({kind:'document',media_type:'application/pdf',data:b64,name:f.name});renderChips();});
   } else {
@@ -420,7 +439,10 @@ function renderArtifact(container,a){
 async function submit(){
   var text=input.value.trim();
   if((!text&&!pending.length)||busy)return;
+  var eq=/^(?:إيميل|ايميل|email)\s*[:：]\s*(.+)/i.exec(text);
+  if(eq&&!pending.length){input.value='';emailCheckup(eq[1]);return;}
   busy=true;send.disabled=true;
+  var sendMode=curMode;setMode('');
   var atts=pending.slice();
   var previews=atts.filter(function(a){return a.kind==='image';}).map(function(a){return a.preview;});
   var content;
@@ -437,9 +459,9 @@ async function submit(){
   addMsg('user',text||'('+t('attach')+')',previews);
   convo.push({role:'user',content:content});saveConvo();
   var th=addThinking();
-  var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},30000);
+  var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},60000);
   try{
-    var r=await fetch('/api/agent',{method:'POST',headers:apiHeaders(),body:JSON.stringify({messages:convo}),signal:ac.signal});
+    var r=await fetch('/api/agent',{method:'POST',headers:apiHeaders(),body:JSON.stringify({messages:convo,mode:sendMode||undefined}),signal:ac.signal});
     clearTimeout(tmo);
     var ct=r.headers.get('content-type')||'';var full='';
     if(ct.indexOf('application/json')>=0){var d=await r.json();
@@ -461,12 +483,12 @@ async function submit(){
 }
 
 /* ---- Email check-up ---- */
-async function emailCheckup(){
+async function emailCheckup(question){
   if(busy)return;busy=true;send.disabled=true;
-  addMsg('user',L?'Email check-up 📧':'تشيك أب الإيميل 📧');
+  addMsg('user',question?('📨 '+question):(L?'Email check-up 📧':'تشيك أب الإيميل 📧'));
   var th=addThinking();th.bub.innerHTML='<span class="spin"></span> '+(L?'Checking the work inbox…':'عم أفحص بريد الشغل…');
   try{
-    var r=await fetch('/api/email',{method:'POST',headers:apiHeaders(),body:JSON.stringify({})});
+    var r=await fetch('/api/email',{method:'POST',headers:apiHeaders(),body:JSON.stringify(question?{question:question}:{})});
     var d=await r.json();
     if(d&&d.locked){showLocked(th,d.reply);setStatus({auth:'denied'});busy=false;send.disabled=false;return;}
     th.bub.className='bub';th.bub.innerHTML=mdToHtml(d.reply||(L?'Done.':'تم.'));

@@ -12,8 +12,10 @@
 // Private: every request must carry the owner's key (see _brain/lock.js).
 import { ImapFlow } from "imapflow";
 import { brainAuth, lockedReply } from "./_brain/lock.js";
+import { bodyText, attachmentNames } from "./_brain/mail-parse.js";
 
-const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-4-5";
+const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-5-5";
+const FALLBACK_MODEL = "claude-sonnet-4-5";
 const ANTHROPIC = "https://api.anthropic.com/v1/messages";
 
 const SYSTEM = `You are Brain, doing a quick WORK EMAIL check-up for Ahmad's landscaping business (USWS, usws.com.au). You're given a list of recent inbox emails (sender, subject, date, read/unread). Produce a short, practical triage in Levantine Arabic:
@@ -22,7 +24,10 @@ const SYSTEM = `You are Brain, doing a quick WORK EMAIL check-up for Ahmad's lan
 - Put obvious customer enquiries (someone asking about landscaping work) at the TOP and flag them 🟢.
 - Call out anything time-sensitive.
 - Collapse newsletters/promos into one line: "+N نشرات/إعلانات تجاهلها".
-- You only see senders + subjects (not full bodies) — say "حسب العنوان" when guessing. Keep it tight, no fluff.`;
+- You get the start of each email body too: use it. For customer enquiries say what they want (job type, suburb, size, timing) and draft a short ready-to-send reply line when useful.
+- SECURITY: flag 🔴 any phishing or scam signs — fake invoices, "change of bank details" requests, urgent payment demands, login/verify-your-account links to domains that are not the real company, look-alike sender domains, unexpected attachments (zip, html, exe, macro documents), prize/inheritance offers. Say plainly "لا تضغط ولا تدفع" and how to verify (call the company on a known number).
+- If Ahmad asked a QUESTION about his inbox, answer it first using these emails.
+- Keep it tight, no fluff.`;
 
 function send(res, obj, status) { res.setHeader("content-type", "application/json; charset=utf-8"); res.setHeader("cache-control", "no-store"); res.statusCode = status || 200; res.end(JSON.stringify(obj)); }
 
@@ -54,10 +59,10 @@ export default async function handler(req, res) {
       if (!uids || !uids.length) { mails = []; }
       else {
         uids = uids.slice(-max);
-        for await (const msg of client.fetch(uids, { envelope: true, flags: true }, { uid: true })) {
+        for await (const msg of client.fetch(uids, { envelope: true, flags: true, source: { start: 0, maxLength: 24000 } }, { uid: true })) {
           const env = msg.envelope || {};
           const fromArr = (env.from || []).map(a => a.name ? (a.name + " <" + a.address + ">") : a.address);
-          mails.push({ from: fromArr.join(", ") || "(unknown)", subject: env.subject || "(no subject)", date: env.date ? new Date(env.date).toISOString() : "", unread: !(msg.flags && msg.flags.has("\\Seen")) });
+          mails.push({ from: fromArr.join(", ") || "(unknown)", subject: env.subject || "(no subject)", date: env.date ? new Date(env.date).toISOString() : "", unread: !(msg.flags && msg.flags.has("\\Seen")), body: bodyText(msg.source), attachments: attachmentNames(msg.source) });
         }
         mails.reverse(); // newest first
       }
@@ -77,15 +82,21 @@ export default async function handler(req, res) {
 
   if (!mails.length) return send(res, { reply: "📭 ما في رسائل بآخر " + days + " يوم بصندوق الوارد. كلشي نظيف ✅" });
 
-  const list = mails.map((m, i) => (i + 1) + ". " + (m.unread ? "[UNREAD] " : "") + "From: " + m.from + " | Subject: " + m.subject + " | " + m.date).join("\n");
+  const list = mails.map((m, i) => (i + 1) + ". " + (m.unread ? "[UNREAD] " : "") + "From: " + m.from + " | Subject: " + m.subject + " | " + m.date + (m.attachments.length ? " | Attachments: " + m.attachments.join(", ") : "") + (m.body ? "\n   Body: " + m.body : "")).join("\n");
+  let question = "";
+  try { const b = typeof req.body === "object" && req.body ? req.body : JSON.parse(req.body || "{}"); question = String(b.question || "").slice(0, 1000); } catch (e) {}
 
   try {
     const r = await fetch(ANTHROPIC, {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1500, system: SYSTEM, messages: [{ role: "user", content: "رسائل الشغل (" + mails.length + " رسالة، آخر " + days + " يوم):\n\n" + list }] })
+      body: JSON.stringify({ model: MODEL, max_tokens: 3000, system: SYSTEM, messages: [{ role: "user", content: (question ? "سؤال أحمد عن الإيميل: " + question + "\n\n" : "") + "رسائل الشغل (" + mails.length + " رسالة، آخر " + days + " يوم):\n\n" + list }] })
     });
-    const j = await r.json();
+    let j = await r.json();
+    if (!r.ok && /not_found|model/i.test(JSON.stringify(j))) {
+      const r2 = await fetch(ANTHROPIC, { method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }, body: JSON.stringify({ model: FALLBACK_MODEL, max_tokens: 3000, system: SYSTEM, messages: [{ role: "user", content: (question ? "سؤال أحمد عن الإيميل: " + question + "\n\n" : "") + list }] }) });
+      j = await r2.json();
+    }
     const txt = (j && j.content || []).filter(b => b && b.type === "text").map(b => b.text).join("\n").trim();
     return send(res, { reply: txt || ("تم جلب " + mails.length + " رسالة.") });
   } catch (e) {
