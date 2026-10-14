@@ -53,6 +53,25 @@ async function transcribe(buf, type) {
 
 // ElevenLabs: one clean, natural take of the whole answer (mp3), reading the text in whatever dialect it is
 // written. ELEVENLABS_API_KEY, ELEVEN_VOICE_ID (pick a voice whose accent Ahmad likes), ELEVEN_MODEL.
+// Fish Audio (fish.audio): community and cloned voices, including Levantine Arabic ones. FISH_API_KEY, FISH_VOICE_ID
+// (the voice's id, from its page fish.audio/m/<id>), FISH_MODEL (default s2.1-pro; s2.1-pro-free when there is no
+// paid credit). Tried first because Ahmad can clone or pick a voice that speaks exactly his dialect.
+async function speakFish(text) {
+  const key = process.env.FISH_API_KEY;
+  if (!key) return null;
+  const body = { text, format: "mp3", mp3_bitrate: 128, latency: "normal", normalize: true };
+  if (process.env.FISH_VOICE_ID) body.reference_id = process.env.FISH_VOICE_ID.trim();
+  const models = [process.env.FISH_MODEL || "s2.1-pro", "s2.1-pro-free"].filter((m, i, a) => a.indexOf(m) === i);
+  for (const model of models) {
+    const r = await fetch("https://api.fish.audio/v1/tts", { method: "POST", headers: { authorization: "Bearer " + key, "content-type": "application/json", model }, body: JSON.stringify(body) });
+    if (r.ok) { const buf = await r.arrayBuffer(); if (buf.byteLength > 500) return buf; }
+    const t = r.ok ? "empty audio" : await r.text().catch(() => "");
+    console.log("VOICE_TTS fish " + model + " " + r.status + " " + t.slice(0, 160).replace(/\s+/g, " "));
+    if (r.status === 401) break;
+  }
+  return null;
+}
+
 async function speakEleven(text) {
   const key = process.env.ELEVENLABS_API_KEY;
   if (!key) return null;
@@ -85,7 +104,7 @@ async function speak(text) {
 export default async function handler(req) {
   const auth = brainAuth(req.headers.get("x-brain-key"));
   if (auth !== "ok") return json({ locked: true, reply: lockedReply(auth) }, auth === "unset" ? 503 : 401);
-  if (req.method === "GET") return json({ ok: true, stt: !!(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY), tts: !!(process.env.GROQ_API_KEY || process.env.ELEVENLABS_API_KEY), full: !!process.env.ELEVENLABS_API_KEY });
+  if (req.method === "GET") return json({ ok: true, stt: !!(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY), tts: !!(process.env.GROQ_API_KEY || process.env.ELEVENLABS_API_KEY || process.env.FISH_API_KEY), full: !!(process.env.ELEVENLABS_API_KEY || process.env.FISH_API_KEY) });
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
   const type = req.headers.get("content-type") || "";
   try {
@@ -101,9 +120,9 @@ export default async function handler(req) {
       // The whole answer in one natural take; the page falls back to short clips when this is not available.
       const all = speakable(body.tts, 1500);
       if (!all) return json({ error: "empty" }, 400);
-      const mp3 = await speakEleven(all);
+      const mp3 = (await speakFish(all)) || (await speakEleven(all));
       if (!mp3) return json({ error: "no_full" }, 503);
-      return new Response(mp3, { headers: { "content-type": "audio/mpeg", "cache-control": "no-store", "x-tts": "eleven" } });
+      return new Response(mp3, { headers: { "content-type": "audio/mpeg", "cache-control": "no-store", "x-tts": "full" } });
     }
     const text = speakable(body.tts, 200);
     if (!text) return json({ error: "empty" }, 400);

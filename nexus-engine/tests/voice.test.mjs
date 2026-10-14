@@ -54,4 +54,17 @@ await t("voice answers mirror his dialect, never formal Arabic by default", asyn
   await (await agent(new Request("https://b.test/api/agent", { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ voice: true, messages: [{ role: "user", content: "كيفك" }] }) }))).text();
   assert.match(calls.find((c) => c.body && c.body.system).body.system, /EXACTLY the language and dialect/);
 });
+await t("Fish Audio first when configured: the chosen voice, mp3; falls back to ElevenLabs", async () => {
+  process.env.FISH_API_KEY = "f"; process.env.FISH_VOICE_ID = "voice123";
+  const prev = globalThis.fetch; let fishStatus = 200;
+  globalThis.fetch = async (url, init) => { if (String(url).includes("api.fish.audio")) { calls.push({ u: String(url), init, body: JSON.parse(init.body) }); return fishStatus === 200 ? new Response(new Uint8Array(2000), { status: 200 }) : new Response('{"message":"no credit"}', { status: fishStatus }); } return prev(url, init); };
+  const req = () => voice(new Request("https://b.test/api/voice", { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ full: true, tts: "هلا أحمد، كيفك؟" }) }));
+  const r = await req(); assert.equal(r.status, 200);
+  const f = calls.find((c) => c.u.includes("fish")); assert.equal(f.body.reference_id, "voice123"); assert.equal(f.init.headers.model, "s2.1-pro"); assert.equal(f.body.text, "هلا أحمد، كيفك؟");
+  assert.ok(!calls.some((c) => c.u.includes("elevenlabs")));
+  calls.length = 0; fishStatus = 402; const r2 = await req(); assert.equal(r2.status, 200);
+  assert.deepEqual(calls.filter((c) => c.u.includes("fish")).map((c) => c.init.headers.model), ["s2.1-pro", "s2.1-pro-free"]);
+  assert.ok(calls.some((c) => c.u.includes("elevenlabs")));
+  globalThis.fetch = prev; delete process.env.FISH_API_KEY; delete process.env.FISH_VOICE_ID;
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
