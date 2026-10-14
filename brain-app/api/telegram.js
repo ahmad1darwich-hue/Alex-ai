@@ -269,7 +269,7 @@ async function buildIndicator({ key, token, chatId, text, image, last, kind, lan
 }
 
 // ---------- commands ----------
-const HELP = "🧠 Brain على تيليغرام\n\n• احكيني أي شي (نص أو صوت) وبردّ عليك — عربي أو إنجليزي.\n• ابعتلي صورة شارت وبحلّلها.\n• وصّفلي مؤشر TradingView (أو /ind + الفكرة) وببنيه وببعتلك ملف الـ .pine. بعدها قلّي \"ضيف تنبيه\" أو الصق خطأ TradingView وبعدّله.\n\nأوامر:\n/new — محادثة جديدة\n/remember <شي> — احفظ معلومة\n/notes — شو محفوظ\n/forget <رقم|all> — امسح\n/status — حالة المحرك\n/report — آخر تقرير يومي\n/market — تقرير الأسواق اليوم (/market now لتقرير جديد)\n/saved — مؤشراتي المحفوظة\n/open <رقم> — افتح مؤشر محفوظ للتعديل\n/chat <نص> — جواب عادي حتى لو فيه كلمة مؤشر";
+const HELP = "🧠 Brain على تيليغرام\n\n• احكيني أي شي (نص أو صوت) وبردّ عليك — عربي أو إنجليزي.\n• ابعتلي صورة شارت وبحلّلها.\n• وصّفلي مؤشر TradingView (أو /ind + الفكرة) وببنيه وببعتلك ملف الـ .pine. بعدها قلّي \"ضيف تنبيه\" أو الصق خطأ TradingView وبعدّله.\n\nأوامر:\n/new — محادثة جديدة\n/remember <شي> — احفظ معلومة\n/notes — شو محفوظ\n/forget <رقم|all> — امسح\n/status — حالة المحرك\n/report — آخر تقرير يومي\n/market — تقرير الذهب والنفط والمؤشرات الأمريكية (/market now لتقرير جديد)\n/saved — مؤشراتي المحفوظة\n/open <رقم> — افتح مؤشر محفوظ للتعديل\n/chat <نص> — جواب عادي حتى لو فيه كلمة مؤشر";
 
 async function handleCommand({ text, chatId, token, notes, saveNotes, clearHistory }) {
   const t = String(text || "").trim();

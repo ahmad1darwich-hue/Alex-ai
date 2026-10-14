@@ -9,7 +9,8 @@ const API = "https://api.anthropic.com/v1/messages";
 export const MARKET_MODEL = process.env.MARKET_MODEL || process.env.BRAIN_MODEL || "claude-sonnet-5-5";
 const FALLBACK = (process.env.MARKET_FALLBACK_MODELS || "claude-sonnet-4-5").split(",").map((s) => s.trim()).filter(Boolean);
 
-export const MARKETS = (process.env.MARKET_LIST || "XAUUSD (Gold),EURUSD,GBPUSD,USDJPY,US100 (Nasdaq),US30 (Dow),BTCUSD,ETHUSD").split(",").map((s) => s.trim()).filter(Boolean);
+// Ahmad's choice (Oct 2026): only gold, oil and the US indices, as a short report. MARKET_SYMBOLS overrides it.
+export const MARKETS = (process.env.MARKET_SYMBOLS || "XAUUSD (Gold),USOIL (WTI crude oil),US100 (Nasdaq 100),US30 (Dow Jones)").split(",").map((s) => s.trim()).filter(Boolean);
 
 export function sydneyDay(ms = Date.now()) {
   try { return new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms)); }
@@ -38,35 +39,32 @@ export function sessionClock(ms = Date.now()) {
 
 export const DISCLAIMER = "تحليل تعليمي مش نصيحة مالية. قرار الصفقة إلك.";
 
-const PROMPT = (markets) => `You are Brain, the market analyst of Ahmad, a Sydney-based trader (forex, gold, indices, crypto; Smart Money Concepts style). It is ${sydneyNow()} in Sydney.
+const PROMPT = (markets) => `You are Brain, the market analyst of Ahmad, a Sydney-based trader (gold first, also oil and US indices; Smart Money Concepts style). It is ${sydneyNow()} in Sydney.
 
-Use web_search NOW to get today's real information (do not rely on memory): the latest price and the overnight move of each market below, the main market-moving news of the last 24 hours (central banks, inflation/jobs data, geopolitics, risk sentiment, crypto flows), and today's high-impact economic calendar events with their Sydney times.
+Use web_search NOW to get today's real information (do not rely on memory): the latest price and overnight move of each market below, the market-moving news of the last 24 hours, and today's HIGH-impact economic calendar events (mostly USD: CPI, NFP, FOMC/Fed speakers, PCE, GDP, jobless claims, ISM; plus OPEC/EIA oil inventories for oil) with their Sydney times.
 
 ${sessionClock()}
 
 Markets: ${markets.join(", ")}.
 
-Then write the report in Levantine Arabic (keep tickers, numbers and the words BUY/SELL-style terms in English where natural). Plain text for a chat app: no markdown headings, no tables, no ** bold. Follow exactly this layout:
+Ahmad wants it SHORT: no long explanations. Write in Levantine Arabic (tickers and numbers in English). Plain text for a chat app: no markdown headings, no tables, no ** bold. Exactly this layout:
 
-📊 تقرير الأسواق · <date>
+📊 الذهب والنفط والمؤشرات · <date>
 
-🌍 الصورة العامة
-2-3 lines: the main driver today and the risk mood (risk-on / risk-off).
+🌍 الملخص
+1-2 short lines: the main driver today and the mood.
 
-🗓️ أخبار اليوم المهمة (بتوقيت سيدني)
-• up to 5 lines: 🔴 (high impact) or 🟠 (medium) + Sydney time – currency – event (forecast vs previous if known) – why it matters. Use the conversions above; write "ما في أخبار قوية" if none.
+🗓️ أخبار قوية اليوم (بتوقيت سيدني)
+• up to 4 lines, high-impact only: <Sydney time> – <event> – عالذهب: ⬆️ صعود / ⬇️ نزول / ↔️ تأثير ضعيف (the likely effect on GOLD if it comes out hotter/stronger than expected, in 3-6 words).
+Write "ما في أخبار قوية اليوم" if none.
 
-📈📉 التوقعات
-For each market one block of 2 lines:
-<emoji 🟢 صاعد / 🔴 هابط / 🟡 عرضي> <TICKER> · السعر تقريباً <price> · ثقة <منخفضة/متوسطة/عالية>
-السبب باختصار + مستوى دعم <x> / مقاومة <y> + شو بيلغي التوقع.
+📈 التوقع
+One line per market, nothing more:
+<🟢 صعود / 🔴 نزول / 🟡 عرضي> <TICKER> ~<price> · دعم <x> / مقاومة <y> · <reason in max 8 words>
 
-⚠️ المخاطر
-1-2 lines: what could flip the picture today.
+Close with exactly: "${DISCLAIMER}"
 
-Close with exactly: "تحليل تعليمي مش نصيحة مالية. قرار الصفقة إلك."
-
-Rules: every price, level and event must come from today's search results; if you could not confirm something, say "مش مأكد" rather than inventing it. Be decisive but honest: use 🟡 عرضي when the evidence is mixed. Keep the whole report under 3500 characters. Output only the report.`;
+Rules: every price, level and event must come from today's search results; if you could not confirm something write "مش مأكد" instead of inventing it. Use 🟡 when the evidence is mixed. Keep the whole report under 1200 characters. Output only the report.`;
 
 async function callModel(key, model, markets, signal) {
   const body = { model, max_tokens: 6000, messages: [{ role: "user", content: PROMPT(markets) }], tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }] };
@@ -129,9 +127,9 @@ export async function latestReport(day) {
   try { return res && res[0] ? JSON.parse(res[0]) : null; } catch (e) { return null; }
 }
 
-// The text as sent to a chat: the report plus up to 4 sources.
+// The text as sent to a chat: the report plus up to 2 sources (Ahmad wants it short).
 export function chatText(rep) {
-  const src = (rep.sources || []).slice(0, 4).map((s) => "• " + (s.title || s.url) + "\n  " + s.url).join("\n");
+  const src = (rep.sources || []).slice(0, 2).map((s) => "• " + (s.title || s.url) + "\n  " + s.url).join("\n");
   return rep.text + (src ? "\n\n🔗 مصادر:\n" + src : "");
 }
 

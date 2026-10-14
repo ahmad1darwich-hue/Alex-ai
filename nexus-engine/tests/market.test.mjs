@@ -20,7 +20,7 @@ function call(q, headers = {}) {
 }
 let n = 0; const t = async (name, fn) => { try { await fn(); n++; } catch (e) { console.error("FAIL", name, e); process.exitCode = 1; } };
 await t("public info only without a key", async () => {
-  const r = await call(""); assert.equal(r.body.ok, true); assert.ok(r.body.markets.length >= 5); assert.equal(modelCalls, 0);
+  const r = await call(""); assert.equal(r.body.ok, true); assert.ok(r.body.markets.length >= 4); assert.equal(modelCalls, 0);
   assert.equal((await call("?run=1&key=wrong-wrong-wrong-wrong")).status, 401);
 });
 await t("cron builds with web search, stores and sends to Telegram with sources", async () => {
@@ -42,5 +42,11 @@ await t("calendar clock: Sydney offsets with daylight saving; report guards", as
   assert.match(lastBody.messages[0].content, /Conversions to Sydney time/);
   assert.match(finishText("report", []), /مش مأكد/); assert.ok(finishText("report", [{ url: "u" }]).endsWith(DISCLAIMER));
   assert.equal(finishText("x\n" + DISCLAIMER, [{ url: "u" }]).split(DISCLAIMER).length, 2);
+});
+await t("short report on gold, oil and the US indices only, with the news effect on gold", async () => {
+  const { MARKETS } = await import("../../brain-app/api/_brain/market.js");
+  assert.deepEqual(MARKETS.map((m) => m.split(" ")[0]), ["XAUUSD", "USOIL", "US100", "US30"]);
+  const p = lastBody.messages[0].content;
+  assert.match(p, /عالذهب/); assert.match(p, /under 1200 characters/); assert.doesNotMatch(p, /EURUSD|BTCUSD/);
 });
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
