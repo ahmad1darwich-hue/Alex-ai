@@ -18,6 +18,7 @@ import { makeCaller, friendlyError, kvPipeline } from "./_nexus/handler.js";
 import { KNOWLEDGE_REV } from "./_nexus/knowledge.js";
 import { LESSONS } from "./_nexus/lessons.js";
 import { saveItem, listItems, getItem } from "./_brain/library.js";
+import { buildReport, storeReport, latestReport, chatText, sydneyDay } from "./_brain/market.js";
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-5-5";
 const ANTHROPIC = "https://api.anthropic.com/v1/messages";
@@ -268,10 +269,22 @@ async function buildIndicator({ key, token, chatId, text, image, last, kind, lan
 }
 
 // ---------- commands ----------
-const HELP = "🧠 Brain على تيليغرام\n\n• احكيني أي شي (نص أو صوت) وبردّ عليك — عربي أو إنجليزي.\n• ابعتلي صورة شارت وبحلّلها.\n• وصّفلي مؤشر TradingView (أو /ind + الفكرة) وببنيه وببعتلك ملف الـ .pine. بعدها قلّي \"ضيف تنبيه\" أو الصق خطأ TradingView وبعدّله.\n\nأوامر:\n/new — محادثة جديدة\n/remember <شي> — احفظ معلومة\n/notes — شو محفوظ\n/forget <رقم|all> — امسح\n/status — حالة المحرك\n/report — آخر تقرير يومي\n/saved — مؤشراتي المحفوظة\n/open <رقم> — افتح مؤشر محفوظ للتعديل\n/chat <نص> — جواب عادي حتى لو فيه كلمة مؤشر";
+const HELP = "🧠 Brain على تيليغرام\n\n• احكيني أي شي (نص أو صوت) وبردّ عليك — عربي أو إنجليزي.\n• ابعتلي صورة شارت وبحلّلها.\n• وصّفلي مؤشر TradingView (أو /ind + الفكرة) وببنيه وببعتلك ملف الـ .pine. بعدها قلّي \"ضيف تنبيه\" أو الصق خطأ TradingView وبعدّله.\n\nأوامر:\n/new — محادثة جديدة\n/remember <شي> — احفظ معلومة\n/notes — شو محفوظ\n/forget <رقم|all> — امسح\n/status — حالة المحرك\n/report — آخر تقرير يومي\n/market — تقرير الأسواق اليوم (/market now لتقرير جديد)\n/saved — مؤشراتي المحفوظة\n/open <رقم> — افتح مؤشر محفوظ للتعديل\n/chat <نص> — جواب عادي حتى لو فيه كلمة مؤشر";
 
 async function handleCommand({ text, chatId, token, notes, saveNotes, clearHistory }) {
   const t = String(text || "").trim();
+  if (/^\/market\b/i.test(t) || /^(تقرير السوق|تقرير الأسواق|الأسواق اليوم|market report)$/i.test(t)) {
+    const fresh = /\b(now|new|جديد|هلق|هلّق)\b/i.test(t);
+    let rep = fresh ? null : await latestReport().catch(() => null);
+    if (rep && rep.day !== sydneyDay()) rep = null;
+    if (!rep) {
+      await sendText(token, chatId, "🔎 عم جمّع أخبار السوق وجهّز التقرير… (دقيقة أو دقيقتين)");
+      try { rep = await buildReport({ key: process.env.ANTHROPIC_API_KEY }); await storeReport(rep).catch(() => {}); }
+      catch (e) { await sendText(token, chatId, "⚠️ ما قدرت جهّز تقرير السوق هلّق. جرّب بعد شوي."); return true; }
+    }
+    await sendText(token, chatId, chatText(rep));
+    return true;
+  }
   if (/^\/saved\b/i.test(t) || /^(مؤشراتي|مؤشراتي المحفوظة|my indicators)$/i.test(t)) {
     const items = await listItems().catch(() => null);
     if (!items) { await sendText(token, chatId, "⚠️ ما قدرت وصل للمكتبة هلّق."); return true; }
@@ -340,7 +353,7 @@ async function setup(req, res, token) {
   const out = { hook };
   try { const me = await (await fetch(tgApi(token, "getMe"))).json(); out.bot = me.result ? "@" + me.result.username : me; out.open = me.result ? "https://t.me/" + me.result.username : null; } catch (e) { out.getMe_error = String(e); }
   out.setWebhook = await tg(token, "setWebhook", { url: hook, allowed_updates: ["message"], drop_pending_updates: true });
-  await tg(token, "setMyCommands", { commands: [{ command: "new", description: "محادثة جديدة" }, { command: "ind", description: "ابني مؤشر TradingView" }, { command: "remember", description: "احفظ معلومة" }, { command: "notes", description: "شو محفوظ" }, { command: "status", description: "حالة Brain" }, { command: "report", description: "آخر تقرير يومي" }, { command: "saved", description: "مؤشراتي المحفوظة" }, { command: "open", description: "افتح مؤشر محفوظ" }, { command: "help", description: "مساعدة" }] });
+  await tg(token, "setMyCommands", { commands: [{ command: "new", description: "محادثة جديدة" }, { command: "ind", description: "ابني مؤشر TradingView" }, { command: "remember", description: "احفظ معلومة" }, { command: "notes", description: "شو محفوظ" }, { command: "status", description: "حالة Brain" }, { command: "report", description: "آخر تقرير يومي" }, { command: "market", description: "تقرير الأسواق اليوم" }, { command: "saved", description: "مؤشراتي المحفوظة" }, { command: "open", description: "افتح مؤشر محفوظ" }, { command: "help", description: "مساعدة" }] });
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (chatId) { await sendText(token, chatId, "👋 أهلاً أحمد، Brain تحدّث: صار عندي ذاكرة للمحادثة، بشوف الصور، وبتقدر تطلب مني مؤشر TradingView مباشرة من هون (/ind + الفكرة أو بس احكيلي). اكتب /help للأوامر."); out.hello_sent_to = chatId; }
   return send(res, out);

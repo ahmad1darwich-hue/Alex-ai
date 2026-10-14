@@ -4,6 +4,10 @@
     {
       "path": "/api/daily",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/market",
+      "schedule": "0 20 * * *"
     }
   ],
   "functions": {
@@ -20,6 +24,9 @@
       "maxDuration": 60
     },
     "api/telegram.js": {
+      "maxDuration": 300
+    },
+    "api/market.js": {
       "maxDuration": 300
     }
   },
