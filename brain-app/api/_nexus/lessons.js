@@ -6,14 +6,13 @@
 // the active ones to the user turn of every build / fix request (never to the system prompt, so the cached prefix
 // stays identical across requests).
 //
-// Keep each lesson under ~220 characters, in English, about Pine v6 or about the chart. Retire a lesson (remove
+// Keep each lesson under 260 characters, in English, about Pine v6 or about the chart. Retire a lesson (remove
 // it) once the rule has been merged into knowledge.js or a lint rule; keep the id unique and never reuse it.
 
 export const LESSONS = [
   { id: "L001", added: "2026-10-15", source: "seed", text: "box.new(left, top, right, bottom): left and right are bar indexes (int), top and bottom are prices (float), in that order. It is not (x1, y1, x2, y2); passing a price where an index goes is a compile error." },
   { id: "L002", added: "2026-10-15", source: "seed", text: "ta.atr(length) takes only the length (it uses the chart's high/low/close itself); ta.tr(true) is the raw true range. ta.stoch(source, high, low, length) has the source first." },
   { id: "L003", added: "2026-10-15", source: "seed", text: "plot() needs a number: a bool cannot be plotted (compile error). Use plotshape / plotchar for events, or plot(cond ? 1 : 0) for a state line in a separate pane." },
-  { id: "L004", added: "2026-10-15", source: "seed", text: "The x arguments of line.new / box.new / label.new must be int bar indexes (or time with xloc.bar_time). A float there is a compile error: use int(x) or math.round(x), never a price." },
   { id: "L005", added: "2026-10-15", source: "seed", text: "Never split a boolean expression or a comparison over several lines (\"end of line without line continuation\" error). Assign the parts to named bools first, then combine them on one line." },
   { id: "L006", added: "2026-10-15", source: "seed", text: "User-defined type constructors: Zone.new(top = high, bottom = low, bx = b) with named fields; positional values are matched to the fields in declaration order and silently land in the wrong field." },
   { id: "L007", added: "2026-10-15", source: "seed", text: "table.new(position, columns, rows) takes columns before rows; table.cell(tbl, column, row, text) too, and text must be a string. A table with 2 columns and 5 rows is table.new(position.top_right, 2, 5)." },

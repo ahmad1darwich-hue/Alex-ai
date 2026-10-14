@@ -20,6 +20,8 @@ export const BENCH = [
   { id: "engulfing_filtered", lang: "en", text: "Bullish and bearish engulfing signals only at a recent swing low or high, with a minimum candle size filter in ATR, a cooldown input between signals, and alerts", expect: ["input\\.", "ta\\.atr\\(", "ta\\.lowest\\(|ta\\.highest\\(", "alertcondition\\("], overlay: true },
   { id: "auto_sr", lang: "ar", text: "خطوط دعم ومقاومة تلقائية من البيفوتات، تتمدّد لليمين، وتنمسح لما تنكسر بإغلاق، مع تنبيه عند الكسر", expect: ["ta\\.pivothigh\\(", "ta\\.pivotlow\\(", "line\\.new\\(|box\\.new\\(", "\\.delete\\(", "alertcondition\\("], overlay: true },
   { id: "session_boxes", lang: "en", text: "Session boxes for Asia, London and New York showing each session's high and low, plus the previous day high and low as dotted lines", expect: ["box\\.new\\(", "time\\(", "request\\.security\\(|ta\\.highest\\(", "line\\.new\\("], overlay: true },
+  { id: "fib_last_swing", lang: "en", text: "Auto Fibonacci retracement of the last confirmed swing (pivot high to pivot low or the reverse): levels 0.382, 0.5, 0.618 and 0.786 as lines extending right with price labels, redrawn when a new swing forms", expect: ["ta\\.pivothigh\\(", "ta\\.pivotlow\\(", "line\\.new\\(|line\\.set_", "label\\.new\\(|label\\.set_", "0\\.618"], overlay: true },
+  { id: "htf_opens_intraday", lang: "ar", text: "خطوط افتتاح اليوم والأسبوع والشهر، تظهر بس على الفريمات الأصغر من اليومي، مع ليبل سعر لكل خط", expect: ["request\\.security\\(|timeframe\\.change\\(", "timeframe\\.isintraday|timeframe\\.in_seconds\\(", "line\\.new\\(|line\\.set_|plot\\(", "label\\.new\\(|label\\.set_"], overlay: true },
 ];
 
 export const PER_RUN = 3;

@@ -18,9 +18,10 @@ const MUST_FIX_RULES = new Set([
   "NX_UNUSED_INPUT",
   "NX_IMPORT",
   "NX_ARRAY_INDEX",
+  "NX_TF_PERIOD",
 ]);
 // Nexus rules that reproduce TradingView compile errors the type checker lets through.
-const ERROR_RULES = new Set(["NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE"]);
+const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE"]);
 // Worth one repair attempt, but never block delivery on them.
 const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING"]);
 
@@ -321,6 +322,73 @@ function compilerGapRules(masked, index, push0) {
   }
 }
 
+// ---------- x coordinates must be int ----------
+// line.new / box.new / label.new, their x setters and chart.point.from_index take bar indexes (series int). A price,
+// a float literal or a division (int / int is fractional in v6) there is a compile error ("An argument of 'series
+// float' type was used but a 'series int' is expected"). Conservative: only reports what is float for certain.
+const PRICE_WORDS = /(^|[^\w.])(open|high|low|close|hl2|hlc3|ohlc4|hlcc4|volume)\b(?![ \t]*\()/;
+const FLOAT_KEEPING_CALLS = new Set(["math.max", "math.min", "math.abs", "math.avg", "nz"]);
+function floatReason(expr, floatVars) {
+  let e = String(expr || "");
+  for (let guard = 0; guard < 80; guard++) {
+    const m = /([A-Za-z_][\w.]*)?[ \t]*\(([^()]*)\)/.exec(e);
+    if (!m) break;
+    const name = m[1] || "";
+    const rep = !name || FLOAT_KEEPING_CALLS.has(name) ? " " + m[2] + " " : name === "float" ? " 0.5 " : " 0 ";
+    e = e.slice(0, m.index) + rep + e.slice(m.index + m[0].length);
+  }
+  for (let guard = 0; guard < 40 && /\[[^\[\]]*\]/.test(e); guard++) e = e.replace(/\[[^\[\]]*\]/, "");
+  const price = PRICE_WORDS.exec(e);
+  if (price) return price[2];
+  if (/(^|[^\w.])(\d+\.\d*|\.\d+)/.test(e)) return "a decimal number";
+  if (/\//.test(e)) return "a division (int / int is fractional in v6)";
+  for (const w of e.match(/[A-Za-z_]\w*/g) || []) if (floatVars.has(w)) return w;
+  return "";
+}
+function floatXRule(masked, lineOf, push) {
+  const floatVars = new Set();
+  const declRe = /^[ \t]*(?:(?:var|varip)[ \t]+)?(?:(?:const|simple|series)[ \t]+)?(?:([A-Za-z_][\w.<>]*)[ \t]+)?([A-Za-z_]\w*)[ \t]*=(?![=>])[ \t]*(.*)$/gm;
+  const decls = [...masked.matchAll(declRe)].slice(0, 3000);
+  // A name counts as float only when every one of its declarations is float (the same name may live in several scopes).
+  for (let pass = 0; pass < 2; pass++) {
+    const notFloat = new Set();
+    for (const m of decls) {
+      const type = m[1] || "", name = m[2], rhs = m[3].replace(/,[ \t]*$/, "");
+      if (type === "float" || (!type && floatReason(rhs, floatVars))) floatVars.add(name);
+      else notFloat.add(name);
+    }
+    for (const nm of notFloat) floatVars.delete(nm);
+  }
+  let n = 0;
+  const check = (fn, param, arg, at) => {
+    if (arg == null || ++n > 400) return;
+    const why = floatReason(arg, floatVars);
+    if (why) push(lineOf(at), 1, "NX_FLOAT_X", `Cannot call "${fn}" with "${param}" = "${arg.trim()}": x coordinates are bar indexes (series int), but this is a float (${why}). Use bar_index or a stored bar index there, wrap computed values in int() / math.round(), and keep prices for the y arguments.`);
+  };
+  const XPOS = { "line.new": [[0, "x1"], [2, "x2"]], "box.new": [[0, "left"], [2, "right"]], "label.new": [[0, "x"]], "chart.point.from_index": [[0, "index"]] };
+  const XNAMED = { "line.new": ["x1", "x2"], "box.new": ["left", "right"], "label.new": ["x"], "chart.point.from_index": ["index"] };
+  for (const m of masked.matchAll(/(^|[^\w.])(line\.new|box\.new|label\.new|chart\.point\.from_index)[ \t]*\(/gm)) {
+    const args = splitArgs(masked, m.index + m[0].length - 1);
+    if (!args) continue;
+    const fn = m[2];
+    let positional = 0;
+    for (const a of args) {
+      const named = /^\s*([A-Za-z_]\w*)\s*=(?!=)([\s\S]*)$/.exec(a);
+      if (named) { if (XNAMED[fn].includes(named[1])) check(fn, named[1], named[2], m.index + m[1].length); continue; }
+      const slot = XPOS[fn].find((x) => x[0] === positional);
+      if (slot) check(fn, slot[1], a, m.index + m[1].length);
+      positional++;
+    }
+  }
+  for (const m of masked.matchAll(/([A-Za-z_]\w*)\.(set_(?:xy1|xy2|x1|x2|xy|x|lefttop|rightbottom|left|right))[ \t]*\(/g)) {
+    const args = splitArgs(masked, m.index + m[0].length - 1);
+    if (!args) continue;
+    const ns = m[1] === "line" || m[1] === "box" || m[1] === "label";
+    const a = args[ns ? 1 : 0];
+    if (a != null && !/^\s*[A-Za-z_]\w*\s*=(?!=)/.test(a)) check((ns ? m[1] + "." : "") + m[2], "x", a, m.index);
+  }
+}
+
 function nexusRules(code) {
   const diags = [];
   const lines = code.split("\n");
@@ -332,7 +400,20 @@ function nexusRules(code) {
     const index = buildIndex(masked);
     try { constStringRule(masked, index, push); } catch (e) { /* ignore */ }
     try { compilerGapRules(masked, index, push); } catch (e) { /* ignore */ }
+    try { floatXRule(masked, index.lineOf, push); } catch (e) { /* ignore */ }
   } catch (e) { /* ignore */ }
+
+  // v6: linewidth must be 1 or more (compile error). timeframe.period always carries a multiplier ("1D", never "D").
+  let lw = 0, tf = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const ml = maskedLines[i];
+    const w = /\blinewidth[ \t]*=[ \t]*(-?\d+(?:\.\d+)?)/.exec(ml);
+    if (w && Number(w[1]) < 1 && lw++ < MAX_PER_RULE) push(i + 1, w.index + 1, "NX_LINEWIDTH", `"linewidth = ${w[1]}" is a compile error in Pine v6: the minimum linewidth is 1. Use 1 (or hide the plot with display = display.none / color = na).`);
+    if (!/timeframe\.period/.test(ml)) continue;
+    const raw = lines[i].slice(0, ml.length);
+    const t = /timeframe\.period[ \t]*(?:==|!=)[ \t]*"([SDWM])"|"([SDWM])"[ \t]*(?:==|!=)[ \t]*timeframe\.period/.exec(raw);
+    if (t && tf++ < MAX_PER_RULE) { const u = t[1] || t[2]; push(i + 1, t.index + 1, "NX_TF_PERIOD", `timeframe.period is "1${u}" in Pine v6 (always with a multiplier), so comparing it with "${u}" is never true. Compare with "1${u}" or use timeframe.is${({ S: "seconds", D: "daily", W: "weekly", M: "monthly" })[u]}.`); }
+  }
 
   for (let i = 0; i < lines.length; i++) {
     if (/^import[ \t]+[\w-]+\/[\w-]+\/\d+/.test(lines[i])) push(i + 1, 1, "NX_IMPORT", "Imported libraries cannot be verified by the checker. Do not import libraries: write the needed logic directly in the script.");

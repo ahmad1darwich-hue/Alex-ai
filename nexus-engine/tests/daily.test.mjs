@@ -87,7 +87,8 @@ await t("a cron call runs the benchmark, stores the report, logs it and sends Te
   const r = JSON.parse(text.trim().split("\n").pop());
   assert.equal(r.ok, true); assert.equal(r.trigger, "cron"); assert.equal(r.bench.total, 3); assert.equal(calls.model, 3);
   assert.ok(r.bench.cases.every((c) => c.verified === true), JSON.stringify(r.bench.cases));
-  assert.ok(r.bench.passed >= 1 && r.bench.passed <= 3);
+  // Which cases run depends on the day (rotation), so only the bookkeeping is checked here; judge() is tested above.
+  assert.equal(r.bench.passed, r.bench.cases.filter((c) => c.pass).length);
   assert.equal(r.samples.tvErrors.length, 1); assert.match(r.samples.tvErrors[0].error, /Undeclared/);
   assert.ok(kv.has("nx:daily:latest") && kv.has("nx:daily:" + r.day));
   assert.ok(logs.some((l) => l.startsWith("DAILY_REPORT {")));

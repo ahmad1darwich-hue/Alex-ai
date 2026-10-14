@@ -202,4 +202,31 @@ t("known checker false positives are dropped", () => {
   const c = checkPine(H + 'if barstate.islast\n    label.new(bar_index, high, "x", text_formatting = text.format_bold + text.format_italic)\n');
   assert.equal(c.errors.length, 0, JSON.stringify(c.errors));
 });
+t("x coordinates must be int: prices, decimals and divisions are compile errors (v6)", () => {
+  const H = '//@version=6\nindicator("x", overlay = true)\n';
+  const has = (src) => checkPine(H + src).errors.some((e) => e.rule === "NX_FLOAT_X");
+  assert.ok(has('box.new(high, bar_index, low, bar_index + 5)\n'));
+  assert.ok(has('box.new(left = high, top = bar_index, right = low, bottom = bar_index)\n'));
+  assert.ok(has('line.new(close, high, bar_index, low)\n'));
+  assert.ok(has('label.new(bar_index + 0.5, high, "a")\n'));
+  assert.ok(has('x = bar_index * 0.5\nline.new(x, high, bar_index, low)\n'));
+  assert.ok(has('l = bar_index - 10\nmid = (l + bar_index) / 2\nlabel.new(mid, high, "m")\n'));
+  assert.ok(has('var line ln = line.new(bar_index, high, bar_index, high)\nln.set_x2(close)\n'));
+  // Valid forms stay clean.
+  assert.ok(!has('line.new(time, high, time + 60000, high, xloc = xloc.bar_time)\n'));
+  assert.ok(!has('l = bar_index - 10\nmid = int((l + bar_index) / 2)\nlabel.new(mid, high, "m")\n'));
+  assert.ok(!has('c = ta.crossover(close, ta.sma(close, 10))\nx = ta.valuewhen(c, bar_index, 0)\nline.new(x, high, bar_index, high)\n'));
+  assert.ok(!has('f(a) =>\n    y = a / 2\n    y\ny = bar_index - 5\nplot(f(close))\nline.new(y, high, bar_index, low)\n'));
+  assert.ok(!has('p = chart.point.from_index(bar_index, high)\nline.new(p, chart.point.from_index(bar_index - 5, low))\n'));
+  assert.ok(!has('x = math.round(bar_index * 0.5)\nline.new(x, high, bar_index, low)\n'));
+});
+t("v6: linewidth below 1 is an error; timeframe.period has a multiplier", () => {
+  const H = '//@version=6\nindicator("x", overlay = true)\n';
+  assert.ok(checkPine(H + 'plot(close, linewidth = 0)\n').errors.some((e) => e.rule === "NX_LINEWIDTH"));
+  assert.ok(!checkPine(H + 'plot(close, linewidth = 2)\nbox.new(bar_index, high, bar_index, low, border_width = 0)\n').errors.some((e) => e.rule === "NX_LINEWIDTH"));
+  assert.ok(checkPine(H + 'isD = timeframe.period == "D"\nplot(isD ? 1 : 0)\n').mustFix.some((e) => e.rule === "NX_TF_PERIOD"));
+  assert.ok(checkPine(H + 'x = "W" != timeframe.period\nplot(x ? 1 : 0)\n').mustFix.some((e) => e.rule === "NX_TF_PERIOD"));
+  const ok = checkPine(H + 'isD = timeframe.period == "1D" // not "D"\nd = request.security(syminfo.tickerid, "D", close[1], lookahead = barmerge.lookahead_on)\nplot(isD ? d : na)\n');
+  assert.ok(!ok.mustFix.some((e) => e.rule === "NX_TF_PERIOD"), JSON.stringify(ok.mustFix));
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
