@@ -19,6 +19,7 @@
 <div id="dwTpl"></div>
 </div>
 <div class="dsec"><div class="t" data-i18n="dw_tools">أدوات</div>
+<button type="button" data-tool="lib"><span class="em" aria-hidden="true">📚</span> <span data-i18n="dw_lib">مؤشراتي المحفوظة</span></button>
 <button type="button" data-tool="idea"><span class="em" aria-hidden="true">💡</span> <span data-i18n="dw_idea">حوّل فكرتي لمؤشر</span></button>
 <button type="button" data-tool="check"><span class="em" aria-hidden="true">🛠️</span> <span data-i18n="dw_check">افحص وصلّح كودي</span></button>
 <button type="button" data-tool="strategy"><span class="em" aria-hidden="true">🧪</span> <span data-i18n="dw_strat">حوّله لستراتيجي (باك-تست)</span></button>
@@ -81,6 +82,17 @@
 <textarea id="checkIn" spellcheck="false" data-i18n-aria="chk_title" aria-label="افحص وصلّح كودي" placeholder="//@version=6&#10;indicator(&quot;My script&quot;)&#10;..."></textarea>
 </div>
 <div class="mfoot"><button class="btn2" type="button" data-close="1" data-i18n="cancel">إلغاء</button><button class="btn2 pri" type="button" id="checkGo" data-i18n="chk_go">افحص الكود</button></div>
+</div>
+</div>
+
+<div class="modal" id="libModal" role="dialog" aria-modal="true" aria-labelledby="libTitle">
+<div class="mcard">
+<div class="mhead"><b id="libTitle" data-i18n="lib_title">مؤشراتي المحفوظة</b><button class="btn2 close" type="button" data-close="1" data-i18n-title="t_close" data-i18n-aria="t_close" title="إغلاق" aria-label="إغلاق">✕</button></div>
+<div class="mbody">
+<p class="mlead" data-i18n="lib_p">كل مؤشر بيبنيه البوت بينحفظ هون تلقائياً.</p>
+<input id="libQ" class="libq" type="search" data-i18n-ph="lib_search" data-i18n-aria="lib_search" aria-label="دوّر بالاسم" placeholder="دوّر بالاسم…">
+<div id="libList" class="liblist"></div>
+</div>
 </div>
 </div>
 

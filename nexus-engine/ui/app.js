@@ -6,6 +6,7 @@
   var STORE = CFG.store || 'nexus_v2';
   var TPL = CFG.templates || [];
   var LANDING = !!CFG.landing;
+  var LIB = CFG.library || '';
   var MAX_CODE = 120000; // same limit as the server
   var root = document.documentElement;
   var $ = function (id) { return document.getElementById(id); };
@@ -135,6 +136,26 @@
     st_live: ['شغّال', 'active'], st_off: ['متوقّف مؤقتاً', 'paused'], st_noconn: ['بدون اتصال', 'offline'], st_ready: ['جاهز', 'ready'],
     sync_in: ['تحدّثت المحادثة من جهازك التاني.', 'Conversation updated from your other device.'],
     you: ['إنت', 'You'],
+    dw_lib: ['مؤشراتي المحفوظة', 'My saved indicators'],
+    lib_title: ['مؤشراتي المحفوظة', 'My saved indicators'],
+    lib_p: ['كل مؤشر بيبنيه البوت بينحفظ هون تلقائياً (على كل أجهزتك). افتح أي واحد وكمّل تعديل عليه.', 'Every indicator the bot builds is saved here automatically (on all your devices). Open any one to keep editing it.'],
+    lib_search: ['دوّر بالاسم…', 'Search by name…'],
+    lib_empty: ['ما في مؤشرات محفوظة لسا. ابني مؤشر وبينحفظ هون لحاله.', 'No saved indicators yet. Build one and it is saved here automatically.'],
+    lib_loading: ['عم حمّل المكتبة…', 'Loading the library…'],
+    lib_err: ['ما قدرت وصل للمكتبة. جرّب بعد شوي.', 'Could not reach the library. Try again in a moment.'],
+    lib_locked: ['المكتبة بتحتاج تفعيل هالجهاز برابط Brain (#key=...).', 'The library needs this device to be activated with your Brain link (#key=...).'],
+    lib_open: ['افتح للتعديل', 'Open to edit'],
+    lib_del: ['حذف', 'Delete'], lib_del_sure: ['أكيد؟ اضغط كمان مرّة', 'Sure? Press again'],
+    lib_ren: ['إعادة تسمية', 'Rename'], lib_ren_ask: ['الاسم الجديد:', 'New name:'],
+    lib_prev: ['رجّع النسخة السابقة', 'Restore previous version'],
+    lib_vers: ['{n} نسخة سابقة', '{n} earlier version(s)'],
+    lib_saved: ['💾 انحفظ بمؤشراتي', '💾 Saved to my indicators'],
+    lib_updated: ['💾 انحفظ التعديل على نفس المؤشر', '💾 Changes saved to the same indicator'],
+    lib_save: ['💾 احفظ بمؤشراتي', '💾 Save to my indicators'],
+    lib_save_fail: ['ما انحفظ بالمكتبة (رح جرّب بالمرّة الجاية).', 'Not saved to the library (will retry next time).'],
+    lib_opened: ['📂 فتحت المؤشر: {x}. طلبك الجاي بيعدّل عليه.', '📂 Opened: {x}. Your next message edits it.'],
+    lib_restored: ['رجعت النسخة السابقة.', 'Previous version restored.'],
+    lib_deleted: ['انحذف.', 'Deleted.'],
     hint: [CFG.hintAr || 'Pine Script v6 · أداة تعليمية، مش نصيحة مالية', CFG.hintEn || 'Pine Script v6 · educational tool, not financial advice']
   };
   var SUG = [
@@ -235,10 +256,11 @@
     if (m.r === 'u') return { r: 'u', text: str(m.text, 20000), api: typeof m.api === 'string' ? m.api.slice(0, 6000) : undefined, imgs: num(m.imgs, 0) || undefined };
     if (m.r !== 'a') return null;
     if (m.kind === 'script') {
-      return { r: 'a', kind: 'script', id: num(m.id, 0), explain: str(m.explain, 20000), line: str(m.line, 600), code: str(m.code, MAX_CODE * 2), file: safeName(m.file), title: str(m.title, 200), report: cleanReport(m.report), base: str(m.base, 80), ms: num(m.ms, 0), dropped: m.dropped ? true : undefined };
+      return { r: 'a', kind: 'script', id: num(m.id, 0), explain: str(m.explain, 20000), line: str(m.line, 600), code: str(m.code, MAX_CODE * 2), file: safeName(m.file), title: str(m.title, 200), report: cleanReport(m.report), base: str(m.base, 80), ms: num(m.ms, 0), dropped: m.dropped ? true : undefined, libId: libIdOk(m.libId) ? m.libId : undefined };
     }
     return { r: 'a', kind: 'text', explain: str(m.explain, 20000) };
   }
+  function libIdOk(v) { return typeof v === 'string' && /^[a-z0-9]{6,24}$/.test(v); }
   function slimJson(data) {
     // Storage full: keep the code of the three latest scripts only.
     var keep = 3, msgs = data.msgs.slice();
@@ -250,7 +272,7 @@
   }
   function save() {
     var msgs = S.msgs.slice(-30), cur = S.cur;
-    if (cur && msgs.some(function (m) { return m.id === cur.id && m.code; })) cur = { id: cur.id, file: cur.file };
+    if (cur && msgs.some(function (m) { return m.id === cur.id && m.code; })) cur = { id: cur.id, file: cur.file, libId: cur.libId };
     var data = { v: 2, msgs: msgs, cur: cur, seq: S.seq }, full = JSON.stringify(data), slim = null, saved = 0;
     stores().forEach(function (st) {
       try { st.setItem(STORE, full); saved++; }
@@ -270,7 +292,7 @@
     } catch (e) {}
   }
   function syncData() {
-    var slim = JSON.parse(slimJson({ msgs: S.msgs.slice(-30), cur: S.cur ? { id: S.cur.id, file: S.cur.file } : null, seq: S.seq }));
+    var slim = JSON.parse(slimJson({ msgs: S.msgs.slice(-30), cur: S.cur ? { id: S.cur.id, file: S.cur.file, libId: S.cur.libId } : null, seq: S.seq }));
     return slim;
   }
   function pushSync() {
@@ -304,8 +326,8 @@
       if (d && d.v === 2 && Array.isArray(d.msgs)) {
         S.msgs = d.msgs.map(cleanMsg).filter(Boolean);
         S.seq = Math.max(num(d.seq, 0), S.msgs.reduce(function (a, m) { return Math.max(a, m.id || 0); }, 0));
-        var c = d.cur && typeof d.cur === 'object' ? { id: num(d.cur.id, 0), file: safeName(d.cur.file), code: str(d.cur.code, MAX_CODE * 2) } : null;
-        if (c && !c.code) { var src = S.msgs.filter(function (m) { return m.kind === 'script' && m.id === c.id && m.code; })[0]; c = src ? { id: src.id, file: src.file, code: src.code } : null; }
+        var c = d.cur && typeof d.cur === 'object' ? { id: num(d.cur.id, 0), file: safeName(d.cur.file), code: str(d.cur.code, MAX_CODE * 2), libId: libIdOk(d.cur.libId) ? d.cur.libId : undefined } : null;
+        if (c && !c.code) { var src = S.msgs.filter(function (m) { return m.kind === 'script' && m.id === c.id && m.code; })[0]; c = src ? { id: src.id, file: src.file, code: src.code, libId: src.libId || c.libId } : null; }
         S.cur = c;
       }
     } catch (e) { S = { msgs: [], cur: null, seq: 0 }; }
@@ -471,6 +493,12 @@
     bFixAuto.type = bHow.type = bErr.type = bUse.type = 'button';
     if (rep && !verified && !crashed && (nErr || nWarn)) foot.appendChild(bFixAuto);
     foot.appendChild(bHow); foot.appendChild(bErr); foot.appendChild(bUse);
+    if (LIB && syncKey) {
+      var bLib = tx(el('button', 'btn2'), 'lib_save'); bLib.type = 'button';
+      if (msg.libId) bLib.style.display = 'none';
+      bLib.onclick = function () { bLib.disabled = true; libSave(msg, null, function (ok) { bLib.disabled = false; if (ok) bLib.style.display = 'none'; }); };
+      foot.appendChild(bLib); msg._libBtn = bLib;
+    }
     if (msg.ms) foot.appendChild(tx(el('span', 'tm'), 'took', { n: Math.round(msg.ms / 1000) }));
     art.appendChild(foot);
 
@@ -490,7 +518,7 @@
     fno.onclick = function () { fx.classList.remove('on'); bErr.focus(); };
     fgo.onclick = function () { var v = fta.value.trim(); if (!v) { fta.focus(); return; } if (busy) { toast(t('wait_busy')); return; } fx.classList.remove('on'); fta.value = ''; runFix(msg, v.slice(0, 3000)); };
     bFixAuto.onclick = function () { if (busy) { toast(t('wait_busy')); return; } runFix(msg, ''); };
-    bUse.onclick = function () { S.cur = { id: msg.id, code: msg.code, file: msg.file }; save(); refreshCurrent(); toast(t('use_ok')); };
+    bUse.onclick = function () { S.cur = { id: msg.id, code: msg.code, file: msg.file, libId: msg.libId }; save(); refreshCurrent(); toast(t('use_ok')); };
 
     col.appendChild(art);
     arts.push({ msg: msg, use: bUse });
@@ -759,15 +787,20 @@
 
   // Shows a delivered script and only then stores it: data that cannot be rendered never reaches the saved conversation.
   function deliver(col, m) {
-    var msg = cleanMsg({ r: 'a', kind: 'script', id: S.seq + 1, explain: m.explain, line: m.line, code: m.code, file: m.file, title: m.title, report: m.report, base: m.base, ms: m.ms });
+    var msg = cleanMsg({ r: 'a', kind: 'script', id: S.seq + 1, explain: m.explain, line: m.line, code: m.code, file: m.file, title: m.title, report: m.report, base: m.base, ms: m.ms, libId: m.libId });
     renderScript(col, msg);
-    S.seq = msg.id; S.cur = { id: msg.id, code: msg.code, file: msg.file };
+    S.seq = msg.id; S.cur = { id: msg.id, code: msg.code, file: msg.file, libId: msg.libId };
     S.msgs.push(msg); save(); refreshCurrent();
+    // Built by the model: saved automatically. An edit or a fix updates the indicator it came from.
+    if (m.auto && LIB && syncKey) {
+      var target = (msg.base === 'edit' || m.fix) && libIdOk(m.libTarget) ? m.libTarget : null;
+      libSave(msg, target, function (ok, wasUpdate) { if (ok) toast(t(wasUpdate ? 'lib_updated' : 'lib_saved'), 2200); else toast(t('lib_save_fail'), 3000); });
+    }
     announce(t('sr_done') + ' ' + (msg.line || (msg.report ? t(msg.report.verified ? 'b_ok' : msg.report.errorCount ? 'b_err' : 'b_warn', { n: msg.report.errorCount || Math.max(1, msg.report.warningCount + msg.report.unappliedEdits) }) : '')));
   }
 
   // Runs a model request (build or fix) and renders progress and the result. `retry` re-runs the same request.
-  async function runModel(body, retry) {
+  async function runModel(body, retry, libTarget) {
     clearRetries(); setBusy(true);
     var g = gen, col = addShell(), prog = new Progress(col), fin = null, err = null, stopped = false;
     try {
@@ -792,7 +825,7 @@
       if (stopped) renderNotice(col, t('stopped'), '', retry);
       else if (err) renderNotice(col, '⚠️ ' + err, 'err', retry);
       else if (fin.kind === 'script' && typeof fin.code === 'string' && fin.code.trim()) {
-        deliver(col, { explain: fin.explain, line: fin.line, code: fin.code, file: fin.file || 'nexus_indicator.pine', title: fin.title, report: fin.report, base: fin.base, ms: num(fin.ms, 0) || secs * 1000 });
+        deliver(col, { explain: fin.explain, line: fin.line, code: fin.code, file: fin.file || 'nexus_indicator.pine', title: fin.title, report: fin.report, base: fin.base, ms: num(fin.ms, 0) || secs * 1000, auto: true, fix: body.mode === 'fix', libTarget: libTarget });
       } else {
         var text = str(fin.explain, 20000).trim();
         if (!text) renderNotice(col, '⚠️ ' + t('e_empty'), 'err', retry);
@@ -803,6 +836,77 @@
       renderNotice(col, '⚠️ ' + t('e_empty'), 'err', retry);
     } finally { setBusy(false); toBottom(true); }
   }
+
+  /* ---------- saved indicators library (Brain only: CFG.library + the owner key) ---------- */
+  function libCall(method, query, body) {
+    var opt = { method: method, headers: { 'x-brain-key': syncKey }, cache: 'no-store' };
+    if (body) { opt.headers['content-type'] = 'application/json'; opt.body = JSON.stringify(body); }
+    return fetch(LIB + (query || ''), opt).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j || !j.ok) { var e = new Error((j && j.message) || 'http ' + r.status); e.status = r.status; e.locked = !!(j && j.locked); throw e; } return j; }); });
+  }
+  function libSave(msg, targetId, cb) {
+    var rep = msg.report || {}, req = '';
+    for (var i = S.msgs.length - 1; i >= 0; i--) { if (S.msgs[i].r === 'u') { req = S.msgs[i].text; break; } }
+    libCall('POST', '', { action: 'save', id: targetId || undefined, code: msg.code, file: msg.file, title: msg.title, request: req.slice(0, 300), verified: !!rep.verified, errors: (rep.errors || []).slice(0, 3).map(function (e) { return e.message; }) })
+      .then(function (j) {
+        msg.libId = j.id; if (msg._libBtn) msg._libBtn.style.display = 'none';
+        if (S.cur && S.cur.id === msg.id) S.cur.libId = j.id;
+        save(); if (cb) cb(true, !!targetId && j.id === targetId);
+      }).catch(function () { if (cb) cb(false); });
+  }
+  function fmtDate(ms) { try { return new Date(ms).toLocaleString(L ? 'en-AU' : 'ar', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return ''; } }
+  var libItems = [];
+  function openLibrary() {
+    openModal('libModal');
+    var list = $('libList'), q = $('libQ'); q.value = '';
+    list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), 'lib_loading'));
+    if (!syncKey) { list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), 'lib_locked')); return; }
+    libCall('GET').then(function (j) { libItems = Array.isArray(j.items) ? j.items : []; renderLibrary(); })
+      .catch(function (e) { list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), e.locked ? 'lib_locked' : 'lib_err')); });
+  }
+  function renderLibrary() {
+    var list = $('libList'), q = String($('libQ').value || '').trim().toLowerCase();
+    list.innerHTML = '';
+    var items = libItems.filter(function (it) { return !q || (String(it.name) + ' ' + it.file + ' ' + (it.request || '')).toLowerCase().indexOf(q) >= 0; });
+    if (!items.length) { list.appendChild(tx(el('div', 'libnote'), 'lib_empty')); return; }
+    items.forEach(function (it) {
+      var row = el('div', 'librow'), head = el('div', 'libhead'), nm = el('b', '', String(it.name || it.file)), meta = el('div', 'libmeta');
+      nm.dir = dirOf(it.name);
+      head.appendChild(nm);
+      head.appendChild(tx(el('span', 'badge ' + (it.verified ? 'ok' : 'warn')), it.verified ? 'b_ok' : 'b_warn', it.verified ? null : { n: Math.max(1, (it.errors || []).length) }));
+      meta.textContent = it.file + ' · ' + t('n_lines', { n: num(it.lines, 0) }) + ' · ' + fmtDate(it.updated) + (it.source === 'telegram' ? ' · Telegram' : '') + (it.versions ? ' · ' + t('lib_vers', { n: it.versions }) : '');
+      row.appendChild(head); row.appendChild(meta);
+      if (it.request) { var rq = el('div', 'libreq', it.request); rq.dir = dirOf(it.request); row.appendChild(rq); }
+      var acts = el('div', 'libacts');
+      var bo = tx(el('button', 'btn2 pri'), 'lib_open'), br = tx(el('button', 'btn2'), 'lib_ren'), bd = tx(el('button', 'btn2'), 'lib_del');
+      bo.type = br.type = bd.type = 'button';
+      bo.onclick = function () { libOpen(it.id); };
+      br.onclick = function () { var n = window.prompt(t('lib_ren_ask'), it.name || ''); if (!n || !n.trim()) return; libCall('POST', '', { action: 'rename', id: it.id, name: n.trim() }).then(function (j) { it.name = j.item.name; renderLibrary(); }).catch(function () { toast(t('lib_err'), 3000); }); };
+      var armed = 0;
+      bd.onclick = function () {
+        if (Date.now() - armed > 3000) { armed = Date.now(); tx(bd, 'lib_del_sure'); return; }
+        libCall('POST', '', { action: 'delete', id: it.id }).then(function () { libItems = libItems.filter(function (x) { return x.id !== it.id; }); renderLibrary(); toast(t('lib_deleted')); }).catch(function () { toast(t('lib_err'), 3000); });
+      };
+      acts.appendChild(bo); acts.appendChild(br);
+      if (it.versions) {
+        var bp = tx(el('button', 'btn2'), 'lib_prev'); bp.type = 'button';
+        bp.onclick = function () { libCall('POST', '', { action: 'restore', id: it.id, index: 0 }).then(function (j) { var k = libItems.indexOf(it); if (k >= 0) libItems[k] = j.item; renderLibrary(); toast(t('lib_restored')); }).catch(function () { toast(t('lib_err'), 3000); }); };
+        acts.appendChild(bp);
+      }
+      acts.appendChild(bd);
+      row.appendChild(acts); list.appendChild(row);
+    });
+  }
+  function libOpen(id) {
+    if (busy) { toast(t('wait_busy')); return; }
+    libCall('GET', '?id=' + encodeURIComponent(id)).then(function (j) {
+      var it = j.item; closeModals();
+      var shown = '📂 ' + (it.name || it.file);
+      addUser(shown); S.msgs.push({ r: 'u', text: shown, api: 'Open my saved indicator: ' + it.file }); save();
+      var col = addShell();
+      deliver(col, { explain: t('lib_opened', { x: it.name || it.file }), code: it.code, file: it.file, title: it.title, report: { verified: it.verified, errors: (it.errors || []).map(function (m) { return { line: 0, message: m }; }), warnings: [] }, base: 'library', libId: it.id });
+    }).catch(function () { toast(t('lib_err'), 3500); });
+  }
+  if ($('libQ')) $('libQ').addEventListener('input', renderLibrary);
 
   /* ---------- actions ---------- */
   // Sends a build request: `text` plus attachments. The script being edited is fixed at this moment, also for retries.
@@ -820,10 +924,10 @@
     addUser(text || '(' + t('attach') + ')', previews);
     S.msgs.push({ r: 'u', text: (text || t('fromAtt')).slice(0, 20000), api: fileText ? plain.slice(0, 4000) : undefined, imgs: bin.length || undefined });
     save();
-    var cur = S.cur && S.cur.code ? { code: S.cur.code, file: S.cur.file } : null;
+    var cur = S.cur && S.cur.code ? { code: S.cur.code, file: S.cur.file, libId: S.cur.libId } : null;
     var go = function () {
       var msgs = apiMessages(); msgs[msgs.length - 1] = { role: 'user', content: content };
-      runModel({ v: 2, mode: 'build', lang: L ? 'en' : 'ar', messages: msgs, code: cur ? cur.code : '', file: cur ? cur.file : undefined }, go);
+      runModel({ v: 2, mode: 'build', lang: L ? 'en' : 'ar', messages: msgs, code: cur ? cur.code : '', file: cur ? cur.file : undefined }, go, cur && cur.libId);
     };
     go();
   }
@@ -844,7 +948,7 @@
     addUser(shown);
     S.msgs.push({ r: 'u', text: shown, api: tvError ? t('fix_req') : t('autofix_user') }); save();
     var go = function () {
-      runModel({ v: 2, mode: 'fix', lang: L ? 'en' : 'ar', messages: apiMessages(), code: msg.code, file: msg.file, tvError: tvError || undefined }, go);
+      runModel({ v: 2, mode: 'fix', lang: L ? 'en' : 'ar', messages: apiMessages(), code: msg.code, file: msg.file, tvError: tvError || undefined }, go, msg.libId);
     };
     go();
   }
@@ -906,6 +1010,7 @@
     var cur = S.cur && S.cur.code;
     if (name === 'how') return openModal('howModal');
     if (name === 'check') return openModal('checkModal');
+    if (name === 'lib') return openLibrary();
     // The prepared request is added once a file was really chosen (a cancelled picker changes nothing).
     if (name === 'image') return pickFile('image/*', function () { setDraft(t('p_img'), true, true); });
     if (name === 'file') return pickFile('.pine,.txt,.pdf,image/*', function () { setDraft(t('p_file'), true, true); });
@@ -1082,6 +1187,7 @@
 
   window.NexusApp = { launch: launch, home: home, toggleLang: toggleLang, useTemplate: function (id) { launch(); useTemplate(id); }, demo: function () { launch(); useTemplate('smc'); } };
 
+  if (!LIB) { var lb = document.querySelector('[data-tool="lib"]'); if (lb) lb.remove(); }
   load();
   if (SYNC && syncKey) {
     pullSync();

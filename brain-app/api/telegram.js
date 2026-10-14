@@ -17,6 +17,7 @@ import { runPipeline } from "./_nexus/engine.js";
 import { makeCaller, friendlyError, kvPipeline } from "./_nexus/handler.js";
 import { KNOWLEDGE_REV } from "./_nexus/knowledge.js";
 import { LESSONS } from "./_nexus/lessons.js";
+import { saveItem, listItems, getItem } from "./_brain/library.js";
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-5-5";
 const ANTHROPIC = "https://api.anthropic.com/v1/messages";
@@ -256,14 +257,41 @@ async function buildIndicator({ key, token, chatId, text, image, last, kind, lan
   if (!ok) await sendText(token, chatId, "```\n" + result.code.slice(0, 3800) + "\n```");
   if (result.explain) await sendText(token, chatId, result.explain);
   if (!r.verified && r.errors.length) await sendText(token, chatId, (en ? "Findings:\n" : "الملاحظات:\n") + r.errors.slice(0, 4).map((e) => (e.line ? "L" + e.line + ": " : "") + e.message).join("\n"));
-  return { text: (en ? "[indicator delivered: " : "[تم تسليم مؤشر: ") + (result.file || "script.pine") + "] " + clip(result.explain, 600), file: result.file, code: result.code };
+  // Saved to the library (the same one as the web page), so it can be opened and edited later anywhere.
+  let libId = "";
+  try {
+    const target = last && last.libId && (kind === "edit" || kind === "fix") ? last.libId : undefined;
+    const sv = await saveItem({ id: target, code: result.code, file: result.file, title: result.title, request: text, verified: !!r.verified, errors: r.errors, source: "telegram" });
+    if (sv.ok) { libId = sv.id; await sendText(token, chatId, target ? (en ? "💾 Saved over the same indicator in My indicators." : "💾 انحفظ التعديل على نفس المؤشر بمؤشراتي.") : (en ? "💾 Saved to My indicators (/saved to list them)." : "💾 انحفظ بمؤشراتي (/saved لتشوفهم).")); }
+  } catch (e) {}
+  return { text: (en ? "[indicator delivered: " : "[تم تسليم مؤشر: ") + (result.file || "script.pine") + "] " + clip(result.explain, 600), file: result.file, code: result.code, libId };
 }
 
 // ---------- commands ----------
-const HELP = "🧠 Brain على تيليغرام\n\n• احكيني أي شي (نص أو صوت) وبردّ عليك — عربي أو إنجليزي.\n• ابعتلي صورة شارت وبحلّلها.\n• وصّفلي مؤشر TradingView (أو /ind + الفكرة) وببنيه وببعتلك ملف الـ .pine. بعدها قلّي \"ضيف تنبيه\" أو الصق خطأ TradingView وبعدّله.\n\nأوامر:\n/new — محادثة جديدة\n/remember <شي> — احفظ معلومة\n/notes — شو محفوظ\n/forget <رقم|all> — امسح\n/status — حالة المحرك\n/report — آخر تقرير يومي\n/chat <نص> — جواب عادي حتى لو فيه كلمة مؤشر";
+const HELP = "🧠 Brain على تيليغرام\n\n• احكيني أي شي (نص أو صوت) وبردّ عليك — عربي أو إنجليزي.\n• ابعتلي صورة شارت وبحلّلها.\n• وصّفلي مؤشر TradingView (أو /ind + الفكرة) وببنيه وببعتلك ملف الـ .pine. بعدها قلّي \"ضيف تنبيه\" أو الصق خطأ TradingView وبعدّله.\n\nأوامر:\n/new — محادثة جديدة\n/remember <شي> — احفظ معلومة\n/notes — شو محفوظ\n/forget <رقم|all> — امسح\n/status — حالة المحرك\n/report — آخر تقرير يومي\n/saved — مؤشراتي المحفوظة\n/open <رقم> — افتح مؤشر محفوظ للتعديل\n/chat <نص> — جواب عادي حتى لو فيه كلمة مؤشر";
 
 async function handleCommand({ text, chatId, token, notes, saveNotes, clearHistory }) {
   const t = String(text || "").trim();
+  if (/^\/saved\b/i.test(t) || /^(مؤشراتي|مؤشراتي المحفوظة|my indicators)$/i.test(t)) {
+    const items = await listItems().catch(() => null);
+    if (!items) { await sendText(token, chatId, "⚠️ ما قدرت وصل للمكتبة هلّق."); return true; }
+    if (!items.length) { await sendText(token, chatId, "📚 ما في مؤشرات محفوظة لسا. ابنيلك واحد وبينحفظ لحاله."); return true; }
+    const d = (ms) => { try { return new Intl.DateTimeFormat("en-AU", { timeZone: "Australia/Sydney", day: "numeric", month: "short" }).format(new Date(ms)); } catch (e) { return ""; } };
+    await sendText(token, chatId, "📚 مؤشراتي المحفوظة (آخر 15):\n" + items.slice(0, 15).map((it, i) => `${i + 1}. ${it.verified ? "✅" : "⚠️"} ${it.name} — ${it.file} · ${d(it.updated)}`).join("\n") + "\n\nاكتب /open <رقم> لتفتح واحد وتعدّل عليه.");
+    return true;
+  }
+  const op = /^\/open\s*(\d+)/i.exec(t);
+  if (op) {
+    const items = await listItems().catch(() => null);
+    const pick = items && items[Number(op[1]) - 1];
+    if (!pick) { await sendText(token, chatId, "ما في مؤشر بهالرقم. اكتب /saved لتشوف القائمة."); return true; }
+    const it = await getItem(pick.id).catch(() => null);
+    if (!it) { await sendText(token, chatId, "⚠️ ما قدرت افتحه هلّق."); return true; }
+    await kvSetJson(indKey(chatId), { file: it.file, code: it.code, libId: it.id, at: Date.now() }, 7 * 86400).catch(() => {});
+    const ok = await sendFile(token, chatId, it.file, it.code, "📂 " + it.name + "\nهلّق أي تعديل بتطلبه (مثلاً \"ضيف تنبيه\") بيصير على هالمؤشر وبينحفظ عليه.");
+    if (!ok) await sendText(token, chatId, "📂 فتحت " + it.name + ". اطلب التعديل اللي بدك ياه.");
+    return true;
+  }
   if (/^\/(start|help)\b/i.test(t)) { await sendText(token, chatId, HELP); return true; }
   if (/^\/new\b/i.test(t) || /^(محادثة جديدة|ابدأ من جديد|new chat)$/i.test(t)) { await clearHistory(); await sendText(token, chatId, "🆕 بدينا محادثة جديدة."); return true; }
   const rem = /^(?:\/remember\s+|تذكّر\s+|تذكر\s+|احفظ\s+|remember\s+)(.+)/is.exec(t);
@@ -312,7 +340,7 @@ async function setup(req, res, token) {
   const out = { hook };
   try { const me = await (await fetch(tgApi(token, "getMe"))).json(); out.bot = me.result ? "@" + me.result.username : me; out.open = me.result ? "https://t.me/" + me.result.username : null; } catch (e) { out.getMe_error = String(e); }
   out.setWebhook = await tg(token, "setWebhook", { url: hook, allowed_updates: ["message"], drop_pending_updates: true });
-  await tg(token, "setMyCommands", { commands: [{ command: "new", description: "محادثة جديدة" }, { command: "ind", description: "ابني مؤشر TradingView" }, { command: "remember", description: "احفظ معلومة" }, { command: "notes", description: "شو محفوظ" }, { command: "status", description: "حالة Brain" }, { command: "report", description: "آخر تقرير يومي" }, { command: "help", description: "مساعدة" }] });
+  await tg(token, "setMyCommands", { commands: [{ command: "new", description: "محادثة جديدة" }, { command: "ind", description: "ابني مؤشر TradingView" }, { command: "remember", description: "احفظ معلومة" }, { command: "notes", description: "شو محفوظ" }, { command: "status", description: "حالة Brain" }, { command: "report", description: "آخر تقرير يومي" }, { command: "saved", description: "مؤشراتي المحفوظة" }, { command: "open", description: "افتح مؤشر محفوظ" }, { command: "help", description: "مساعدة" }] });
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (chatId) { await sendText(token, chatId, "👋 أهلاً أحمد، Brain تحدّث: صار عندي ذاكرة للمحادثة، بشوف الصور، وبتقدر تطلب مني مؤشر TradingView مباشرة من هون (/ind + الفكرة أو بس احكيلي). اكتب /help للأوامر."); out.hello_sent_to = chatId; }
   return send(res, out);
@@ -385,7 +413,7 @@ export default async function handler(req, res) {
       const req2 = stripCmd(text);
       const out = await buildIndicator({ key, token, chatId, text: req2, image, last: lastValid, kind, lang });
       hist.push({ role: "user", content: clip(shown, 2000), at: Date.now() });
-      if (out) { hist.push({ role: "assistant", content: clip(out.text, 2000), at: Date.now() }); if (out.code) await kvSetJson(indKey(chatId), { file: out.file, code: out.code, at: Date.now() }, 7 * 86400).catch(() => {}); }
+      if (out) { hist.push({ role: "assistant", content: clip(out.text, 2000), at: Date.now() }); if (out.code) await kvSetJson(indKey(chatId), { file: out.file, code: out.code, libId: out.libId || "", at: Date.now() }, 7 * 86400).catch(() => {}); }
       await saveHist(hist);
       return send(res, { ok: true });
     }
