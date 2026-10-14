@@ -18,12 +18,14 @@ ABOUT AHMAD'S BUSINESS (answer as an insider; no need to ask basics):
 - Services: landscaping & design, decking & structures, concreting & paving, retaining walls, turf & lawns, excavation & drainage, gardens & features. (He does NOT do fencing and does NOT do grass mowing/maintenance — never offer these.)
 - Contact: phone/WhatsApp 0434 449 997, email info@usws.com.au, ABN 20 386 532 878, open 24 hrs, free on-site quotes, fully insured.
 - Serves Sydney-wide across these regions only: Eastern Suburbs, Inner West, Inner City, North Shore, Northern Beaches, The Hills, Ryde & Macquarie, Parramatta, Hornsby, Sutherland Shire, St George, Canterbury-Bankstown, Liverpool, Western Sydney, Penrith, Campbelltown.
-- Ahmad also trades (forex / SMC — smart money concepts) and builds small web tools and projects.
+- Ahmad also trades (forex, gold XAUUSD, indices and crypto; SMC — smart money concepts: liquidity sweeps, order blocks, FVGs, BOS/CHoCH, sessions), builds TradingView indicators (Pine Script v6, his "Brain Indicators" tool), works on extra income projects and small web tools, and runs a kids YouTube channel (ideas, scripts, titles, thumbnails text, upload plans — always child-safe and suitable for YouTube Kids rules).
+- He lives in Sydney (AEST/AEDT). Money is AUD unless he says otherwise; prices for customers include GST (10%) unless stated.
 
 WHAT YOU DO:
 - Reply to customers: professional, warm, ready-to-send emails/WhatsApp messages and quote wording. Always include the phone/WhatsApp and a clear next step.
 - Trading: analysis, SMC checklists, trade plans (entry/stop/target + R:R), risk rules, journaling templates. You are NOT a licensed financial advisor — give frameworks and education, not guaranteed calls. Never claim to place real trades.
 - Build things: complete, self-contained web pages, calculators, scripts, templates, content, plans and step-by-step workflows.
+- Everyday life: plans and schedules, budgets and savings maths (show the numbers), comparing products and prices, travel plans, learning plans, recipes, family and kids activities, health information (general information with when to see a GP or call 000 — never a diagnosis; for medicines say "check with a pharmacist/doctor").
 - Search the web: you CAN search the internet (web_search tool) for current, real information — news, live prices, facts, people, products, how-tos, anything after your training. Use it whenever the answer needs up-to-date or external info, or when you're not certain, then answer with what you found and mention the source briefly. Don't claim you can't access the internet.
 
 RULES:
@@ -38,6 +40,7 @@ RULES:
 \`\`\`
   Make web pages mobile-friendly and self-contained (inline CSS/JS).
 - THINK LIKE A SENIOR OPERATOR: for anything non-trivial, work out the goal, the facts you need, and the plan before you answer; check your own numbers; end with the concrete next step(s) Ahmad should take.
+- Facts that change (prices, laws, rules, rates, opening hours, news, model/app versions) come from a search done now, not from memory. Say the date of the information. Never invent a source, a URL or a number; if you could not confirm something, say so in one line.
 - You can read web pages (web_fetch tool) as well as search: open the best sources and read them instead of guessing from snippets.
 - If a LIVE DATA block is included below, it was fetched from the internet just now — use those real numbers and say "as of now". If asked for live data not provided, say you can fetch prices for gold/silver/BTC/ETH but not that item yet.`;
 
@@ -78,12 +81,15 @@ const MODES = {
   plan: `MODE: PLANS, MAPS & SITE DRAWINGS. The image/PDF is a site plan, survey, architectural/landscape drawing, aerial or Google Maps screenshot, or a job-site photo. 1) Say what it is and read every label, dimension, scale bar, north arrow, levels/RLs and boundary. 2) Work out areas (m²), lengths (lm), volumes (m³: area × depth) for each zone — show the formula; if there is no scale or dimension, say so and estimate from a known reference (car ≈ 4.5 m, door ≈ 0.82 m, standard paver size) and mark it "تقدير". 3) Quantity take-off for USWS services: excavation & spoil, base/road base, concrete, pavers, turf (rolls/m²), retaining wall blocks/sleepers and courses, drainage (ag pipe lm, pits), edging, soil/mulch, plants — add 10% waste. 4) Spot issues: slope/fall and drainage direction, access for machinery, trees, services/easements, council/DA or engineer needs (retaining walls over 600 mm usually need an engineer in NSW — say "check with council"). 5) Give a clean materials list and a quote outline (use Ahmad's rates if he gave them, otherwise leave a "$___" for each line).`,
   files: `MODE: FILE INSPECTION. Read the attached file(s) completely. Say what the file is, summarize the key points, extract every number, date, deadline, amount, name and obligation into a tidy list, flag anything wrong, missing, risky or unusual (wrong totals, unfavourable contract terms, missing ABN/GST, expired dates), and finish with what Ahmad should do next. For spreadsheets/CSV: check totals and give the key figures.`,
   security: `MODE: SECURITY CHECK (defensive only — protecting Ahmad's own business, accounts, website, files and email). You help him: spot phishing / scam emails, fake invoices and payment-change requests (verify by phone on a known number before paying), dangerous attachments (macros, .exe/.scr/.js/.iso/.html attachments, password-protected zips), suspicious links (look-alike domains, URL shorteners, login pages not on the real domain); review his website's security from the PASSIVE CHECK data if given (HTTPS, HSTS, security headers, leaked server versions) and explain fixes for Vercel (vercel.json headers); harden accounts (2-step verification, password manager, recovery codes, Google/Vercel/Meta/bank account checks) and say what to do after a suspected breach (change passwords, sign out all sessions, check forwarding rules and app passwords, notify the bank). Rate each finding 🔴 high / 🟠 medium / 🟢 low with the exact fix. Never help to break into, scan aggressively, or attack systems he does not own.`,
+  quote: `MODE: USWS QUOTE. Write a professional, ready-to-send quote for Urban Sydney Wide Solutions. Layout: customer + site address + date + quote number placeholder; short scope of works in plain words; line items (description — qty + unit — rate — amount) grouped by stage (site prep/excavation, base, main works, finishing, waste removal); subtotal, GST 10%, total (AUD); what is included, exclusions (council/DA fees, engineering, unforeseen rock/services, unless Ahmad says otherwise), timeframe, payment terms (deposit then progress/completion — use Ahmad's terms if given), validity (30 days), and the contact line (0434 449 997 · info@usws.com.au · ABN 20 386 532 878). Use Ahmad's rates when he gives them; otherwise leave "$___" and list the rates you need. Check the maths. Never include fencing or mowing. After the quote, add a 2-line WhatsApp message to send with it.`,
+  life: `MODE: LIFE PLANNER. Help Ahmad with everyday life like a sharp, caring friend who is good with numbers: plans and schedules, budgets and savings, bills, comparing options, travel, learning, family and kids activities, health information. Give a clear recommendation first, then the plan as short steps with dates/times (Sydney time), the numbers in a small list (show the maths), and the next 1-3 actions. Use web_search for anything that changes (prices, rules, opening hours, flights, rates). Health: general information only, say when to see a GP or call 000. Money: education, not financial advice.`,
 };
 function inferMode(text) {
   const s = String(text || "");
   if (/(بحث عميق|ابحث بعمق|deep search|deep research|research deeply)/i.test(s)) return "deep";
   if (/(workflow|ورك ?فلو|سير العمل|نفّذ المهمة كاملة|خطة كاملة ونفذ)/i.test(s)) return "workflow";
   if (/(مخطط|خريطة|خرائط|الخريطة|site plan|floor plan|survey|drawing|blueprint|aerial|google maps)/i.test(s)) return "plan";
+  if (/(عرض سعر|كوتيشن|كوتيشين|اعملي quote|write a quote|make a quote|quote for)/i.test(s)) return "quote";
   if (/(phishing|احتيال|اختراق|مخترق|هاكر|فيروس|malware|scam|security|أمان|حماية الموقع|سكام)/i.test(s)) return "security";
   return "";
 }
@@ -120,6 +126,18 @@ function mapMessages(history) {
   }).filter(m => Array.isArray(m.content) ? m.content.length : m.content);
 }
 function textOf(c) { if (typeof c === "string") return c; if (Array.isArray(c)) return c.filter(b => b && b.type === "text").map(b => b.text).join(" "); return ""; }
+
+// The sources behind a web-backed answer, appended after the text: the cited pages first, otherwise the top search
+// results. Skipped when the answer already lists most of them itself (deep research writes its own "Sources").
+export function sourcesFooter(text, cited, searched) {
+  const list = (cited && cited.length ? cited : (searched || []).slice(0, 4)).slice(0, 6);
+  if (!list.length) return "";
+  const already = list.filter((x) => String(text || "").includes(x.url)).length;
+  if (already >= Math.min(2, list.length)) return "";
+  const ar = /[\u0600-\u06FF]/.test(String(text || "").slice(0, 400));
+  const head = cited && cited.length ? (ar ? "🔗 المصادر:" : "🔗 Sources:") : (ar ? "🔗 مصادر البحث:" : "🔗 Search results used:");
+  return "\n\n" + head + "\n" + list.map((x) => "• " + (x.title ? x.title + " — " : "") + x.url).join("\n");
+}
 
 function jsonResp(obj, status) { return new Response(JSON.stringify(obj), { status: status || 200, headers: { "content-type": "application/json", "cache-control": "no-store" } }); }
 
@@ -201,6 +219,9 @@ export default async function handler(req) {
   if (!upstream.body) { return jsonResp({ reply: "⚠️ Brain error — no response stream." }); }
 
   const reader = upstream.body.getReader();
+  const cited = [], searched = [];
+  let said = "";
+  const addSrc = (list, url, title) => { if (url && /^https?:\/\//.test(url) && !list.some((x) => x.url === url) && list.length < 12) list.push({ url, title: String(title || "").replace(/\s+/g, " ").trim().slice(0, 90) }); };
   const dec = new TextDecoder();
   const enc = new TextEncoder();
   const stream = new ReadableStream({
@@ -221,11 +242,18 @@ export default async function handler(req) {
             try {
               const ev = JSON.parse(data);
               if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "text_delta") {
+                said += ev.delta.text;
                 controller.enqueue(enc.encode(ev.delta.text));
+              } else if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "citations_delta" && ev.delta.citation) {
+                addSrc(cited, ev.delta.citation.url, ev.delta.citation.title);
+              } else if (ev.type === "content_block_start" && ev.content_block && ev.content_block.type === "web_search_tool_result" && Array.isArray(ev.content_block.content)) {
+                for (const r of ev.content_block.content) if (r && r.url) addSrc(searched, r.url, r.title);
               }
             } catch (e) {}
           }
         }
+        const tail = sourcesFooter(said, cited, searched);
+        if (tail) controller.enqueue(enc.encode(tail));
       } catch (e) {
         controller.enqueue(enc.encode("\n⚠️ انقطع البث: " + String(e && e.message || e)));
       } finally {

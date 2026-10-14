@@ -19,9 +19,30 @@ function sydneyNow() {
   try { return new Intl.DateTimeFormat("en-AU", { timeZone: "Australia/Sydney", dateStyle: "full", timeStyle: "short" }).format(new Date()); } catch (e) { return new Date().toUTCString(); }
 }
 
+// Offset of a time zone from UTC in hours on a given day (handles daylight saving): used to give the model the exact
+// Sydney time of the US and UK sessions today, so calendar times are converted correctly.
+export function tzOffset(tz, ms = Date.now()) {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+    const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute);
+    return Math.round((asUtc - Math.floor(ms / 60000) * 60000) / 900000) / 4;
+  } catch (e) { return null; }
+}
+// "8:30 New York = 23:30 Sydney" for the main release times of today.
+export function sessionClock(ms = Date.now()) {
+  const syd = tzOffset("Australia/Sydney", ms), ny = tzOffset("America/New_York", ms), ldn = tzOffset("Europe/London", ms), tk = tzOffset("Asia/Tokyo", ms);
+  if ([syd, ny, ldn, tk].some((x) => x === null)) return "";
+  const at = (h, m, off) => { let t = (h + m / 60 - off + syd) % 24; if (t < 0) t += 24; const H = Math.floor(t), M = Math.round((t - H) * 60); return String(H).padStart(2, "0") + ":" + String(M).padStart(2, "0"); };
+  return `Sydney is UTC${syd >= 0 ? "+" : ""}${syd} today. Conversions to Sydney time: 08:30 New York = ${at(8, 30, ny)}, 10:00 New York = ${at(10, 0, ny)}, 14:00 New York (FOMC) = ${at(14, 0, ny)}, 07:00 London = ${at(7, 0, ldn)}, 09:30 London = ${at(9, 30, ldn)}, 08:50 Tokyo = ${at(8, 50, tk)}. A US/UK event in the evening there is often the NEXT calendar day in Sydney.`;
+}
+
+export const DISCLAIMER = "تحليل تعليمي مش نصيحة مالية. قرار الصفقة إلك.";
+
 const PROMPT = (markets) => `You are Brain, the market analyst of Ahmad, a Sydney-based trader (forex, gold, indices, crypto; Smart Money Concepts style). It is ${sydneyNow()} in Sydney.
 
 Use web_search NOW to get today's real information (do not rely on memory): the latest price and the overnight move of each market below, the main market-moving news of the last 24 hours (central banks, inflation/jobs data, geopolitics, risk sentiment, crypto flows), and today's high-impact economic calendar events with their Sydney times.
+
+${sessionClock()}
 
 Markets: ${markets.join(", ")}.
 
@@ -33,7 +54,7 @@ Then write the report in Levantine Arabic (keep tickers, numbers and the words B
 2-3 lines: the main driver today and the risk mood (risk-on / risk-off).
 
 🗓️ أخبار اليوم المهمة (بتوقيت سيدني)
-• up to 5 lines: time – event – why it matters. Write "ما في أخبار قوية" if none.
+• up to 5 lines: 🔴 (high impact) or 🟠 (medium) + Sydney time – currency – event (forecast vs previous if known) – why it matters. Use the conversions above; write "ما في أخبار قوية" if none.
 
 📈📉 التوقعات
 For each market one block of 2 lines:
@@ -55,6 +76,10 @@ async function callModel(key, model, markets, signal) {
   const j = JSON.parse(t);
   const text = (j.content || []).filter((b) => b && b.type === "text").map((b) => b.text).join("").trim();
   const sources = [];
+  // Pages the report actually cites come first, then the other search results.
+  for (const b of j.content || []) {
+    if (b && b.type === "text" && Array.isArray(b.citations)) for (const c of b.citations) if (c && c.url && sources.length < 8 && !sources.some((x) => x.url === c.url)) sources.push({ title: String(c.title || "").slice(0, 120), url: c.url, cited: true });
+  }
   for (const b of j.content || []) {
     if (b && b.type === "web_search_tool_result" && Array.isArray(b.content)) for (const s of b.content) if (s && s.url && sources.length < 8 && !sources.some((x) => x.url === s.url)) sources.push({ title: String(s.title || "").slice(0, 120), url: s.url });
   }
@@ -69,13 +94,22 @@ export async function buildReport({ key, markets = MARKETS, signal } = {}) {
     try {
       const out = await callModel(key, model, markets, signal);
       if (!out.text) throw new Error("empty report");
-      return { day: sydneyDay(), at: new Date().toISOString(), model: out.model, markets, text: out.text.slice(0, 3900), sources: out.sources };
+      return { day: sydneyDay(), at: new Date().toISOString(), model: out.model, markets, text: finishText(out.text, out.sources), sources: out.sources };
     } catch (e) {
       last = e;
       if (e.status === 401 || e.status === 402 || (signal && signal.aborted)) break;
     }
   }
   throw last || new Error("report failed");
+}
+
+// Final guards: a report without any source of today is marked as unconfirmed, and it always ends with the
+// educational disclaimer.
+export function finishText(text, sources) {
+  let t = String(text || "").trim();
+  if (!(sources || []).length) t = "⚠️ ما قدرت أتأكد من مصادر اليوم — اعتبر الأرقام مش مأكدة.\n\n" + t;
+  if (!t.includes(DISCLAIMER)) t = t.slice(0, 3900 - DISCLAIMER.length - 2) + "\n\n" + DISCLAIMER;
+  return t.slice(0, 3900);
 }
 
 async function kv(cmds) {

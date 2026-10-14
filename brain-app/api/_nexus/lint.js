@@ -441,6 +441,28 @@ function nexusRules(code) {
   return diags;
 }
 
+// Legacy (v4/v5) names the models still write. TradingView only says "Could not find function" or "does not have
+// an argument"; the repair prompt gets the exact v6 replacement (TradingView's "To Pine Script version 6" guide).
+const LEGACY_FN = {
+  study: "indicator()", security: "request.security()", tostring: "str.tostring()", iff: "the ternary operator: cond ? a : b",
+  sma: "ta.sma()", ema: "ta.ema()", rma: "ta.rma()", wma: "ta.wma()", rsi: "ta.rsi()", atr: "ta.atr()", macd: "ta.macd()",
+  crossover: "ta.crossover()", crossunder: "ta.crossunder()", cross: "ta.cross()", highest: "ta.highest()", lowest: "ta.lowest()",
+  valuewhen: "ta.valuewhen()", barssince: "ta.barssince()", pivothigh: "ta.pivothigh()", pivotlow: "ta.pivotlow()",
+  stdev: "ta.stdev()", change: "ta.change()", vwap: "ta.vwap()", supertrend: "ta.supertrend()", bb: "ta.bb()", stoch: "ta.stoch()",
+  tr: "ta.tr(true)", sar: "ta.sar()", "input.resolution": "input.timeframe()", "input.integer": "input.int()",
+};
+const LEGACY_ARG = {
+  when: "the \"when\" parameter was removed in v6: wrap the call in an if block (if cond -> strategy.entry(...)).",
+  transp: "\"transp\" was removed: put the transparency in the color, color.new(color.red, 50).",
+};
+export function legacyHint(message) {
+  const f = /Could not find function or function reference '([\w.]+)'/.exec(message || "");
+  if (f && LEGACY_FN[f[1]]) return ` Pine v6: use ${LEGACY_FN[f[1]]}.`;
+  const a = /does not have an argument with the name "?(\w+)"?/.exec(message || "");
+  if (a && LEGACY_ARG[a[1]]) return " Pine v6: " + LEGACY_ARG[a[1]];
+  return "";
+}
+
 /**
  * Checks a script. Returns:
  *  errors    - compile errors (must be fixed)
@@ -466,7 +488,8 @@ export function checkPine(input) {
     const key = e.line + ":" + e.col + ":" + e.message;
     if (seen.has(key)) continue; // the same finding can be reported by two checker passes
     seen.add(key);
-    errors.push(e);
+    const hint = legacyHint(e.message);
+    errors.push(hint ? { ...e, message: e.message + hint } : e);
   }
 
   const inputNames = new Set();

@@ -33,4 +33,14 @@ await t("cron builds with web search, stores and sends to Telegram with sources"
 await t("stored report readable with the daily key", async () => {
   const r = await call("?report=1&key=" + process.env.DAILY_KEY); assert.equal(r.body.ok, true); assert.match(r.body.report.text, /XAUUSD/);
 });
+await t("calendar clock: Sydney offsets with daylight saving; report guards", async () => {
+  const { tzOffset, sessionClock, finishText, DISCLAIMER } = await import("../../brain-app/api/_brain/market.js");
+  const oct = Date.UTC(2026, 9, 14, 12), jul = Date.UTC(2026, 6, 14, 12);
+  assert.equal(tzOffset("Australia/Sydney", oct), 11); assert.equal(tzOffset("Australia/Sydney", jul), 10);
+  assert.equal(tzOffset("America/New_York", oct), -4);
+  assert.match(sessionClock(oct), /08:30 New York = 23:30/); assert.match(sessionClock(jul), /08:30 New York = 22:30/);
+  assert.match(lastBody.messages[0].content, /Conversions to Sydney time/);
+  assert.match(finishText("report", []), /مش مأكد/); assert.ok(finishText("report", [{ url: "u" }]).endsWith(DISCLAIMER));
+  assert.equal(finishText("x\n" + DISCLAIMER, [{ url: "u" }]).split(DISCLAIMER).length, 2);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

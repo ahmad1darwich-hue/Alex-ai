@@ -229,4 +229,13 @@ t("v6: linewidth below 1 is an error; timeframe.period has a multiplier", () => 
   const ok = checkPine(H + 'isD = timeframe.period == "1D" // not "D"\nd = request.security(syminfo.tickerid, "D", close[1], lookahead = barmerge.lookahead_on)\nplot(isD ? d : na)\n');
   assert.ok(!ok.mustFix.some((e) => e.rule === "NX_TF_PERIOD"), JSON.stringify(ok.mustFix));
 });
+t("legacy v4/v5 names get the exact v6 replacement in the finding", () => {
+  const H = '//@version=6\nindicator("x", overlay = true)\n';
+  const msg = (c) => checkPine(c).errors.map((e) => e.message).join(" | ");
+  assert.match(msg(H + 'label.new(bar_index, high, tostring(close))\n'), /use str\.tostring\(\)/);
+  assert.match(msg(H + 'x = security(syminfo.tickerid, "D", close)\nplot(x)\n'), /use request\.security\(\)/);
+  assert.match(msg(H + 'plot(close, color = color.red, transp = 50)\n'), /color\.new\(/);
+  assert.match(msg('//@version=6\nstrategy("s", overlay = true)\nc = ta.crossover(close, ta.sma(close, 10))\nstrategy.entry("L", strategy.long, when = c)\n'), /wrap the call in an if block/);
+  assert.doesNotMatch(msg(H + 'x = myFunc(close)\nplot(x)\n'), /Pine v6: use/);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

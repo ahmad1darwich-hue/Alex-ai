@@ -44,4 +44,24 @@ await t("falls back to fewer tools when web_fetch is refused", async () => {
   assert.equal(await (await post({ messages: [{ role: "user", content: "hi" }] })).text(), "ok");
   assert.equal(bodies[1].tools.length, 1); failFirst = "";
 });
+await t("web answers end with their sources; quote and life modes", async () => {
+  const { sourcesFooter } = await import("../../brain-app/api/agent.js");
+  const ev = (o) => "data: " + JSON.stringify(o) + "\n\n";
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { bodies.push(JSON.parse(init.body)); return new Response(new ReadableStream({ start(c) { const e = new TextEncoder();
+    c.enqueue(e.encode(ev({ type: "content_block_start", content_block: { type: "web_search_tool_result", content: [{ type: "web_search_result", url: "https://a.test/1", title: "A" }] } })));
+    c.enqueue(e.encode(ev({ type: "content_block_delta", delta: { type: "text_delta", text: "سعر الذهب 4000" } })));
+    c.enqueue(e.encode(ev({ type: "content_block_delta", delta: { type: "citations_delta", citation: { url: "https://b.test/2", title: "B news" } } })));
+    c.close(); } }), { status: 200 }); };
+  const out = await (await post({ messages: [{ role: "user", content: "سعر الذهب" }] })).text();
+  globalThis.fetch = prev;
+  assert.match(out, /🔗 المصادر:\n• B news — https:\/\/b\.test\/2/); assert.doesNotMatch(out, /a\.test/);
+  assert.equal(sourcesFooter("see https://x.t/1 and https://x.t/2", [{ url: "https://x.t/1" }, { url: "https://x.t/2" }], []), "");
+  assert.match(sourcesFooter("hello", [], [{ url: "https://s.t", title: "S" }]), /Search results used/);
+  assert.equal(sourcesFooter("hi", [], []), "");
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "اعملي عرض سعر لتركيب turf 80 متر" }] })).text();
+  assert.match(bodies[0].system, /USWS QUOTE/); assert.match(bodies[0].system, /GST 10%/);
+  bodies.length = 0; await (await post({ mode: "life", messages: [{ role: "user", content: "budget" }] })).text();
+  assert.match(bodies[0].system, /LIFE PLANNER/); assert.match(bodies[0].system, /kids YouTube channel/);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

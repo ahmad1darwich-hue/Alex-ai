@@ -113,6 +113,8 @@ html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on,.drawer.on{transform:none}
 <button data-mode="files" data-file="1" data-p="افحص هالملف كامل: لخّصه، طلّع الأرقام والتواريخ والالتزامات، ونبّهني لأي غلط أو خطر." data-pen="Inspect this file fully: summarize it, extract numbers, dates and obligations, and flag anything wrong or risky."><span class="em">📄</span> <span data-i18n="dw_fcheck">فحص ملف (عقد، فاتورة، Excel)</span></button>
 <button data-mode="security" data-p="افحص أمان موقعي usws.com.au وقلّي شو لازم صلّح." data-pen="Check the security of my website usws.com.au and tell me what to fix."><span class="em">🛡️</span> <span data-i18n="dw_sec">فحص أمان واختراقات</span></button>
 <button data-mode="security" data-p="هالإيميل/الرسالة احتيال؟ الصقها هون: " data-pen="Is this email/message a scam? Paste it here: "><span class="em">🎣</span> <span data-i18n="dw_phish">هالرسالة احتيال؟</span></button>
+<button data-mode="quote" data-p="اعملي عرض سعر (quote) احترافي لزبون: " data-pen="Write a professional quote for a customer: "><span class="em">🧾</span> <span data-i18n="dw_quote">عرض سعر USWS جاهز</span></button>
+<button data-mode="life" data-p="ساعدني نظّم: " data-pen="Help me plan: "><span class="em">🧭</span> <span data-i18n="dw_life">تنظيم حياتي (مصاري، سفر، صحة، تعلّم)</span></button>
 <button data-action="emailq"><span class="em">📨</span> <span data-i18n="dw_emailq">اقرأ الإيميل واسأله</span></button>
 </div>
 
@@ -182,7 +184,7 @@ var I18N={
  brand_sub:["مساعدك","Your assistant"],
  btn_new:["+ جديد","+ New"],
  dw_title:["◇ Brain — كل شي بمكان واحد","◇ Brain — everything in one place"],
- dw_cust:["الزباين والواتساب","Customers & WhatsApp"],dw_pro:['شغل احترافي','Pro work'],dw_deep:['بحث عميق (مصادر متعددة)','Deep research (many sources)'],dw_flow:['Workflow — نفّذ مهمة كاملة','Workflow — run a whole task'],dw_map:['حلّل مخطط أو خريطة شغل','Analyze a site plan or map'],dw_fcheck:['فحص ملف (عقد، فاتورة، Excel)','Inspect a file (contract, invoice, sheet)'],dw_sec:['فحص أمان واختراقات','Security & breach check'],dw_phish:['هالرسالة احتيال؟','Is this message a scam?'],dw_emailq:['اقرأ الإيميل واسأله','Read & ask my email'],
+ dw_cust:["الزباين والواتساب","Customers & WhatsApp"],dw_pro:['شغل احترافي','Pro work'],dw_deep:['بحث عميق (مصادر متعددة)','Deep research (many sources)'],dw_flow:['Workflow — نفّذ مهمة كاملة','Workflow — run a whole task'],dw_map:['حلّل مخطط أو خريطة شغل','Analyze a site plan or map'],dw_fcheck:['فحص ملف (عقد، فاتورة، Excel)','Inspect a file (contract, invoice, sheet)'],dw_sec:['فحص أمان واختراقات','Security & breach check'],dw_phish:['هالرسالة احتيال؟','Is this message a scam?'],dw_emailq:['اقرأ الإيميل واسأله','Read & ask my email'],dw_quote:['عرض سعر USWS جاهز','Ready USWS quote'],dw_life:['تنظيم حياتي (مصاري، سفر، صحة، تعلّم)','Life planner (money, travel, health, learning)'],
  dw_reply:["رد على زبون","Reply to a customer"],
  dw_quote:["عرض سعر","Quote"],
  dw_follow:["رسالة متابعة","Follow-up message"],
@@ -337,7 +339,7 @@ fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)han
 document.addEventListener('paste',function(e){var items=(e.clipboardData&&e.clipboardData.items)||[];var got=false;for(var i=0;i<items.length;i++){var it=items[i];if(it.kind==='file'){var f=it.getAsFile();if(f){handleFile(f);got=true;}}}if(got){e.preventDefault();input.focus();}});
 
 var curMode='';
-var MODE_NAMES={deep:['🔬 بحث عميق','🔬 Deep research'],workflow:['⚙️ Workflow','⚙️ Workflow'],plan:['🗺️ مخطط/خريطة','🗺️ Plan/map'],files:['📄 فحص ملف','📄 File check'],security:['🛡️ فحص أمان','🛡️ Security check']};
+var MODE_NAMES={deep:['🔬 بحث عميق','🔬 Deep research'],workflow:['⚙️ Workflow','⚙️ Workflow'],plan:['🗺️ مخطط/خريطة','🗺️ Plan/map'],files:['📄 فحص ملف','📄 File check'],security:['🛡️ فحص أمان','🛡️ Security check'],quote:['🧾 عرض سعر','🧾 Quote'],life:['🧭 تنظيم حياة','🧭 Life planner']};
 function setMode(m){curMode=MODE_NAMES[m]?m:'';var el=document.getElementById('modechip');
   if(!el){el=document.createElement('div');el.id='modechip';el.className='chip';el.style.cssText='margin:0 auto 8px;max-width:860px;width:max-content;border-color:var(--acc)';var c=document.getElementById('chips');c.parentNode.insertBefore(el,c);}
   if(!curMode){el.style.display='none';return;}
