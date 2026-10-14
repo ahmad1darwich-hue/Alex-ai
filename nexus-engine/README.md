@@ -103,6 +103,11 @@ in the Vercel project; without it both endpoints stay closed. A device is activa
 `https://<brain site>/#key=<BRAIN_KEY>`: the page stores the key on that device and removes it from the address
 bar. To revoke all devices, change `BRAIN_KEY` and redeploy.
 
+`brain-app/api/voice.js` (same lock) turns the page's microphone recordings into text (Whisper on Groq, `GROQ_API_KEY`;
+`OPENAI_API_KEY` as fallback) and reads Brain's answers aloud (Groq Orpheus). A message spoken with 🎤 is sent with
+`voice: true`, so the assistant answers short and speakable; 🔊 turns spoken replies on or off. Without the keys the
+page falls back to the browser's own speech recognition and voice. Test: `nexus-engine/tests/voice.test.mjs`.
+
 The WhatsApp webhooks (`whatsapp.js`, `wa-customer.js`) do nothing until their WhatsApp credentials are set. With
 `WA_APP_SECRET` (the Meta app secret) set, calls that are not signed by Meta are ignored.
 

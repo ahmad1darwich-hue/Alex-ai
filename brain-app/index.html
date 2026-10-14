@@ -68,6 +68,11 @@ html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on,.drawer.on{transform:none}
 .attbtn,.micbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line2);background:#121821;color:var(--mut);font-size:17px;cursor:pointer;flex:none}
 .attbtn:hover,.micbtn:hover{color:var(--acc);border-color:var(--acc)}
 .micbtn.rec{color:#fff;background:#dc2626;border-color:#dc2626;animation:pulse 1s infinite}
+.micbtn.wait{color:var(--acc);border-color:var(--acc)}
+.micbtn.spk.on{color:var(--acc);border-color:var(--acc)}
+.micbtn.spk.play{color:#04121a;background:var(--acc);border-color:var(--acc)}
+.say{margin-top:5px;background:none;border:1px solid var(--line2);color:var(--mut);border-radius:8px;font-size:12px;padding:2px 9px;cursor:pointer}
+.say:hover{color:var(--acc);border-color:var(--acc)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
 .send{width:40px;height:40px;border-radius:11px;border:0;background:linear-gradient(145deg,var(--acc),var(--acc2));color:#04121a;font-size:18px;cursor:pointer;flex:none;display:grid;place-items:center}
 .send:disabled{opacity:.5}
@@ -159,6 +164,7 @@ html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on,.drawer.on{transform:none}
 <div class="cform">
 <button class="attbtn" id="att" data-i18n-title="t_att" title="ارفع صورة أو ملف">📎</button>
 <button class="micbtn" id="mic" data-i18n-title="t_mic" title="تكلّم">🎤</button>
+<button class="micbtn spk" id="spk" data-i18n-title="t_spk" title="رد صوتي">🔊</button>
 <textarea id="in" rows="1" data-i18n-ph="ph_in" placeholder="اسأل Brain… أو اضغط 🎤 واحكي"></textarea>
 <button class="send" id="send" data-i18n-title="t_send" title="إرسال">➤</button>
 </div>
@@ -209,7 +215,7 @@ var I18N={
  tv_go:["عرض","View"],
  tv_open:["↗ دخول","↗ Sign in"],
  t_menu:["القائمة","Menu"],t_new:["محادثة جديدة","New chat"],
- t_att:["ارفع صورة أو ملف","Upload image or file"],t_mic:["تكلّم","Speak"],t_send:["إرسال","Send"],
+ t_att:["ارفع صورة أو ملف","Upload image or file"],t_mic:["تكلّم","Speak"],t_spk:["رد صوتي لما تحكي (اضغط لتشغيل/إيقاف)","Voice replies when you speak (tap to turn on/off)"],v_listen:["🎙️ عم إسمعك… احكي، وبوقّف لحالي لما تسكت","🎙️ Listening… speak, I stop when you pause"],v_wait:["⏳ عم أفهم شو قلت…","⏳ Understanding what you said…"],v_fail:["ما قدرت أفهم الصوت، جرّب كمان مرة أو اكتب","Could not understand the audio, try again or type"],v_play:["🔊 اسمع","🔊 Listen"],v_on:["🔊 الرد الصوتي شغّال","🔊 Voice replies on"],v_off:["🔇 الرد الصوتي مطفي","🔇 Voice replies off"],t_send:["إرسال","Send"],
  ph_in:["اسأل Brain… أو اضغط 🎤 واحكي","Ask Brain… or tap 🎤 and speak"],
  /* dynamic */
  thinking:["Brain عم يفكّر…","Brain is thinking…"],
@@ -319,19 +325,78 @@ input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.
 send.onclick=function(){submit();};
 document.getElementById('att').onclick=function(){attachMode=null;pickFile();};
 function pickFile(){fileInput.value='';fileInput.click();}
-/* voice input */
-var recRef=null;
+/* voice: record -> Whisper on the server (/api/voice), fallback to the browser's recognition; replies read aloud */
+var recRef=null,voiceTurn=false,voiceOn=true,srv={stt:false,tts:false},player=null,speakQ=null;
+try{if(localStorage.getItem('brain_voice')==='off')voiceOn=false;}catch(e){}
+function vt(k){return t(k);}
+function stopSpeaking(){if(speakQ)speakQ.stop=true;speakQ=null;try{if(player){player.pause();player.removeAttribute('src');}}catch(e){}try{window.speechSynthesis&&speechSynthesis.cancel();}catch(e){}var b=document.getElementById('spk');if(b)b.classList.remove('play');}
+/* iPhone only lets a page play sound that started from a tap: unlock one shared player on the first tap. */
+function unlockAudio(){if(!player){player=new Audio();player.setAttribute('playsinline','');}try{player.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';var p=player.play();if(p&&p.catch)p.catch(function(){});}catch(e){}try{if(window.speechSynthesis){var u=new SpeechSynthesisUtterance('');speechSynthesis.speak(u);}}catch(e){}}
+function cleanSpeech(tx){var s=String(tx||'').split(/\n?———/)[0];s=s.replace(/```[\s\S]*?```/g,' ').replace(/\n+🔗[^\n]*(\n•[^\n]*)*/g,' ').replace(/https?:\/\/\S+/g,' ').replace(/[*_#>`|~]+/g,' ').replace(/^\s*[-•]\s+/gm,'، ');
+  try{s=s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,' ');}catch(e){}s=s.replace(/\s+/g,' ').trim();if(s.length>900){var c=Math.max(s.lastIndexOf('. ',900),s.lastIndexOf('، ',900),s.lastIndexOf('؟ ',900));s=s.slice(0,c>450?c+1:900);}return s;}
+function chunks(s){var out=[];while(s.length&&out.length<8){if(s.length<=190){out.push(s);break;}var cut=s.lastIndexOf(' ',190),pc=Math.max(s.lastIndexOf('. ',190),s.lastIndexOf('، ',190),s.lastIndexOf('؟ ',190),s.lastIndexOf('! ',190));if(pc>95)cut=pc+1;if(cut<=0)cut=190;out.push(s.slice(0,cut).trim());s=s.slice(cut).trim();}return out;}
+function browserSpeak(text,q){if(!window.speechSynthesis)return;var ar=/[؀-ۿ]/.test(text);var u=new SpeechSynthesisUtterance(text);u.lang=ar?'ar-SA':'en-AU';var vs=speechSynthesis.getVoices().filter(function(v){return v.lang&&v.lang.toLowerCase().indexOf(ar?'ar':'en')===0;});if(vs.length)u.voice=vs[0];u.rate=ar?1:1.05;u.onend=function(){if(speakQ===q)stopSpeaking();};speechSynthesis.speak(u);}
+async function speakText(tx){stopSpeaking();var text=cleanSpeech(tx);if(!text)return;var q={stop:false};speakQ=q;var b=document.getElementById('spk');if(b)b.classList.add('play');
+  if(!srv.tts){browserSpeak(text,q);return;}
+  var parts=chunks(text);var fetchPart=function(p){return fetch('/api/voice',{method:'POST',headers:apiHeaders(),body:JSON.stringify({tts:p})}).then(function(r){return r.ok?r.blob():null;}).catch(function(){return null;});};
+  var next=fetchPart(parts[0]);
+  for(var i=0;i<parts.length;i++){var blob=await next;if(q.stop)return;if(i+1<parts.length)next=fetchPart(parts[i+1]);
+    if(!blob){browserSpeak(parts.slice(i).join(' '),q);return;}
+    if(!player){player=new Audio();player.setAttribute('playsinline','');}
+    var url=URL.createObjectURL(blob);player.src=url;
+    await new Promise(function(res){player.onended=res;player.onerror=res;var p=player.play();if(p&&p.catch)p.catch(res);});
+    URL.revokeObjectURL(url);if(q.stop)return;}
+  if(speakQ===q)stopSpeaking();}
 (function(){
-  var mic=document.getElementById('mic');var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR||!mic){if(mic)mic.style.display='none';return;}
-  var rec=new SR();recRef=rec;rec.lang=L?'en-US':'ar-SA';rec.interimResults=true;rec.continuous=true;var on=false,base='';
-  /* The whole session is rebuilt on every event, so earlier phrases are never dropped. Some phones repeat the
-     text so far in each new result: a result that starts with the previous one replaces it. */
-  rec.onresult=function(e){var parts=[];for(var i=0;i<e.results.length;i++){var x=String(e.results[i][0].transcript||'').trim();if(!x)continue;var last=parts[parts.length-1];if(last&&x.indexOf(last)===0)parts[parts.length-1]=x;else parts.push(x);}
-    input.value=((base?base.replace(/\s+$/,'')+' ':'')+parts.join(' ')).trim();input.dispatchEvent(new Event('input'));};
-  rec.onend=function(){on=false;mic.classList.remove('rec');};
-  rec.onerror=function(){on=false;mic.classList.remove('rec');};
-  mic.onclick=function(){if(on){rec.stop();return;}base=input.value;try{rec.start();on=true;mic.classList.add('rec');input.focus();}catch(e){}};
+  var mic=document.getElementById('mic'),spk=document.getElementById('spk');
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  var canRec=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+  function paintSpk(){spk.classList.toggle('on',voiceOn);spk.textContent=voiceOn?'🔊':'🔇';}
+  paintSpk();
+  spk.onclick=function(){if(speakQ){stopSpeaking();return;}voiceOn=!voiceOn;try{localStorage.setItem('brain_voice',voiceOn?'on':'off');}catch(e){}paintSpk();unlockAudio();input.placeholder=vt(voiceOn?'v_on':'v_off');setTimeout(function(){input.placeholder=t('ph_in');},1800);};
+  function refreshSrv(){return fetch('/api/voice',{headers:apiHeaders()}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok){srv.stt=!!d.stt;srv.tts=!!d.tts;srv.known=true;}}).catch(function(){});}
+  refreshSrv();
+  if(!canRec&&!SR){mic.style.display='none';return;}
+  /* browser recognition (fallback) */
+  var rec=null,srOn=false,base='';
+  if(SR){rec=new SR();recRef=rec;rec.lang=L?'en-US':'ar-SA';rec.interimResults=true;rec.continuous=true;
+    rec.onresult=function(e){var parts=[];for(var i=0;i<e.results.length;i++){var x=String(e.results[i][0].transcript||'').trim();if(!x)continue;var last=parts[parts.length-1];if(last&&x.indexOf(last)===0)parts[parts.length-1]=x;else parts.push(x);}
+      input.value=((base?base.replace(/\s+$/,'')+' ':'')+parts.join(' ')).trim();input.dispatchEvent(new Event('input'));};
+    rec.onend=function(){srOn=false;mic.classList.remove('rec');if(input.value.trim()&&input.value.trim()!==base.trim()){voiceTurn=true;submit();}};
+    rec.onerror=function(){srOn=false;mic.classList.remove('rec');};}
+  /* recorder (preferred): stops by itself after ~1.6 s of silence once you have spoken, or at 2 minutes */
+  var mr=null,stream=null,chunksA=[],actx=null,timer=null,ph0='';
+  function cleanup(){clearInterval(timer);timer=null;try{stream&&stream.getTracks().forEach(function(tr){tr.stop();});}catch(e){}stream=null;try{actx&&actx.close();}catch(e){}actx=null;}
+  async function startRec(){
+    try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}catch(e){if(rec){base=input.value;try{rec.start();srOn=true;mic.classList.add('rec');}catch(x){}}return;}
+    var type=['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg;codecs=opus'].filter(function(x){return MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(x);})[0]||'';
+    try{mr=type?new MediaRecorder(stream,{mimeType:type,audioBitsPerSecond:32000}):new MediaRecorder(stream);}catch(e){mr=new MediaRecorder(stream);}
+    chunksA=[];mr.ondataavailable=function(e){if(e.data&&e.data.size)chunksA.push(e.data);};
+    mr.onstop=onStop;mr.start(250);mic.classList.add('rec');ph0=t('ph_in');input.placeholder=vt('v_listen');
+    var t0=Date.now(),heard=false,quietSince=0;
+    try{actx=new (window.AudioContext||window.webkitAudioContext)();var an=actx.createAnalyser();an.fftSize=1024;actx.createMediaStreamSource(stream).connect(an);var buf=new Uint8Array(an.fftSize);
+      timer=setInterval(function(){an.getByteTimeDomainData(buf);var sum=0;for(var i=0;i<buf.length;i++){var v=(buf[i]-128)/128;sum+=v*v;}var rms=Math.sqrt(sum/buf.length);var now=Date.now();
+        if(rms>0.045){heard=true;quietSince=0;}else if(heard){if(!quietSince)quietSince=now;if(now-quietSince>1600)stopRec();}
+        if(now-t0>120000||(!heard&&now-t0>12000))stopRec();},120);}catch(e){timer=setInterval(function(){if(Date.now()-t0>120000)stopRec();},500);}
+  }
+  function stopRec(){clearInterval(timer);timer=null;if(mr&&mr.state!=='inactive'){try{mr.stop();}catch(e){}}}
+  async function onStop(){mic.classList.remove('rec');var type=(mr&&mr.mimeType)||'audio/webm';cleanup();var blob=new Blob(chunksA,{type:type});mr=null;
+    if(blob.size<2500){input.placeholder=ph0;return;}
+    mic.classList.add('wait');input.placeholder=vt('v_wait');
+    try{var r=await fetch('/api/voice',{method:'POST',headers:Object.assign(apiHeaders(),{'content-type':type.split(';')[0]}),body:blob});var d=await r.json();
+      if(d&&d.locked){showLocked(addThinking(),d.reply);}
+      else if(d&&d.text){input.value=((input.value?input.value.replace(/\s+$/,'')+' ':'')+d.text).trim();input.dispatchEvent(new Event('input'));voiceTurn=true;submit();}
+      else if(d&&!d.text&&!d.error){/* nothing said */}
+      else{input.placeholder=vt('v_fail');setTimeout(function(){input.placeholder=ph0;},2500);mic.classList.remove('wait');return;}
+    }catch(e){input.placeholder=vt('v_fail');setTimeout(function(){input.placeholder=ph0;},2500);mic.classList.remove('wait');return;}
+    mic.classList.remove('wait');input.placeholder=ph0;}
+  mic.onclick=async function(){unlockAudio();stopSpeaking();
+    if(!srv.known&&canRec&&!(mr&&mr.state==='recording')&&!srOn)await refreshSrv();
+    if(mr&&mr.state==='recording'){stopRec();return;}
+    if(srOn&&rec){rec.stop();return;}
+    if(canRec&&srv.stt){startRec();return;}
+    if(rec){base=input.value;try{rec.start();srOn=true;mic.classList.add('rec');input.focus();}catch(e){}return;}
+    if(canRec)startRec();};
 })();
 
 fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)handleFile(f);};
@@ -396,6 +461,7 @@ function addMsg(role,text,imgs){
   col.appendChild(bub);m.appendChild(av);m.appendChild(col);thread.appendChild(m);scroll();
   return {m:m,bub:bub,col:col};
 }
+function addSayBtn(col,text){if(!cleanSpeech(text))return;var b=document.createElement('button');b.className='say';b.textContent=t('v_play');b.onclick=function(){unlockAudio();speakText(text);};col.appendChild(b);}
 function addThinking(){var r=addMsg('assistant','');r.bub.className='bub think';r.bub.innerHTML='<span class="spin"></span> '+t('thinking');return r;}
 function extractArtifacts(text){
   var arts=[],out=text,re=/```([a-zA-Z0-9]+)?[ \t]*\n([\s\S]*?)```/g,m,reps=[];
@@ -444,7 +510,7 @@ async function submit(){
   var eq=/^(?:إيميل|ايميل|email)\s*[:：]\s*(.+)/i.exec(text);
   if(eq&&!pending.length){input.value='';emailCheckup(eq[1]);return;}
   busy=true;send.disabled=true;
-  var sendMode=curMode;setMode('');
+  var sendMode=curMode;setMode('');var isVoice=voiceTurn;voiceTurn=false;unlockAudio();
   var atts=pending.slice();
   var previews=atts.filter(function(a){return a.kind==='image';}).map(function(a){return a.preview;});
   var content;
@@ -463,7 +529,7 @@ async function submit(){
   var th=addThinking();
   var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},60000);
   try{
-    var r=await fetch('/api/agent',{method:'POST',headers:apiHeaders(),body:JSON.stringify({messages:convo,mode:sendMode||undefined}),signal:ac.signal});
+    var r=await fetch('/api/agent',{method:'POST',headers:apiHeaders(),body:JSON.stringify({messages:convo,mode:sendMode||undefined,voice:isVoice||undefined}),signal:ac.signal});
     clearTimeout(tmo);
     var ct=r.headers.get('content-type')||'';var full='';
     if(ct.indexOf('application/json')>=0){var d=await r.json();
@@ -475,6 +541,7 @@ async function submit(){
     th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||t('done'));
     ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
     convo.push({role:'assistant',content:full});saveConvo();
+    addSayBtn(th.col,full);if(isVoice&&voiceOn)speakText(full);
     dot.className='dot live';stat.textContent='active';
   }catch(e){
     clearTimeout(tmo);

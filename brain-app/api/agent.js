@@ -84,6 +84,8 @@ const MODES = {
   quote: `MODE: USWS QUOTE. Write a professional, ready-to-send quote for Urban Sydney Wide Solutions. Layout: customer + site address + date + quote number placeholder; short scope of works in plain words; line items (description — qty + unit — rate — amount) grouped by stage (site prep/excavation, base, main works, finishing, waste removal); subtotal, GST 10%, total (AUD); what is included, exclusions (council/DA fees, engineering, unforeseen rock/services, unless Ahmad says otherwise), timeframe, payment terms (deposit then progress/completion — use Ahmad's terms if given), validity (30 days), and the contact line (0434 449 997 · info@usws.com.au · ABN 20 386 532 878). Use Ahmad's rates when he gives them; otherwise leave "$___" and list the rates you need. Check the maths. Never include fencing or mowing. After the quote, add a 2-line WhatsApp message to send with it.`,
   life: `MODE: LIFE PLANNER. Help Ahmad with everyday life like a sharp, caring friend who is good with numbers: plans and schedules, budgets and savings, bills, comparing options, travel, learning, family and kids activities, health information. Give a clear recommendation first, then the plan as short steps with dates/times (Sydney time), the numbers in a small list (show the maths), and the next 1-3 actions. Use web_search for anything that changes (prices, rules, opening hours, flights, rates). Health: general information only, say when to see a GP or call 000. Money: education, not financial advice.`,
 };
+// Ahmad spoke (microphone) and Brain's answer is read aloud on his phone.
+const VOICE = `VOICE CONVERSATION: Ahmad is talking to you by voice and will HEAR your answer (text-to-speech), maybe while driving or on a job site. Answer like a smart friend on a phone call: natural spoken Levantine Arabic (or English if he spoke English), the answer in the first sentence, then at most 3-5 short sentences. No lists, tables, markdown, emoji, URLs or code — they sound terrible aloud. Say numbers the way people say them ("حوالي ألفين وأربعمية دولار", "تلاتة بالمية"). If the full answer is long (a quote, a plan, code, a report), give the spoken summary and say "بعتلك التفاصيل مكتوبة" and then add the detailed version below a line "———" (that part is shown, not read). His speech was transcribed automatically: if a word looks misheard, use the most likely meaning from context (USWS work, trading, indicators); ask back only if you really cannot tell.`;
 function inferMode(text) {
   const s = String(text || "");
   if (/(بحث عميق|ابحث بعمق|deep search|deep research|research deeply)/i.test(s)) return "deep";
@@ -163,6 +165,7 @@ export default async function handler(req) {
   try { const ld = await liveData(luText); if (ld) sys += ld; } catch (e) {}
   if (mode === "security") { try { sys += await passiveSiteCheck(luText); } catch (e) {} }
   if (mode) sys += "\n\n" + MODES[mode];
+  if (body.voice) sys += "\n\n" + VOICE;
   sys += "\n\nNOW: " + new Date().toLocaleString("en-AU", { timeZone: "Australia/Sydney", dateStyle: "full", timeStyle: "short" }) + " (Sydney).";
   const heavy = mode === "deep" || mode === "workflow" || mode === "plan";
 
