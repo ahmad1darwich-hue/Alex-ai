@@ -3,7 +3,8 @@
 // Protocol: POST { v: 2, mode, lang, messages, code, templateId, tvError } -> NDJSON events. Without `v` the legacy
 // plain-text stream is returned so pages that have not refreshed yet keep working.
 // The Edge entry points (api/indicator.js, api/nexus.js) only declare the runtime and call handle().
-import { SYSTEM_PROMPT } from "./knowledge.js";
+import { SYSTEM_PROMPT, KNOWLEDGE_REV } from "./knowledge.js";
+import { LESSONS } from "./lessons.js";
 import { runPipeline } from "./engine.js";
 import { checkPine, summarizeCheck } from "./lint.js";
 import { TEMPLATES, TEMPLATE_BY_ID } from "./templates.js";
@@ -120,7 +121,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Tries the configured model, then the fallbacks. Auth and billing problems are never retried.
 // `signal` aborts everything when the client goes away or presses Stop.
-function makeCaller(key, deadline, state, signal) {
+// Exported for the other callers of the engine (the Telegram bot and the daily self-check).
+export function makeCaller(key, deadline, state, signal) {
   return async ({ messages, effort, onText, onThinking, maxTokens }) => {
     const chain = [state.model || PRIMARY_MODEL, ...FALLBACK_MODELS.filter((m) => m !== (state.model || PRIMARY_MODEL))];
     let lastErr = null;
@@ -162,15 +164,15 @@ function makeCaller(key, deadline, state, signal) {
 
 // Problems only the operator can solve (the key, the credit, the model name). Visitors get a neutral sentence with a
 // short code; the operator finds the code in the README, in the logs and in the stats.
-const OUTAGE_CODES = { nokey: "K1", auth: "K2", credit: "C1", model: "M1" };
+export const OUTAGE_CODES = { nokey: "K1", auth: "K2", credit: "C1", model: "M1" };
 function outageMessage(kind, lang) {
   const code = OUTAGE_CODES[kind];
   try { console.error("nexus outage " + code + " (" + kind + ")"); } catch (x) {}
   return lang === "en" ? `The service is paused for the moment (code ${code}). Please try again later.` : `الخدمة متوقفة مؤقتاً (رمز ${code}). جرّب بعد شوي.`;
 }
-const errorKind = (e) => (e instanceof ModelError ? e.kind : e && e.name === "AbortError" ? "timeout" : "other");
+export const errorKind = (e) => (e instanceof ModelError ? e.kind : e && e.name === "AbortError" ? "timeout" : "other");
 
-function friendlyError(e, lang) {
+export function friendlyError(e, lang) {
   const en = lang === "en";
   const kind = errorKind(e);
   if (OUTAGE_CODES[kind]) return outageMessage(kind, lang);
@@ -184,7 +186,7 @@ function friendlyError(e, lang) {
 
 // ---------- KV (optional): daily limits and lightweight stats ----------
 
-async function kvPipeline(cmds) {
+export async function kvPipeline(cmds) {
   const url = process.env.KV_REST_API_URL, tok = process.env.KV_REST_API_TOKEN;
   if (!url || !tok) return null;
   const ctrl = new AbortController();
@@ -196,7 +198,7 @@ async function kvPipeline(cmds) {
   } catch (e) { return null; } finally { clearTimeout(timer); }
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+export const today = () => new Date().toISOString().slice(0, 10);
 
 // The client key for the caps. Vercel sets these headers itself (a caller cannot forge them there). An IPv6 customer
 // owns a whole /64, so the prefix is the key: rotating addresses inside it does not reset the cap.
@@ -258,20 +260,32 @@ async function overFreeLimit(req, admin) {
   return Number.isFinite(n) && n > LIMIT_FREE_PER_IP;
 }
 
-// Last days of counters plus the most recent problem samples (operator only).
-async function readStats() {
+// Last days of counters plus the most recent problem samples (operator only; also read by the daily self-check).
+export async function readStats(nDays = 7) {
   const days = [];
-  for (let i = 0; i < 7; i++) days.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
-  const res = await kvPipeline(days.map((d) => ["HGETALL", "nx:stats:" + d]).concat([["LRANGE", "nx:unverified", 0, 19], ["LRANGE", "nx:tverrors", 0, 19]]));
+  for (let i = 0; i < nDays; i++) days.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
+  const res = await kvPipeline(days.map((d) => ["HGETALL", "nx:stats:" + d]).concat([["LRANGE", "nx:unverified", 0, 19], ["LRANGE", "nx:tverrors", 0, 19], ["LRANGE", "nx:feedback", 0, 29]]));
   if (!res || !Array.isArray(res)) return { ok: false, message: "The stats store is not reachable." };
   const toObj = (v) => { const o = {}; if (Array.isArray(v)) for (let i = 0; i + 1 < v.length; i += 2) o[v[i]] = Number(v[i + 1]); else if (v && typeof v === "object") for (const k in v) o[k] = Number(v[k]); return o; };
   const parse = (list) => (Array.isArray(list) ? list.map((x) => { try { return JSON.parse(x); } catch (e) { return x; } }) : []);
-  return { ok: true, limits: { perIp: LIMIT_PER_IP, total: LIMIT_TOTAL }, days: days.map((d, i) => ({ day: d, ...toObj(res[i] && res[i].result) })), unverified: parse(res[days.length] && res[days.length].result), tvErrors: parse(res[days.length + 1] && res[days.length + 1].result) };
+  return { ok: true, limits: { perIp: LIMIT_PER_IP, total: LIMIT_TOTAL }, days: days.map((d, i) => ({ day: d, ...toObj(res[i] && res[i].result) })), unverified: parse(res[days.length] && res[days.length].result), tvErrors: parse(res[days.length + 1] && res[days.length + 1].result), feedback: parse(res[days.length + 2] && res[days.length + 2].result) };
 }
 
-function recordStats(result, mode, ms, tvError, outage) {
+// A 👍 / 👎 from the user on a delivered script. The note and a few facts about the script are kept so the daily
+// improvement run can learn from the 👎 ones; the code itself is not stored.
+function recordFeedback(body) {
+  const verdict = body.verdict === "up" ? "up" : "down";
+  const clean = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
+  const errors = Array.isArray(body.errors) ? body.errors.slice(0, 4).map((e) => clean(e, 200)).filter(Boolean) : [];
+  const item = { at: new Date().toISOString(), verdict, note: clean(body.note, 500), file: clean(body.file, 80), base: clean(body.base, 40), verified: body.verified === true, errors, request: clean(body.request, 300) };
+  const key = `nx:stats:${today()}`;
+  return kvPipeline([["HINCRBY", key, "fb_" + verdict, 1], ["EXPIRE", key, 60 * 86400], ["LPUSH", "nx:feedback", JSON.stringify(item)], ["LTRIM", "nx:feedback", 0, 199]]);
+}
+
+function recordStats(result, mode, ms, tvError, outage, request) {
   const day = today();
   const key = `nx:stats:${day}`;
+  const req = String(request || "").replace(/\s+/g, " ").trim().slice(0, 240);
   const cmds = [["HINCRBY", key, "requests", 1], ["HINCRBY", key, "ms", Math.round(ms)], ["EXPIRE", key, 60 * 86400]];
   if (!result) cmds.push(["HINCRBY", key, mode === "cancelled" ? "cancelled" : "failed", 1]);
   if (outage) cmds.push(["HINCRBY", key, "outage_" + outage, 1]);
@@ -279,10 +293,12 @@ function recordStats(result, mode, ms, tvError, outage) {
   if (result && result.usage) cmds.push(["HINCRBY", key, "tokens_in", result.usage.input || 0], ["HINCRBY", key, "tokens_cache_read", result.usage.cacheRead || 0], ["HINCRBY", key, "tokens_cache_write", result.usage.cacheWrite || 0], ["HINCRBY", key, "tokens_out", result.usage.output || 0], ["HINCRBY", key, "model_calls", result.usage.calls || 0]);
   if (result && result.kind === "script") {
     cmds.push(["HINCRBY", key, result.report.verified ? "verified" : "unverified", 1], ["HINCRBY", key, "repair_rounds", result.report.rounds || 0]);
-    if (!result.report.verified) cmds.push(["LPUSH", "nx:unverified", JSON.stringify({ at: new Date().toISOString(), errors: result.report.errors.slice(0, 4), warnings: result.report.warnings.slice(0, 4), base: result.base })], ["LTRIM", "nx:unverified", 0, 99]);
+    if (result.report.fixed) cmds.push(["HINCRBY", key, "repaired", 1]);
+    // The request text travels with the sample so the daily improvement run can reproduce the case.
+    if (!result.report.verified) cmds.push(["LPUSH", "nx:unverified", JSON.stringify({ at: new Date().toISOString(), errors: result.report.errors.slice(0, 4), warnings: result.report.warnings.slice(0, 4), base: result.base, rounds: result.report.rounds || 0, request: req })], ["LTRIM", "nx:unverified", 0, 99]);
   }
   // Errors users paste from TradingView are the cases the checker missed: keep them to improve the checker.
-  if (mode === "fix" && tvError && result) cmds.push(["LPUSH", "nx:tverrors", JSON.stringify({ at: new Date().toISOString(), error: String(tvError).slice(0, 500) })], ["LTRIM", "nx:tverrors", 0, 199]);
+  if (mode === "fix" && tvError && result) cmds.push(["LPUSH", "nx:tverrors", JSON.stringify({ at: new Date().toISOString(), error: String(tvError).slice(0, 500), request: req, fixedNow: !!(result.report && result.report.verified) })], ["LTRIM", "nx:tverrors", 0, 199]);
   return kvPipeline(cmds);
 }
 
@@ -361,8 +377,8 @@ export async function handle(req, ctx) {
   let json = jsonWith(CORS);
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method === "GET") {
-    // `rev` changes whenever the knowledge pack changes: an easy way to confirm which build is live.
-    return json({ ok: true, hasKey: !!key, mode: "indicators", streaming: true, engine: 2, rev: SYSTEM_PROMPT.length, templates: TEMPLATES.map((t) => ({ id: t.id, title: t.title, file: t.file })) });
+    // `rev` changes whenever the knowledge pack or the lessons change: an easy way to confirm which build is live.
+    return json({ ok: true, hasKey: !!key, mode: "indicators", streaming: true, engine: 2, rev: KNOWLEDGE_REV, lessons: LESSONS.length, templates: TEMPLATES.map((t) => ({ id: t.id, title: t.title, file: t.file })) });
   }
   if (req.method !== "POST") return new Response("POST only", { status: 405, headers: CORS });
 
@@ -381,6 +397,13 @@ export async function handle(req, ctx) {
   if (admin) { CORS = corsFor(req, true); json = jsonWith(CORS); }
   if (!admin && !originAllowed(req)) return json({ kind: "error", message: "This site is not allowed to use the service." }, 403);
   if (body.mode === "stats") return admin ? json(await readStats()) : json({ kind: "error", message: "Not allowed." }, 403);
+  if (body.mode === "feedback") {
+    // Free and quick; rate limited like the other no-model modes. Stored best-effort.
+    if (await overFreeLimit(req, admin)) return json({ kind: "error", message: "Too many requests." }, 429);
+    const p = recordFeedback(body).catch(() => {});
+    if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(p); else await p;
+    return json({ kind: "feedback", ok: true });
+  }
   const mode = ["build", "fix", "template", "lint"].includes(body.mode) ? body.mode : "build";
   const split = splitHistory(body.messages);
   const { history, lastAssistantText } = split;
@@ -469,7 +492,7 @@ export async function handle(req, ctx) {
         closed = true;
         try { controller.close(); } catch (e) {}
         // Stats are best-effort and must not delay the reply.
-        const p = recordStats(result, abort.signal.aborted && !result ? "cancelled" : mode, Date.now() - started, body.tvError, outage).catch(() => {});
+        const p = recordStats(result, abort.signal.aborted && !result ? "cancelled" : mode, Date.now() - started, body.tvError, outage, userText).catch(() => {});
         if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(p);
       }
     },

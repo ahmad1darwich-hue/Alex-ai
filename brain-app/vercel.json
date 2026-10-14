@@ -1,25 +1,64 @@
 {
   "cleanUrls": true,
+  "crons": [
+    {
+      "path": "/api/daily",
+      "schedule": "0 17 * * *"
+    }
+  ],
   "functions": {
-    "api/agent.js": { "maxDuration": 60 },
-    "api/whatsapp.js": { "maxDuration": 60 },
-    "api/wa-customer.js": { "maxDuration": 60 },
-    "api/email.js": { "maxDuration": 60 },
-    "api/telegram.js": { "maxDuration": 60 }
+    "api/agent.js": {
+      "maxDuration": 60
+    },
+    "api/whatsapp.js": {
+      "maxDuration": 60
+    },
+    "api/wa-customer.js": {
+      "maxDuration": 60
+    },
+    "api/email.js": {
+      "maxDuration": 60
+    },
+    "api/telegram.js": {
+      "maxDuration": 300
+    }
   },
   "redirects": [
-    { "source": "/api/_nexus/:path*", "destination": "/", "permanent": false },
-    { "source": "/api/_brain/:path*", "destination": "/", "permanent": false }
+    {
+      "source": "/api/_nexus/:path*",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/api/_brain/:path*",
+      "destination": "/",
+      "permanent": false
+    }
   ],
   "headers": [
     {
       "source": "/((?!api/).*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
       ]
     }
   ]

@@ -1,0 +1,48 @@
+// Benchmark cases for the daily self-check (api/daily.js). A few run every day, in rotation, through the same
+// pipeline that serves users; the result is the first thing the daily improvement run looks at.
+//
+// `expect` lists regular expressions the delivered script must match (strings, applied with the "i" flag) and
+// `overlay` says where the script belongs. A case passes when the checker verified the script and every
+// expectation holds. Add a case for every kind of request that failed for a real user; keep the list balanced
+// between Arabic and English and between the template kinds (SMC, trend, signals, S/R, scalping, MTF, sessions,
+// divergence, strategy) and free-form ideas.
+
+export const BENCH = [
+  { id: "rsi_ema_alert", lang: "ar", text: "مؤشر يعطي إشارة شراء لما RSI يطلع فوق 30 والسعر فوق EMA 200، وإشارة بيع لما RSI ينزل تحت 70 والسعر تحت EMA 200، مع تنبيهات", expect: ["ta\\.rsi\\(", "ta\\.ema\\(", "alertcondition\\(", "ta\\.crossover\\(|ta\\.crossunder\\("], overlay: true },
+  { id: "ny_first_hour", lang: "en", text: "Draw the high and low of the first hour of the New York session as two lines that extend through the day, and alert me when price closes above the high or below the low", expect: ["time\\(", "America/New_York", "alertcondition\\(", "line\\.new\\(|box\\.new\\(|plot\\("], overlay: true },
+  { id: "bb_reentry", lang: "ar", text: "بولنجر باند 20/2 مع سهم لما الشمعة تسكّر برّا الباند وبعدها ترجع تسكّر جوّا، مع تنبيه", expect: ["ta\\.bb\\(", "plotshape\\(|label\\.new\\(", "alertcondition\\("], overlay: true },
+  { id: "vwap_bands", lang: "en", text: "VWAP with two standard-deviation bands and a background colored by whether price is above or below VWAP", expect: ["ta\\.vwap\\(", "bgcolor\\("], overlay: true },
+  { id: "order_blocks", lang: "ar", text: "مؤشر order blocks بسيط: يرسم آخر ٣ order blocks صاعدة وآخر ٣ هابطة كبوكسات تتمدّد لآخر شمعة وتنمسح لما السعر يخترقها، مع تنبيه عند الدخول ببلوك", expect: ["box\\.new\\(", "array\\.", "\\.delete\\(", "alertcondition\\("], overlay: true },
+  { id: "supertrend_ema_tpsl", lang: "en", text: "Supertrend with an EMA 100 filter: a buy only when the supertrend turns up while price is above the EMA, a sell when it turns down below the EMA, with stop and take-profit labels based on ATR and alerts", expect: ["ta\\.supertrend\\(", "ta\\.atr\\(", "alertcondition\\(", "label\\.new\\(|plotshape\\("], overlay: true },
+  { id: "mtf_table", lang: "ar", text: "جدول بزاوية الشارت فيه اتجاه ٤ فريمات (15 دقيقة، ساعة، ٤ ساعات، يومي) حسب EMA 50 و EMA 200، أخضر صاعد وأحمر هابط", expect: ["table\\.new\\(", "request\\.security\\(", "barstate\\.islast"], overlay: true },
+  { id: "macd_divergence", lang: "en", text: "MACD histogram in its own pane with regular bullish and bearish divergence detection against price, lines on the histogram and alerts", expect: ["ta\\.macd\\(", "ta\\.pivothigh\\(|ta\\.pivotlow\\(", "line\\.new\\(", "alertcondition\\(", "overlay\\s*=\\s*false"], overlay: false },
+  { id: "breakout_strategy", lang: "ar", text: "ستراتيجي باك-تست: دخول شراء عند إغلاق فوق أعلى قمة بآخر ٢٠ شمعة، وقف ATR × 1.5، هدف 2R، مخاطرة 1% من الرصيد، وبيع بالعكس", expect: ["strategy\\(", "strategy\\.entry\\(", "strategy\\.exit\\(", "ta\\.atr\\(", "ta\\.highest\\("], overlay: true },
+  { id: "engulfing_filtered", lang: "en", text: "Bullish and bearish engulfing signals only at a recent swing low or high, with a minimum candle size filter in ATR, a cooldown input between signals, and alerts", expect: ["input\\.", "ta\\.atr\\(", "ta\\.lowest\\(|ta\\.highest\\(", "alertcondition\\("], overlay: true },
+  { id: "auto_sr", lang: "ar", text: "خطوط دعم ومقاومة تلقائية من البيفوتات، تتمدّد لليمين، وتنمسح لما تنكسر بإغلاق، مع تنبيه عند الكسر", expect: ["ta\\.pivothigh\\(", "ta\\.pivotlow\\(", "line\\.new\\(|box\\.new\\(", "\\.delete\\(", "alertcondition\\("], overlay: true },
+  { id: "session_boxes", lang: "en", text: "Session boxes for Asia, London and New York showing each session's high and low, plus the previous day high and low as dotted lines", expect: ["box\\.new\\(", "time\\(", "request\\.security\\(|ta\\.highest\\(", "line\\.new\\("], overlay: true },
+];
+
+export const PER_RUN = 3;
+
+// The cases for a given day: a sliding window over the list, so every case runs every few days.
+export function casesFor(dayIndex, perRun = PER_RUN) {
+  const out = [];
+  const start = (dayIndex * perRun) % BENCH.length;
+  for (let i = 0; i < Math.min(perRun, BENCH.length); i++) out.push(BENCH[(start + i) % BENCH.length]);
+  return out;
+}
+
+// Judges one delivered result. Returns { pass, verified, expectFailed, lines, inputs }.
+export function judge(c, result) {
+  const code = result && result.kind === "script" ? String(result.code || "") : "";
+  const verified = !!(result && result.report && result.report.verified);
+  const expectFailed = [];
+  for (const re of c.expect || []) { if (!new RegExp(re, "i").test(code)) expectFailed.push(re); }
+  if (c.overlay === false && !/overlay\s*=\s*false/i.test(code)) { if (!expectFailed.includes("overlay = false")) expectFailed.push("overlay = false"); }
+  if (c.overlay === true && /overlay\s*=\s*false/i.test(code)) expectFailed.push("overlay = true");
+  const lines = code ? code.replace(/\n$/, "").split("\n").length : 0;
+  const inputs = (code.match(/\binput\.\w+\(/g) || []).length;
+  if (code && inputs < 2) expectFailed.push("at least 2 inputs");
+  if (lines > 700) expectFailed.push("at most 700 lines");
+  return { pass: verified && expectFailed.length === 0, verified, expectFailed, lines, inputs };
+}

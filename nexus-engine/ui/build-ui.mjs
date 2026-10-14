@@ -124,7 +124,19 @@ ${appHtml}
   return { html, scripts };
 }
 
-const BRAIN_THEME = ':root{--bg:#0a0d0b;--panel:#111a14;--panel2:#0d1410;--line:#1d2a22;--line2:#28402f;--txt:#e6f3ea;--mut:#8ba897;--acc:#4ade80;--acc2:#22d3a8;--compbg:rgba(10,13,11,.88)}';
+const BRAIN_THEME = ':root{--bg:#07090d;--panel:#0e131a;--panel2:#0a0e14;--line:#1a2230;--line2:#253246;--txt:#e8edf4;--mut:#8a97aa;--acc:#3dd68c;--acc2:#38bdf8;--user:#2563eb;--ubub:#101a2b;--ububl:#1e3150;--compbg:rgba(7,9,13,.82);--glow:0 0 0 1px rgba(61,214,140,.16),0 18px 60px rgba(0,0,0,.55)}' +
+  'body{background:radial-gradient(1200px 600px at 80% -12%,rgba(56,189,248,.09),transparent),radial-gradient(900px 520px at 8% 110%,rgba(61,214,140,.07),transparent),var(--bg)}' +
+  '#appview{background:transparent}#appview header{background:rgba(10,14,20,.78);backdrop-filter:saturate(140%) blur(14px);-webkit-backdrop-filter:saturate(140%) blur(14px);padding:12px 18px}' +
+  '.logo{border-radius:12px;font-size:17px}.hbrand b{letter-spacing:.02em;font-size:16.5px}.hbrand small{letter-spacing:.16em;color:#6f7d91}' +
+  '.pill{background:rgba(255,255,255,.03);border-color:var(--line2);color:var(--txt)}.pill:hover{border-color:var(--acc);color:var(--acc)}' +
+  '.status{background:rgba(61,214,140,.06);border:1px solid rgba(61,214,140,.18);border-radius:999px;padding:5px 10px}' +
+  '.bub{border-radius:16px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset,0 8px 24px rgba(0,0,0,.25)}' +
+  '.art{border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}.art .bar{background:linear-gradient(180deg,rgba(255,255,255,.025),transparent)}' +
+  '.codewrap pre{background:#06080c;color:#d6e2f0}.codewrap pre .l::before{color:#4b5a6e}' +
+  '.tk-k{color:#7aa2f7}.tk-f{color:#38bdf8}.tk-s{color:#9ece6a}.tk-n{color:#ff9e64}.tk-c{color:#5c6b80;font-style:italic}' +
+  '.composer{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}.cform{border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,.4)}.cform:focus-within{box-shadow:0 0 0 3px rgba(61,214,140,.12),0 10px 40px rgba(0,0,0,.4)}' +
+  '.tcard{border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0)),var(--panel)}.tcard:hover{box-shadow:var(--glow)}' +
+  '.intro h1{letter-spacing:-.01em}.drawer{background:rgba(10,14,20,.96);backdrop-filter:blur(16px)}.btn2{border-radius:9px}.badge{letter-spacing:.02em}';
 
 // The public site ships with a strict Content-Security-Policy: only the two inline scripts of the generated page run
 // (by hash), and the page can only talk to itself and to the engine. The hashes change with every build, so
@@ -169,7 +181,7 @@ export function render() {
   const brain = page({
     title: "Brain Indicators — Pine Script designer",
     desc: "Brain Indicators designs and checks TradingView Pine Script indicators and strategies.",
-    brand: "Brain Indicators", brandSub: "Pine Script designer", landing: false, noindex: true,
+    brand: "Brain Indicators", brandSub: "Pine v6 · Pro Engine", landing: false, noindex: true,
     endpoint: "/api/indicator", store: "brain_ind_v2", themeCss: BRAIN_THEME, sync: "/api/sync",
     hintAr: "Pine Script v6 · الكود بينفحص تلقائياً · مش نصيحة مالية", hintEn: "Pine Script v6 · code is checked automatically · not financial advice",
   });

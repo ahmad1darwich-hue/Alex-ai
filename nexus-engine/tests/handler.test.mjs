@@ -260,4 +260,24 @@ await t("an English request after a pasted script is kept as the request", async
   assert.match(sent, /USER REQUEST:\nplease add an alert when price crosses the average/);
   assert.ok(!/```pine[\s\S]*please add an alert[\s\S]*```/.test(sent), "the sentence is not inside the script block");
 });
+await t("the lessons ride in the user turn of build, fix and repair calls, never in the system prompt", async () => {
+  const { LESSONS } = await import("../../brain-app/api/_nexus/lessons.js");
+  assert.ok(LESSONS.length >= 5 && LESSONS.every((l) => /^L\d{3}$/.test(l.id) && l.text.length > 20 && l.text.length <= 260), "lessons are short and have ids");
+  assert.equal(new Set(LESSONS.map((l) => l.id)).size, LESSONS.length, "ids are unique");
+  script = [{ text: `<nexus><title>Test EMA</title><file>t.pine</file><base>NEW</base><code>\n${GOOD}</code><explain>ok</explain></nexus>` }];
+  await ndjson(await post({ v: 2, mode: "build", lang: "en", messages: [{ role: "user", content: "ema please" }] }));
+  const user = seen[0].messages.at(-1).content.at(-1).text;
+  assert.match(user, /LESSONS FROM PAST MISTAKES/); assert.ok(user.includes(LESSONS[0].text));
+  assert.ok(!seen[0].system[0].text.includes("LESSONS FROM PAST MISTAKES"), "the cached system prefix is unchanged");
+  const info = await (await handler(new Request("https://x.test/api/indicator"))).json();
+  assert.equal(info.lessons, LESSONS.length); assert.ok(Number.isInteger(info.rev) && info.rev > 0);
+});
+await t("feedback mode stores a verdict without a model call and never echoes code", async () => {
+  const res = await post({ v: 2, mode: "feedback", verdict: "down", note: "the zones never disappear", file: "nexus_smc.pine", base: "template:smc", verified: true, errors: [], request: "SMC with zones", code: GOOD });
+  assert.equal(res.status, 200);
+  const j = await res.json();
+  assert.deepEqual(j, { kind: "feedback", ok: true }); assert.equal(seen.length, 0);
+  const up = await (await post({ v: 2, mode: "feedback", verdict: "up" })).json();
+  assert.equal(up.ok, true);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
