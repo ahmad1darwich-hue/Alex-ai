@@ -3,6 +3,7 @@
 // Can fetch live prices (gold/silver/crypto) before answering. Uses env ANTHROPIC_API_KEY.
 // Private: every request must carry the owner's key (see _brain/lock.js).
 import { brainAuth, lockedReply } from "./_brain/lock.js";
+import { checkFile } from "./_brain/filecheck.js";
 export const config = { runtime: "edge" };
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-5-5";
@@ -77,6 +78,7 @@ async function liveData(text) {
 
 // Work modes: the page sends body.mode, or it is inferred from the request.
 const MODES = {
+  recovery: `MODE: ACCOUNT RECOVERY (Ahmad's OWN accounts only). Help him get back into his own account through the platform's official recovery route — never by bypassing verification, guessing passwords or accessing anyone else's account (if it sounds like someone else's account, say you can only help the owner and stop). 1) Ask/identify the platform and what happened (forgot password, hacked, 2-step lost, phone/email changed, disabled). 2) Use web_search / web_fetch to confirm the CURRENT official recovery page for that platform and give that exact link (for example Google, Meta/Facebook/Instagram, WhatsApp, Microsoft, Apple, TikTok, X, Vercel, GitHub, the bank). 3) Numbered steps exactly as the official flow works now, with tips that raise the success rate (use a device and Wi-Fi he used before, the old phone number/email, any old passwords, the original purchase receipts or ID if the platform asks). 4) If the platform offers a form or appeal, write the ready-to-paste message for him. 5) After recovery: change password, turn on 2-step verification with an authenticator app, save backup codes, sign out of all sessions, remove unknown devices, recovery email/phone and app passwords, check email forwarding rules, warn contacts if messages were sent in his name. Be honest about timing and that some platforms decide the case themselves.`,
   deep: `MODE: DEEP RESEARCH. Act as a research analyst. 1) Break the question into 3-6 sub-questions. 2) Run many web searches (different angles, recent dates, primary sources), open the best pages with web_fetch and read them. 3) Cross-check facts between sources; note disagreements. 4) Deliver: a short bottom line first, then findings grouped by sub-question, numbers with dates, what is uncertain, and a "Sources" list (title — URL). Never invent a source or a number.`,
   workflow: `MODE: WORKFLOW (do the whole job). Turn Ahmad's goal into a numbered plan of concrete steps, then EXECUTE every step you can yourself right now (research with web_search / web_fetch, calculations, drafting emails, messages, quotes, posts, checklists, files). Show each step as "✅ done: ..." with its result, and list the steps only Ahmad can do as "👤 لازم منك:" with exact instructions (where to click, what to send). Finish with the ready-to-use deliverables.`,
   plan: `MODE: PLANS, MAPS & SITE DRAWINGS. The image/PDF is a site plan, survey, architectural/landscape drawing, aerial or Google Maps screenshot, or a job-site photo. 1) Say what it is and read every label, dimension, scale bar, north arrow, levels/RLs and boundary. 2) Work out areas (m²), lengths (lm), volumes (m³: area × depth) for each zone — show the formula; if there is no scale or dimension, say so and estimate from a known reference (car ≈ 4.5 m, door ≈ 0.82 m, standard paver size) and mark it "تقدير". 3) Quantity take-off for USWS services: excavation & spoil, base/road base, concrete, pavers, turf (rolls/m²), retaining wall blocks/sleepers and courses, drainage (ag pipe lm, pits), edging, soil/mulch, plants — add 10% waste. 4) Spot issues: slope/fall and drainage direction, access for machinery, trees, services/easements, council/DA or engineer needs (retaining walls over 600 mm usually need an engineer in NSW — say "check with council"). 5) Give a clean materials list and a quote outline (use Ahmad's rates if he gave them, otherwise leave a "$___" for each line).`,
@@ -89,6 +91,7 @@ const MODES = {
 const VOICE = `VOICE CONVERSATION: Ahmad is talking to you by voice and will HEAR your answer (text-to-speech), maybe while driving or on a job site. Answer like a smart friend on a phone call, in EXACTLY the language and dialect he just spoke (Levantine/Syrian-Lebanese by default — شو، هلّق، بدّي، منيح، كتير، هيك; but Gulf, Egyptian, Iraqi, Maghrebi, formal Arabic or English if that is what he used), the way people really talk — never formal MSA unless he used it, the answer in the first sentence, then at most 3-5 short sentences. No lists, tables, markdown, emoji, URLs or code — they sound terrible aloud. Say numbers the way people say them ("حوالي ألفين وأربعمية دولار", "تلاتة بالمية"). If the full answer is long (a quote, a plan, code, a report), give the spoken summary and say "بعتلك التفاصيل مكتوبة" and then add the detailed version below a line "———" (that part is shown, not read). His speech was transcribed automatically: if a word looks misheard, use the most likely meaning from context (USWS work, trading, indicators); ask back only if you really cannot tell.`;
 function inferMode(text) {
   const s = String(text || "");
+  if (/(ريكفري|recovery|استرجاع حساب|استرجع حسابي|رجّع حسابي|رجع حسابي|انسرق حسابي|انهكر حسابي|نسيت كلمة السر|hacked account|account recovery)/i.test(s)) return "recovery";
   if (/(بحث عميق|ابحث بعمق|deep search|deep research|research deeply)/i.test(s)) return "deep";
   if (/(workflow|ورك ?فلو|سير العمل|نفّذ المهمة كاملة|خطة كاملة ونفذ)/i.test(s)) return "workflow";
   if (/(مخطط|خريطة|خرائط|الخريطة|site plan|floor plan|survey|drawing|blueprint|aerial|google maps)/i.test(s)) return "plan";
@@ -162,9 +165,15 @@ export default async function handler(req) {
   const lu = [...messages].reverse().find(m => m.role === "user");
   const luText = lu ? textOf(lu.content) : "";
   const hasFile = lu && Array.isArray(lu.content) && lu.content.some((b) => b && (b.type === "document" || (b.type === "text" && /^(File|محتوى الملف|File content)/i.test(String(b.text || "").slice(0, 40)))));
-  const mode = MODES[body.mode] ? body.mode : inferMode(luText) || (hasFile ? "files" : "");
+  const mode = MODES[body.mode] ? body.mode : (Array.isArray(body.scan) && body.scan.length ? "security" : "") || inferMode(luText) || (hasFile ? "files" : "");
   try { const ld = await liveData(luText); if (ld) sys += ld; } catch (e) {}
   if (mode === "security") { try { sys += await passiveSiteCheck(luText); } catch (e) {} }
+  // Files sent for a safety check (never stored in the conversation): structure check + fingerprint.
+  if (Array.isArray(body.scan) && body.scan.length) {
+    const parts = [];
+    for (const f of body.scan.slice(0, 3)) { try { parts.push(await checkFile(f)); } catch (e) {} }
+    if (parts.length) sys += "\n\nFILE CHECK (done just now on the uploaded file, nothing was opened or run):\n- " + parts.join("\n\n- ") + "\nExplain the result simply, say clearly whether it looks safe or not, and what to do (delete it, do not enable macros, check the VirusTotal link, scan with Windows Security / Malwarebytes, verify with the sender by phone).";
+  }
   if (mode) sys += "\n\n" + MODES[mode];
   if (body.voice) sys += "\n\n" + VOICE;
   sys += "\n\nNOW: " + new Date().toLocaleString("en-AU", { timeZone: "Australia/Sydney", dateStyle: "full", timeStyle: "short" }) + " (Sydney).";

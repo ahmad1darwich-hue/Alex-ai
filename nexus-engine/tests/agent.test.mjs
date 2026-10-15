@@ -64,4 +64,15 @@ await t("web answers end with their sources; quote and life modes", async () => 
   bodies.length = 0; await (await post({ mode: "life", messages: [{ role: "user", content: "budget" }] })).text();
   assert.match(bodies[0].system, /LIFE PLANNER/); assert.match(bodies[0].system, /kids YouTube channel/);
 });
+await t("recovery mode is inferred and uses official-route instructions", async () => {
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "انسرق حسابي على انستغرام، بدي استرجع حسابي" }] })).text();
+  assert.match(bodies.at(-1).system, /ACCOUNT RECOVERY/);
+});
+await t("a file sent for checking is fingerprinted and its real type compared with its name", async () => {
+  bodies.length = 0;
+  const fake = Buffer.from("MZ" + "x".repeat(200)).toString("base64");
+  await (await post({ messages: [{ role: "user", content: "safe?" }], scan: [{ name: "invoice.pdf.exe", size: 202, data: fake }] })).text();
+  const sys = bodies.at(-1).system;
+  assert.match(sys, /FILE CHECK/); assert.match(sys, /double extension/); assert.match(sys, /virustotal\.com\/gui\/file\/[0-9a-f]{64}/); assert.match(sys, /SECURITY CHECK/);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
