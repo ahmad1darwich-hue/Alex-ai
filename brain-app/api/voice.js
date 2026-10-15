@@ -116,6 +116,8 @@ export default async function handler(req) {
     }
     let body = {};
     try { body = await req.json(); } catch (e) {}
+    // What the page saw (mic permission, recorder, playback): one log line, so phone problems can be diagnosed.
+    if (body.clientLog) { console.log("VOICE_CLIENT " + String(body.clientLog).replace(/\s+/g, " ").slice(0, 300)); return json({ ok: true }); }
     if (body.full) {
       // The whole answer in one natural take; the page falls back to short clips when this is not available.
       const all = speakable(body.tts, 1500);

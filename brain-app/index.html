@@ -381,6 +381,8 @@ function stopSpeaking(){if(playDone){var pd=playDone;playDone=null;pd();}if(spea
 /* iPhone plays sound only after a tap: on every tap we "wake" one shared audio player (with a real, valid
    0.2 s silent clip) and a Web Audio context; the answer is then played through them even seconds later. */
 var SILENT=null,actx2=null;
+function clog(m){try{fetch('/api/voice',{method:'POST',headers:apiHeaders(),body:JSON.stringify({clientLog:(navigator.userAgent.match(/iPhone|iPad|Android|Mac|Windows/)||['?'])[0]+' '+String(m)})}).catch(function(){});}catch(e){}}
+window.addEventListener('error',function(e){clog('jserror '+(e&&e.message));});
 function silentUrl(){if(SILENT)return SILENT;var n=1600,b=new ArrayBuffer(44+n),v=new DataView(b),w=function(o,t){for(var i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i));};
   w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);for(var i=0;i<n;i++)v.setUint8(44+i,128);
   SILENT=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));return SILENT;}
@@ -391,10 +393,10 @@ function unlockAudio(){if(!player){player=new Audio();player.setAttribute('plays
 /* Plays an audio blob: the shared player first, then Web Audio if the phone refused; resolves when it ends. */
 function playBlob(blob,q){return new Promise(function(done){var fin=false,end=function(){if(!fin){fin=true;playDone=null;done();}};playDone=end;
   if(!player){player=new Audio();player.setAttribute('playsinline','');}var u=URL.createObjectURL(blob);player.src=u;player.onended=function(){URL.revokeObjectURL(u);end();};player.onerror=function(){viaWebAudio();};
-  function viaWebAudio(){if(fin||(q&&q.stop))return end();if(!actx2){toast2(L?'Tap 🔊 Listen under the reply to hear it':'اكبس 🔊 اسمع تحت الرد لتسمعه');return end();}
+  function viaWebAudio(){if(fin||(q&&q.stop))return end();if(!actx2){clog('play blocked, no audio context');toast2(L?'Tap 🔊 Listen under the reply to hear it':'اكبس 🔊 اسمع تحت الرد لتسمعه');return end();}
     blob.arrayBuffer().then(function(ab){return new Promise(function(ok,bad){actx2.decodeAudioData(ab,ok,bad);});}).then(function(buf){if(fin)return;if(actx2.state==='suspended')actx2.resume();var src=actx2.createBufferSource();src.buffer=buf;src.connect(actx2.destination);src.onended=end;playDone=function(){try{src.stop();}catch(e){}end();};src.start(0);})
-    .catch(function(){toast2(L?'Tap 🔊 Listen under the reply to hear it':'اكبس 🔊 اسمع تحت الرد لتسمعه');end();});}
-  var p=player.play();if(p&&p.catch)p.catch(viaWebAudio);});}
+    .catch(function(e){clog('webaudio failed '+e);toast2(L?'Tap 🔊 Listen under the reply to hear it':'اكبس 🔊 اسمع تحت الرد لتسمعه');end();});}
+  var p=player.play();if(p&&p.catch)p.catch(function(e){clog('player blocked '+(e&&e.name)+', trying webaudio');viaWebAudio();});});}
 function cleanSpeech(tx){var s=String(tx||'').split(/\n?———/)[0];s=s.replace(/```[\s\S]*?```/g,' ').replace(/\n+🔗[^\n]*(\n•[^\n]*)*/g,' ').replace(/https?:\/\/\S+/g,' ').replace(/[*_#>`|~]+/g,' ').replace(/^\s*[-•]\s+/gm,'، ');
   try{s=s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,' ');}catch(e){}s=s.replace(/\s+/g,' ').trim();if(s.length>900){var c=Math.max(s.lastIndexOf('. ',900),s.lastIndexOf('، ',900),s.lastIndexOf('؟ ',900));s=s.slice(0,c>450?c+1:900);}return s;}
 function chunks(s){var out=[];while(s.length&&out.length<8){if(s.length<=190){out.push(s);break;}var cut=s.lastIndexOf(' ',190),pc=Math.max(s.lastIndexOf('. ',190),s.lastIndexOf('، ',190),s.lastIndexOf('؟ ',190),s.lastIndexOf('! ',190));if(pc>95)cut=pc+1;if(cut<=0)cut=190;out.push(s.slice(0,cut).trim());s=s.slice(cut).trim();}return out;}
@@ -420,7 +422,7 @@ async function speakText(tx){stopSpeaking();var text=cleanSpeech(tx);if(!text)re
   function paintSpk(){spk.classList.toggle('on',voiceOn);spk.innerHTML=voiceOn?'<svg class="i" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>':'<svg class="i" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>';}
   paintSpk();
   spk.onclick=function(){if(speakQ){stopSpeaking();return;}voiceOn=!voiceOn;try{localStorage.setItem('brain_voice',voiceOn?'on':'off');}catch(e){}paintSpk();unlockAudio();input.placeholder=vt(voiceOn?'v_on':'v_off');setTimeout(function(){input.placeholder=t('ph_in');},1800);};
-  function refreshSrv(){return fetch('/api/voice',{headers:apiHeaders()}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok){srv.stt=!!d.stt;srv.tts=!!d.tts;srv.full=!!d.full;srv.known=true;}}).catch(function(){});}
+  function refreshSrv(){var ac=new AbortController();setTimeout(function(){ac.abort();},5000);return fetch('/api/voice',{headers:apiHeaders(),signal:ac.signal}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok){srv.stt=!!d.stt;srv.tts=!!d.tts;srv.full=!!d.full;srv.known=true;}}).catch(function(){});}
   refreshSrv();
   if(!canRec&&!SR){mic.style.display='none';return;}
   /* browser recognition (fallback) */
@@ -434,11 +436,16 @@ async function speakText(tx){stopSpeaking();var text=cleanSpeech(tx);if(!text)re
   var mr=null,stream=null,chunksA=[],actx=null,timer=null,ph0='';
   function cleanup(){clearInterval(timer);timer=null;try{stream&&stream.getTracks().forEach(function(tr){tr.stop();});}catch(e){}stream=null;try{actx&&actx.close();}catch(e){}actx=null;}
   async function startRec(){
-    try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}catch(e){if(rec){base=input.value;try{rec.start();srOn=true;mic.classList.add('rec');}catch(x){}}return;}
+    mic.classList.add('wait');
+    try{stream=await Promise.race([navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}),new Promise(function(_,no){setTimeout(function(){no(new Error('mic timeout'));},8000);})]);}
+    catch(e){mic.classList.remove('wait');clog('getUserMedia failed: '+(e&&(e.name+' '+e.message)));
+      toast2(L?'Microphone blocked: allow it in Settings > Safari (or the app) > Microphone, then reopen Brain':'الميكروفون مسكّر: اسمح فيه من الإعدادات ← Safari ← الميكروفون، وسكّر Brain وافتحه');
+      if(rec){base=input.value;try{rec.start();srOn=true;mic.classList.add('rec');}catch(x){}}return;}
+    mic.classList.remove('wait');
     var type=['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg;codecs=opus'].filter(function(x){return MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(x);})[0]||'';
     try{mr=type?new MediaRecorder(stream,{mimeType:type,audioBitsPerSecond:32000}):new MediaRecorder(stream);}catch(e){mr=new MediaRecorder(stream);}
     chunksA=[];mr.ondataavailable=function(e){if(e.data&&e.data.size)chunksA.push(e.data);};
-    mr.onstop=onStop;mr.start(250);mic.classList.add('rec');ph0=t('ph_in');input.placeholder=vt('v_listen');
+    mr.onstop=onStop;try{mr.start(250);}catch(e){clog('recorder start failed: '+e);cleanup();mr=null;toast2(L?'Could not start recording':'ما قدرت إبلّش تسجيل');return;}clog('recording '+(mr.mimeType||type||'default'));mic.classList.add('rec');ph0=t('ph_in');input.placeholder=vt('v_listen');
     var t0=Date.now(),heard=false,quietSince=0;
     try{actx=new (window.AudioContext||window.webkitAudioContext)();var an=actx.createAnalyser();an.fftSize=1024;actx.createMediaStreamSource(stream).connect(an);var buf=new Uint8Array(an.fftSize);
       timer=setInterval(function(){an.getByteTimeDomainData(buf);var sum=0;for(var i=0;i<buf.length;i++){var v=(buf[i]-128)/128;sum+=v*v;}var rms=Math.sqrt(sum/buf.length);var now=Date.now();
@@ -451,7 +458,7 @@ async function speakText(tx){stopSpeaking();var text=cleanSpeech(tx);if(!text)re
     if(blob.size<2500){input.placeholder=ph0;if(convOn)convNext(true);return;}
     convStatus('think');
     mic.classList.add('wait');input.placeholder=vt('v_wait');
-    try{var r=await fetch('/api/voice',{method:'POST',headers:Object.assign(apiHeaders(),{'content-type':type.split(';')[0]}),body:blob});var d=await r.json();
+    try{var tac=new AbortController(),tto=setTimeout(function(){tac.abort();},30000);var r=await fetch('/api/voice',{method:'POST',headers:Object.assign(apiHeaders(),{'content-type':type.split(';')[0]}),body:blob,signal:tac.signal});clearTimeout(tto);var d=await r.json();if(!d||!d.text)clog('stt result '+r.status+' '+JSON.stringify(d).slice(0,120)+' size '+blob.size);
       if(d&&d.locked){showLocked(addThinking(),d.reply);}
       else if(d&&d.text){input.value=((input.value?input.value.replace(/\s+$/,'')+' ':'')+d.text).trim();input.dispatchEvent(new Event('input'));voiceTurn=true;csaid.textContent=d.text;
         if(convOn){mic.classList.remove('wait');input.placeholder=ph0;lastSpeak=null;await submit();if(lastSpeak)await lastSpeak;convNext(false);return;}submit();}
@@ -472,7 +479,8 @@ async function speakText(tx){stopSpeaking();var text=cleanSpeech(tx);if(!text)re
   document.getElementById('orb').onclick=function(){if(!convOn)return;unlockAudio();
     if(mr&&mr.state==='recording'){stopRec();return;}
     if(speakQ){stopSpeaking();}};
-  mic.onclick=async function(){unlockAudio();stopSpeaking();
+  mic.onclick=async function(){try{unlockAudio();}catch(e){}try{stopSpeaking();}catch(e){}
+    if(mic.classList.contains('wait')&&!(mr&&mr.state==='recording')){mic.classList.remove('wait');}
     if(!srv.known&&canRec&&!(mr&&mr.state==='recording')&&!srOn)await refreshSrv();
     if(mr&&mr.state==='recording'){stopRec();return;}
     if(srOn&&rec){rec.stop();return;}

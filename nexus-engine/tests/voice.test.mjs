@@ -67,4 +67,8 @@ await t("Fish Audio first when configured: the chosen voice, mp3; falls back to 
   assert.ok(calls.some((c) => c.u.includes("elevenlabs")));
   globalThis.fetch = prev; delete process.env.FISH_API_KEY; delete process.env.FISH_VOICE_ID;
 });
+await t("page diagnostics are logged, not spoken", async () => {
+  const r = await voice(new Request("https://b.test/api/voice", { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ clientLog: "iPhone getUserMedia failed: NotAllowedError" }) }));
+  assert.deepEqual(await r.json(), { ok: true }); assert.equal(calls.length, 0);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
