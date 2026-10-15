@@ -34,3 +34,27 @@ Settings by timeframe / market (starting points):
 - EMA cross 9/21 on 5m–1h, 50/200 on daily/weekly. RSI 9 for 5–15m, RSI 14 for 4h/daily.
 - SuperTrend 10 / 3.0 default; 7 / 2.0–2.5 for 5m index scalping. MACD weak below 15m (noise).
 - Gold: session timing matters (London / New York opens). Crypto trades 24/7: no session reset by default.
+
+## 2026-10-16 (run 2) · sessions, kill zones and gold intraday
+Sources: TradingView script listings for "asian session" and "ICT killzone" (feature descriptions only), mql5 blog
+"The XAUUSD trading day: Tokyo, London, New York", abctradinggroup "Sessions, timezones and DST", mql5 kill-zone products.
+
+What traders want from a session tool:
+- Kill zones in New York time with automatic DST (Asia 20:00-00:00, London 02:00-05:00, NY AM 07:00-10:00, NY PM optional).
+- Session high/low kept as liquidity until taken; London sweeping Asia and NY sweeping London is the setup they look for;
+  sweep = wick through + close back inside. Alerts on sweeps.
+- A small panel: current session, Asia range, today's range vs ADR ("fuel gauge": <40% room to run, >100% stretched),
+  distance to previous day high/low. Midline (50%) of each session box.
+- Hide on higher timeframes (kill zones lose meaning above ~1h).
+Complaints: sessions an hour off around DST changes (US/EU change on different dates; Tokyo never changes), hard-coded
+offsets, broker-defined day boundaries on FX/CFD, clutter from boxes that never end.
+Gold behaviour: Asia builds the range, London often takes one side of it, New York (08:30 data) frequently reverses or
+extends; the London-NY overlap is the fastest period.
+
+Where it went:
+- knowledge.js: new "SESSIONS, KILL ZONES AND SESSION LIQUIDITY" rules.
+- templates/sessions.pine: rebuilt as "Nexus Sessions & Kill Zones" (Theme input, kill-zone boxes with range + midline,
+  liquidity lines until taken, SWEEP labels, ADR range-used dashboard, sweep alerts).
+- lint.js: design glyphs (▲ ▼ ● ◆ • ✕ ■) are now allowed inside strings - the design rules asked for them while the
+  checker flagged them as must-fix, which wasted repair rounds.
+- bench.js: new case gold_killzones. Market report: gold's London/NY kill zones printed in Sydney time (computed, DST-aware).

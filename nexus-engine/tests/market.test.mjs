@@ -49,4 +49,14 @@ await t("short report on gold, oil and the US indices only, with the news effect
   const p = lastBody.messages[0].content;
   assert.match(p, /عالذهب/); assert.match(p, /under 1200 characters/); assert.doesNotMatch(p, /EURUSD|BTCUSD/);
 });
+await t("gold kill zones in Sydney time are added before the disclaimer (DST-aware)", async () => {
+  const { killZoneLine, addKillZones, DISCLAIMER } = await import("../../brain-app/api/_brain/market.js");
+  const oct = Date.UTC(2026, 9, 14, 12), jul = Date.UTC(2026, 6, 14, 12);
+  assert.match(killZoneLine(oct), /لندن 17:00–20:00 · نيويورك 22:00–01:00/);
+  assert.match(killZoneLine(jul), /لندن 16:00–19:00 · نيويورك 21:00–00:00/);
+  const out = addKillZones("report\n\n" + DISCLAIMER, oct);
+  assert.ok(out.endsWith(DISCLAIMER)); assert.ok(out.indexOf("⏰") < out.indexOf(DISCLAIMER));
+  assert.equal(addKillZones(out, oct), out);
+  const r = await call("?report=1&key=" + process.env.DAILY_KEY); assert.match(r.body.report.text, /⏰/);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

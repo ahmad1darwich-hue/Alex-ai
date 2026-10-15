@@ -20,6 +20,8 @@ const MUST_FIX_RULES = new Set([
   "NX_ARRAY_INDEX",
   "NX_TF_PERIOD",
 ]);
+// Glyphs allowed inside string literals (labels, table cells): the design system's arrows and markers.
+export const DESIGN_GLYPHS = "▲▼●◆•✕■";
 // Nexus rules that reproduce TradingView compile errors the type checker lets through.
 const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE"]);
 // Worth one repair attempt, but never block delivery on them.
@@ -427,9 +429,19 @@ function nexusRules(code) {
     const raw = lines[i];
     if (!declLine && /^(indicator|strategy|library)\s*\(/.test(maskedLines[i])) declLine = i + 1;
     // Non-ASCII anywhere on a code line (comments included: they survive copy/paste badly in RTL layouts).
+    // Exception: the design glyphs the knowledge pack asks for (DESIGN_GLYPHS) inside string literals - TradingView
+    // strings are Unicode, and "▲ BUY" labels are part of the design system.
     if (nonAscii >= MAX_PER_RULE) continue;
-    const m = /[^\x00-\x7F]/.exec(raw);
-    if (m) { nonAscii++; push(i + 1, m.index + 1, "NX_NON_ASCII", `Non-ASCII character "${m[0]}" in the script. Use plain English ASCII in code, strings and comments.`); }
+    const ml = maskedLines[i];
+    const re = /[^\x00-\x7F]/g;
+    let m;
+    while ((m = re.exec(raw))) {
+      const inString = m.index < ml.length && ml[m.index] === " ";
+      if (inString && DESIGN_GLYPHS.includes(m[0])) continue;
+      nonAscii++;
+      push(i + 1, m.index + 1, "NX_NON_ASCII", `Non-ASCII character "${m[0]}" in the script. Use plain English ASCII in code and comments; inside strings only the design glyphs ${DESIGN_GLYPHS.split("").join(" ")} are allowed.`);
+      break;
+    }
   }
   if (!declLine) push(1, 1, "NX_NO_DECLARATION", "The script needs one indicator() or strategy() declaration at the top.");
 

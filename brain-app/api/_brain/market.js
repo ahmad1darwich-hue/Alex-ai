@@ -37,6 +37,22 @@ export function sessionClock(ms = Date.now()) {
   return `Sydney is UTC${syd >= 0 ? "+" : ""}${syd} today. Conversions to Sydney time: 08:30 New York = ${at(8, 30, ny)}, 10:00 New York = ${at(10, 0, ny)}, 14:00 New York (FOMC) = ${at(14, 0, ny)}, 07:00 London = ${at(7, 0, ldn)}, 09:30 London = ${at(9, 30, ldn)}, 08:50 Tokyo = ${at(8, 50, tk)}. A US/UK event in the evening there is often the NEXT calendar day in Sydney.`;
 }
 
+// Gold's active windows (New York kill zones: London 02:00-05:00 NY, New York 07:00-10:00 NY) in Sydney time,
+// computed here (DST-aware) instead of by the model, so the times are always right.
+export function killZoneLine(ms = Date.now()) {
+  const syd = tzOffset("Australia/Sydney", ms), ny = tzOffset("America/New_York", ms);
+  if (syd === null || ny === null) return "";
+  const at = (h) => { let t = (h - ny + syd) % 24; if (t < 0) t += 24; const H = Math.floor(t), M = Math.round((t - H) * 60); return String(H).padStart(2, "0") + ":" + String(M).padStart(2, "0"); };
+  return `⏰ أقوى أوقات حركة الذهب (سيدني): لندن ${at(2)}–${at(5)} · نيويورك ${at(7)}–${at(10)}`;
+}
+export function addKillZones(text, ms = Date.now()) {
+  const line = killZoneLine(ms);
+  const t = String(text || "");
+  if (!line || t.includes("⏰")) return t;
+  const i = t.lastIndexOf(DISCLAIMER);
+  return i > 0 ? t.slice(0, i).trimEnd() + "\n\n" + line + "\n\n" + t.slice(i) : t + "\n\n" + line;
+}
+
 export const DISCLAIMER = "تحليل تعليمي مش نصيحة مالية. قرار الصفقة إلك.";
 
 const PROMPT = (markets) => `You are Brain, the market analyst of Ahmad, a Sydney-based trader (gold first, also oil and US indices; Smart Money Concepts style). It is ${sydneyNow()} in Sydney.
@@ -92,7 +108,7 @@ export async function buildReport({ key, markets = MARKETS, signal } = {}) {
     try {
       const out = await callModel(key, model, markets, signal);
       if (!out.text) throw new Error("empty report");
-      return { day: sydneyDay(), at: new Date().toISOString(), model: out.model, markets, text: finishText(out.text, out.sources), sources: out.sources };
+      return { day: sydneyDay(), at: new Date().toISOString(), model: out.model, markets, text: addKillZones(finishText(out.text, out.sources)), sources: out.sources };
     } catch (e) {
       last = e;
       if (e.status === 401 || e.status === 402 || (signal && signal.aborted)) break;

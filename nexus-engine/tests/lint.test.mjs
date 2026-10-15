@@ -49,6 +49,14 @@ t("long shorttitle and non-ASCII are must-fix", () => {
   assert.ok(c.mustFix.some((w) => w.rule === "NX_SHORTTITLE"));
   assert.ok(c.mustFix.some((w) => w.rule === "NX_NON_ASCII"));
 });
+t("design glyphs are allowed inside strings only", () => {
+  const ok = checkPine('//@version=6\nindicator("Glyphs", overlay = true)\nif barstate.islast\n    label.new(bar_index, high, "▲ BUY • ✕")\nplot(close)\n');
+  assert.ok(!ok.mustFix.some((w) => w.rule === "NX_NON_ASCII"), JSON.stringify(ok.mustFix));
+  const inComment = checkPine('//@version=6\nindicator("Glyphs", overlay = true)\n// ▲ marker\nplot(close)\n');
+  assert.ok(inComment.mustFix.some((w) => w.rule === "NX_NON_ASCII"));
+  const arabic = checkPine('//@version=6\nindicator("Glyphs", overlay = true)\nif barstate.islast\n    label.new(bar_index, high, "شراء")\nplot(close)\n');
+  assert.ok(arabic.mustFix.some((w) => w.rule === "NX_NON_ASCII"));
+});
 t("missing version is an error", () => {
   const c = checkPine('indicator("x")\nplot(close)\n');
   assert.ok(!c.ok);
