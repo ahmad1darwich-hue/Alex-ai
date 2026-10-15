@@ -120,7 +120,9 @@ export default async function handler(req) {
       // The whole answer in one natural take; the page falls back to short clips when this is not available.
       const all = speakable(body.tts, 1500);
       if (!all) return json({ error: "empty" }, 400);
-      const mp3 = (await speakFish(all)) || (await speakEleven(all));
+      const fish = await speakFish(all);
+      const mp3 = fish || (await speakEleven(all));
+      console.log("VOICE_TTS " + (mp3 ? "ok " + (fish ? "fish" : "eleven") + " " + mp3.byteLength + " bytes" : "none") + " for " + all.length + " chars");
       if (!mp3) return json({ error: "no_full" }, 503);
       return new Response(mp3, { headers: { "content-type": "audio/mpeg", "cache-control": "no-store", "x-tts": "full" } });
     }

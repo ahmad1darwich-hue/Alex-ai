@@ -389,7 +389,7 @@ async function speakText(tx){stopSpeaking();var text=cleanSpeech(tx);if(!text)re
     var fb=await fetch('/api/voice',{method:'POST',headers:apiHeaders(),body:JSON.stringify({tts:text,full:true})}).then(function(r){return r.ok?r.blob():null;}).catch(function(){return null;});
     if(q.stop)return;
     if(fb){if(!player){player=new Audio();player.setAttribute('playsinline','');}var fu=URL.createObjectURL(fb);player.src=fu;
-      await new Promise(function(res){playDone=res;player.onended=res;player.onerror=res;var p=player.play();if(p&&p.catch)p.catch(res);});playDone=null;URL.revokeObjectURL(fu);if(speakQ===q)stopSpeaking();return;}
+      await new Promise(function(res){playDone=res;player.onended=res;player.onerror=res;var p=player.play();if(p&&p.catch)p.catch(function(){toast2(L?'Tap 🔊 Listen under the reply to hear it':'اكبس 🔊 اسمع تحت الرد لتسمعه');res();});});playDone=null;URL.revokeObjectURL(fu);if(speakQ===q)stopSpeaking();return;}
     srv.full=false;}
   var parts=chunks(text);var fetchPart=function(p){return fetch('/api/voice',{method:'POST',headers:apiHeaders(),body:JSON.stringify({tts:p})}).then(function(r){return r.ok?r.blob():null;}).catch(function(){return null;});};
   var next=fetchPart(parts[0]);
