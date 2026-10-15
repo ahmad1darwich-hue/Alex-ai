@@ -658,26 +658,37 @@ async function submit(){
   addMsg('user',text||'('+t('attach')+')',previews);
   convo.push({role:'user',content:content});saveConvo();
   var th=addThinking();
-  var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},60000);
+  var full='',tries=0;
+  /* Phone networks (5G handovers, a locked screen) can drop a long answer: it is retried once automatically when
+     nothing has arrived yet, and a cut answer keeps what already came. */
+  while(true){
+  var ac=new AbortController();var tmo=setTimeout(function(){ac.abort();},90000);
   try{
+    full='';
     var r=await fetch('/api/agent',{method:'POST',headers:apiHeaders(),body:JSON.stringify({messages:convo,mode:sendMode||undefined,voice:isVoice||undefined}),signal:ac.signal});
     clearTimeout(tmo);
-    var ct=r.headers.get('content-type')||'';var full='';
+    var ct=r.headers.get('content-type')||'';
     if(ct.indexOf('application/json')>=0){var d=await r.json();
       // Not activated: nothing was answered, so the message is not kept as part of the conversation.
       if(d&&d.locked){convo.pop();saveConvo();showLocked(th,d.reply);setStatus({auth:'denied'});if(!input.value){input.value=text;}if(atts.length&&!pending.length){pending=atts;renderChips();}busy=false;send.disabled=false;return;}
       full=d.reply||'…';}
-    else{th.bub.className='bub';th.bub.textContent='';var reader=r.body.getReader(),dcd=new TextDecoder();while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});th.bub.textContent=full;scroll();}}
+    else{var reader=r.body.getReader(),dcd=new TextDecoder();while(true){var rd=await reader.read();if(rd.done)break;full+=dcd.decode(rd.value,{stream:true});var vis=full.replace(/​/g,'');if(vis){th.bub.className='bub';th.bub.textContent=vis;scroll();}}}
+    full=full.replace(/​/g,'');
     var ex=extractArtifacts(full);
     th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex.text||t('done'));
     ex.artifacts.forEach(function(a){renderArtifact(th.col,a);});
     convo.push({role:'assistant',content:full});saveConvo();
     addSayBtn(th.col,full);lastSpeak=(isVoice&&(voiceOn||convOn))?speakText(full):null;
     dot.className='dot live';stat.textContent=L?'Online':'متصل';
+    break;
   }catch(e){
     clearTimeout(tmo);
-    th.bub.className='bub';
-    th.bub.textContent=(e&&e.name==='AbortError')?t('errTimeout'):t('errConn')+(e&&e.message||e);
+    var got=(full||'').replace(/​/g,'').trim();
+    if(!got&&tries<1&&!(e&&e.name==='AbortError')){tries++;th.bub.className='bub think';th.bub.innerHTML='<span class="spin"></span> '+(L?'Connection dropped, retrying…':'انقطع الاتصال، عم جرّب كمان مرة…');await new Promise(function(z){setTimeout(z,1500);});continue;}
+    if(got){var ex2=extractArtifacts(got);th.bub.className='bub';th.bub.innerHTML=mdToHtml(ex2.text+'\n\n'+(L?'⚠️ The connection dropped before the end. Ask "continue" to get the rest.':'⚠️ انقطع الاتصال قبل ما يخلص الجواب. قلّي "كمّل" لكمّلك.'));convo.push({role:'assistant',content:got});saveConvo();}
+    else{th.bub.className='bub';th.bub.textContent=(e&&e.name==='AbortError')?t('errTimeout'):(L?'⚠️ The connection dropped (weak signal?). Send your message again.':'⚠️ انقطع الاتصال (يمكن الشبكة ضعيفة). ابعت رسالتك كمان مرة.');}
+    break;
+  }
   }
   busy=false;send.disabled=false;input.focus();
 }

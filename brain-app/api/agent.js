@@ -231,6 +231,10 @@ export default async function handler(req) {
   const stream = new ReadableStream({
     async start(controller) {
       let buf = "";
+      // Searching and thinking can take a while before the first word: a zero-width "still here" signal every
+      // 8 s keeps phone networks from dropping the quiet connection (the page removes it).
+      let quiet = true;
+      const beat = setInterval(() => { if (quiet) { try { controller.enqueue(enc.encode("\u200b")); } catch (e) {} } }, 8000);
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -246,7 +250,7 @@ export default async function handler(req) {
             try {
               const ev = JSON.parse(data);
               if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "text_delta") {
-                said += ev.delta.text;
+                said += ev.delta.text; quiet = false;
                 controller.enqueue(enc.encode(ev.delta.text));
               } else if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "citations_delta" && ev.delta.citation) {
                 addSrc(cited, ev.delta.citation.url, ev.delta.citation.title);
@@ -261,6 +265,7 @@ export default async function handler(req) {
       } catch (e) {
         controller.enqueue(enc.encode("\n⚠️ انقطع البث: " + String(e && e.message || e)));
       } finally {
+        clearInterval(beat);
         controller.close();
       }
     }

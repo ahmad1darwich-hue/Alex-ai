@@ -12,7 +12,7 @@
   ],
   "functions": {
     "api/agent.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/whatsapp.js": {
       "maxDuration": 60
