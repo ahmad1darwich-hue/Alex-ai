@@ -378,7 +378,23 @@ try{if(localStorage.getItem('brain_voice')==='off')voiceOn=false;}catch(e){}
 function vt(k){return t(k);}
 function stopSpeaking(){if(playDone){var pd=playDone;playDone=null;pd();}if(speakQ)speakQ.stop=true;speakQ=null;try{if(player){player.pause();player.removeAttribute('src');}}catch(e){}try{window.speechSynthesis&&speechSynthesis.cancel();}catch(e){}var b=document.getElementById('spk');if(b)b.classList.remove('play');}
 /* iPhone only lets a page play sound that started from a tap: unlock one shared player on the first tap. */
-function unlockAudio(){if(!player){player=new Audio();player.setAttribute('playsinline','');}try{player.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';var p=player.play();if(p&&p.catch)p.catch(function(){});}catch(e){}try{if(window.speechSynthesis){var u=new SpeechSynthesisUtterance('');speechSynthesis.speak(u);}}catch(e){}}
+/* iPhone plays sound only after a tap: on every tap we "wake" one shared audio player (with a real, valid
+   0.2 s silent clip) and a Web Audio context; the answer is then played through them even seconds later. */
+var SILENT=null,actx2=null;
+function silentUrl(){if(SILENT)return SILENT;var n=1600,b=new ArrayBuffer(44+n),v=new DataView(b),w=function(o,t){for(var i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i));};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);for(var i=0;i<n;i++)v.setUint8(44+i,128);
+  SILENT=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));return SILENT;}
+function unlockAudio(){if(!player){player=new Audio();player.setAttribute('playsinline','');player.preload='auto';}
+  try{if(!speakQ){player.src=silentUrl();var p=player.play();if(p&&p.catch)p.catch(function(){});}}catch(e){}
+  try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){if(!actx2)actx2=new AC();if(actx2.state==='suspended')actx2.resume();var bs=actx2.createBufferSource();bs.buffer=actx2.createBuffer(1,1,22050);bs.connect(actx2.destination);bs.start(0);}}catch(e){}
+  try{if(window.speechSynthesis){var u=new SpeechSynthesisUtterance('');speechSynthesis.speak(u);}}catch(e){}}
+/* Plays an audio blob: the shared player first, then Web Audio if the phone refused; resolves when it ends. */
+function playBlob(blob,q){return new Promise(function(done){var fin=false,end=function(){if(!fin){fin=true;playDone=null;done();}};playDone=end;
+  if(!player){player=new Audio();player.setAttribute('playsinline','');}var u=URL.createObjectURL(blob);player.src=u;player.onended=function(){URL.revokeObjectURL(u);end();};player.onerror=function(){viaWebAudio();};
+  function viaWebAudio(){if(fin||(q&&q.stop))return end();if(!actx2){toast2(L?'Tap 🔊 Listen under the reply to hear it':'اكبس 🔊 اسمع تحت الرد لتسمعه');return end();}
+    blob.arrayBuffer().then(function(ab){return new Promise(function(ok,bad){actx2.decodeAudioData(ab,ok,bad);});}).then(function(buf){if(fin)return;if(actx2.state==='suspended')actx2.resume();var src=actx2.createBufferSource();src.buffer=buf;src.connect(actx2.destination);src.onended=end;playDone=function(){try{src.stop();}catch(e){}end();};src.start(0);})
+    .catch(function(){toast2(L?'Tap 🔊 Listen under the reply to hear it':'اكبس 🔊 اسمع تحت الرد لتسمعه');end();});}
+  var p=player.play();if(p&&p.catch)p.catch(viaWebAudio);});}
 function cleanSpeech(tx){var s=String(tx||'').split(/\n?———/)[0];s=s.replace(/```[\s\S]*?```/g,' ').replace(/\n+🔗[^\n]*(\n•[^\n]*)*/g,' ').replace(/https?:\/\/\S+/g,' ').replace(/[*_#>`|~]+/g,' ').replace(/^\s*[-•]\s+/gm,'، ');
   try{s=s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,' ');}catch(e){}s=s.replace(/\s+/g,' ').trim();if(s.length>900){var c=Math.max(s.lastIndexOf('. ',900),s.lastIndexOf('، ',900),s.lastIndexOf('؟ ',900));s=s.slice(0,c>450?c+1:900);}return s;}
 function chunks(s){var out=[];while(s.length&&out.length<8){if(s.length<=190){out.push(s);break;}var cut=s.lastIndexOf(' ',190),pc=Math.max(s.lastIndexOf('. ',190),s.lastIndexOf('، ',190),s.lastIndexOf('؟ ',190),s.lastIndexOf('! ',190));if(pc>95)cut=pc+1;if(cut<=0)cut=190;out.push(s.slice(0,cut).trim());s=s.slice(cut).trim();}return out;}
@@ -388,17 +404,14 @@ async function speakText(tx){stopSpeaking();var text=cleanSpeech(tx);if(!text)re
   if(srv.full){/* one natural take of the whole answer */
     var fb=await fetch('/api/voice',{method:'POST',headers:apiHeaders(),body:JSON.stringify({tts:text,full:true})}).then(function(r){return r.ok?r.blob():null;}).catch(function(){return null;});
     if(q.stop)return;
-    if(fb){if(!player){player=new Audio();player.setAttribute('playsinline','');}var fu=URL.createObjectURL(fb);player.src=fu;
-      await new Promise(function(res){playDone=res;player.onended=res;player.onerror=res;var p=player.play();if(p&&p.catch)p.catch(function(){toast2(L?'Tap 🔊 Listen under the reply to hear it':'اكبس 🔊 اسمع تحت الرد لتسمعه');res();});});playDone=null;URL.revokeObjectURL(fu);if(speakQ===q)stopSpeaking();return;}
+    if(fb){await playBlob(fb,q);if(speakQ===q)stopSpeaking();return;}
     srv.full=false;}
   var parts=chunks(text);var fetchPart=function(p){return fetch('/api/voice',{method:'POST',headers:apiHeaders(),body:JSON.stringify({tts:p})}).then(function(r){return r.ok?r.blob():null;}).catch(function(){return null;});};
   var next=fetchPart(parts[0]);
   for(var i=0;i<parts.length;i++){var blob=await next;if(q.stop)return;if(i+1<parts.length)next=fetchPart(parts[i+1]);
     if(!blob){await browserSpeak(parts.slice(i).join(' '),q);return;}
     if(!player){player=new Audio();player.setAttribute('playsinline','');}
-    var url=URL.createObjectURL(blob);player.src=url;
-    await new Promise(function(res){playDone=res;player.onended=res;player.onerror=res;var p=player.play();if(p&&p.catch)p.catch(res);});playDone=null;
-    URL.revokeObjectURL(url);if(q.stop)return;}
+    await playBlob(blob,q);if(q.stop)return;}
   if(speakQ===q)stopSpeaking();}
 (function(){
   var mic=document.getElementById('mic'),spk=document.getElementById('spk');
