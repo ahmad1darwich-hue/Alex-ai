@@ -36,7 +36,7 @@ function parseEdits(body) {
 export function parseReply(text) {
   const src = String(text || "").replace(/\r\n?/g, "\n");
   const lower = src.toLowerCase();
-  const out = { title: "", file: "", base: "", templateId: "", code: null, codeClosed: false, edits: [], editsIncomplete: false, explain: "", raw: src };
+  const out = { title: "", file: "", base: "", templateId: "", code: null, codeClosed: false, edits: [], editsIncomplete: false, explain: "", remember: "", raw: src };
   out.title = (tag(src, "title") || "").trim().slice(0, 120);
   out.file = (tag(src, "file") || "").trim().replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 80);
   const baseRaw = (tag(src, "base") || "").trim();
@@ -68,6 +68,7 @@ export function parseReply(text) {
     out.edits = pe.edits;
     out.editsIncomplete = pe.incomplete || ee < 0;
   }
+  out.remember = (tag(src, "remember") || "").replace(/\s+/g, " ").trim().slice(0, 200);
   const ex = tag(src, "explain");
   if (ex !== null) out.explain = ex.trim();
   else {
@@ -169,7 +170,7 @@ const clip = (s, n) => (s.length > n ? s.slice(0, n) + "\n[... truncated ...]" :
 
 function historyToMessages(history) {
   const msgs = [];
-  for (const m of (history || []).slice(-24)) {
+  for (const m of (history || []).slice(-40)) {
     const role = m.role === "assistant" ? "assistant" : "user";
     let text = "";
     if (typeof m.content === "string") text = m.content;
@@ -182,7 +183,7 @@ function historyToMessages(history) {
   }
   // The API needs the conversation to start with a user turn.
   while (msgs.length && msgs[0].role !== "user") msgs.shift();
-  return msgs.slice(-8);
+  return msgs.slice(-16);
 }
 
 function scriptBlock(code) {
@@ -203,7 +204,18 @@ export function safeAttachment(b) {
 }
 
 // Builds the message list for a first-pass request.
-export function buildMessages({ mode, lang, history, userContent, currentCode, tvError, check }) {
+// Everything the user asked for in this conversation, so a long session does not lose early requirements.
+function requirementsSoFar(history) {
+  const asks = [];
+  for (const m of history || []) {
+    if (m.role === "assistant") continue;
+    let t = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((b) => b && b.type === "text").map((b) => b.text).join(" ") : "";
+    t = String(t || "").replace(/\[script omitted\]/g, "").replace(/\s+/g, " ").trim();
+    if (t) asks.push(clip(t, 400));
+  }
+  return asks.slice(-20);
+}
+export function buildMessages({ mode, lang, history, userContent, currentCode, tvError, check, prefs }) {
   const prior = historyToMessages(history);
   while (prior.length && prior[0].role !== "user") prior.shift();
   if (prior.length && prior[prior.length - 1].role === "user") prior.pop(); // never two user turns in a row
@@ -221,6 +233,9 @@ export function buildMessages({ mode, lang, history, userContent, currentCode, t
     }
   } else text = String(userContent || "");
   const parts = [modeInstructions(mode, lang)];
+  if (Array.isArray(prefs) && prefs.length) parts.push("THE USER'S LASTING PREFERENCES (apply unless this request says otherwise):\n- " + prefs.slice(-25).join("\n- "));
+  const asked = requirementsSoFar(history);
+  if (asked.length) parts.push("EVERYTHING THE USER ASKED EARLIER IN THIS CONVERSATION (oldest first; keep all of it in the script unless they changed it since):\n" + asked.map((a, i) => (i + 1) + ". " + a).join("\n"));
   if (currentCode) parts.push(scriptBlock(currentCode));
   if (mode === "fix" && tvError) parts.push("TRADINGVIEW REPORTED (copied by the user from the Pine Editor):\n" + clip(String(tvError).trim(), 2500));
   // Findings on the current script are useful in every mode: an edit request should not leave them behind.
@@ -282,7 +297,7 @@ export async function runPipeline(opts) {
   const streamer = makeStreamer(emit);
   let thinkingAnnounced = false;
   const first = await opts.callModel({
-    messages: buildMessages({ mode: opts.mode, lang: opts.lang, history: opts.history, userContent: opts.userContent, currentCode: current, tvError: opts.tvError, check: currentCheck }),
+    messages: buildMessages({ mode: opts.mode, lang: opts.lang, history: opts.history, userContent: opts.userContent, currentCode: current, tvError: opts.tvError, check: currentCheck, prefs: opts.prefs }),
     effort: opts.effort,
     onText: streamer.push,
     onThinking: () => { if (!thinkingAnnounced) { thinkingAnnounced = true; emit({ t: "stage", id: "think" }); } },
@@ -328,7 +343,7 @@ export async function runPipeline(opts) {
   if (noScript) {
     const explain = parsed.explain || first.text.replace(/<[^>]+>/g, "").trim();
     if (!explain) { const e = new Error("empty reply"); e.kind = "empty"; throw e; }
-    return { kind: "text", explain, usage, model: modelUsed };
+    return { kind: "text", explain, remember: parsed.remember, usage, model: modelUsed };
   }
 
   // ---- materialise the script ----
@@ -420,6 +435,7 @@ export async function runPipeline(opts) {
     explain,
     base: template && baseKind === "TEMPLATE" ? "template:" + template.id : baseKind === "CURRENT" ? "edit" : "new",
     report: { ...summarizeCheck(final.check), rounds, fixed, history, unappliedEdits: final.pending.length, verified: final.check.clean && final.pending.length === 0 },
+    remember: parsed.remember,
     usage,
     model: modelUsed,
   };

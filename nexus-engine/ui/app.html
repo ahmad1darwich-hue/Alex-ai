@@ -19,6 +19,8 @@
 <div id="dwTpl"></div>
 </div>
 <div class="dsec"><div class="t" data-i18n="dw_tools">أدوات</div>
+<button type="button" data-tool="chats"><span class="em" aria-hidden="true">💬</span> <span data-i18n="dw_chats">محادثاتي</span></button>
+<button type="button" data-tool="prefs"><span class="em" aria-hidden="true">📌</span> <span data-i18n="dw_prefs">تفضيلاتي (اللي بيتذكّرها)</span></button>
 <button type="button" data-tool="lib"><span class="em" aria-hidden="true">📚</span> <span data-i18n="dw_lib">مؤشراتي المحفوظة</span></button>
 <button type="button" data-tool="idea"><span class="em" aria-hidden="true">💡</span> <span data-i18n="dw_idea">حوّل فكرتي لمؤشر</span></button>
 <button type="button" data-tool="check"><span class="em" aria-hidden="true">🛠️</span> <span data-i18n="dw_check">افحص وصلّح كودي</span></button>
@@ -93,6 +95,20 @@
 <input id="libQ" class="libq" type="search" data-i18n-ph="lib_search" data-i18n-aria="lib_search" aria-label="دوّر بالاسم" placeholder="دوّر بالاسم…">
 <div id="libList" class="liblist"></div>
 </div>
+</div>
+</div>
+
+<div class="modal" id="chatModal" role="dialog" aria-modal="true" aria-labelledby="chatTitle">
+<div class="mcard">
+<div class="mhead"><b id="chatTitle" data-i18n="chat_title">محادثاتي</b><button class="btn2 close" type="button" data-close="1" data-i18n-title="t_close" data-i18n-aria="t_close" title="إغلاق" aria-label="إغلاق">✕</button></div>
+<div class="mbody"><p class="mlead" data-i18n="chat_p">كل محادثة بتنحفظ لحالها.</p><div id="chatList" class="liblist"></div></div>
+</div>
+</div>
+
+<div class="modal" id="prefModal" role="dialog" aria-modal="true" aria-labelledby="prefTitle">
+<div class="mcard">
+<div class="mhead"><b id="prefTitle" data-i18n="pref_title">تفضيلاتي</b><button class="btn2 close" type="button" data-close="1" data-i18n-title="t_close" data-i18n-aria="t_close" title="إغلاق" aria-label="إغلاق">✕</button></div>
+<div class="mbody"><p class="mlead" data-i18n="pref_p">أشياء قلتلي ياها عن طريقة شغلك.</p><div id="prefList" class="liblist"></div></div>
 </div>
 </div>
 

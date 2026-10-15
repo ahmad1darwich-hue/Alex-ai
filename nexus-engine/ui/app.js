@@ -7,6 +7,7 @@
   var TPL = CFG.templates || [];
   var LANDING = !!CFG.landing;
   var LIB = CFG.library || '';
+  var CHATS = CFG.chats || '';
   var MAX_CODE = 120000; // same limit as the server
   var root = document.documentElement;
   var $ = function (id) { return document.getElementById(id); };
@@ -137,6 +138,14 @@
     sync_in: ['تحدّثت المحادثة من جهازك التاني.', 'Conversation updated from your other device.'],
     you: ['إنت', 'You'],
     dw_lib: ['مؤشراتي المحفوظة', 'My saved indicators'],
+    dw_chats: ['محادثاتي', 'My conversations'], chat_title: ['محادثاتي', 'My conversations'],
+    chat_p: ['كل محادثة بتنحفظ لحالها. افتح أي وحدة وكمّل من وين وقفت.', 'Every conversation is saved automatically. Open any one and continue where you left off.'],
+    chat_empty: ['ما في محادثات محفوظة لسا.', 'No saved conversations yet.'], chat_open: ['افتح وكمّل', 'Open & continue'],
+    chat_now: ['الحالية', 'current'], chat_opened: ['فتحت المحادثة. كمّل من وين وقفت.', 'Conversation opened. Continue where you left off.'],
+    dw_prefs: ['تفضيلاتي (اللي بيتذكّرها)', 'My preferences (remembered)'], pref_title: ['تفضيلاتي', 'My preferences'],
+    pref_p: ['أشياء قلتلي ياها عن طريقة شغلك (متل: دايماً ضيف تنبيهات، بشتغل على الذهب 5 دقايق). بتنطبّق على كل مؤشر جديد.', 'Things you told me about how you work (e.g. always add alerts, I trade gold on 5m). They apply to every new indicator.'],
+    pref_empty: ['ما في تفضيلات محفوظة لسا. قلّي مثلاً "دايماً بدي الجدول تحت يسار".', 'No preferences yet. Tell me e.g. "always put the table bottom-left".'],
+    pref_saved: ['📌 حفظت تفضيلك:', '📌 Preference saved:'],
     lib_title: ['مؤشراتي المحفوظة', 'My saved indicators'],
     lib_p: ['كل مؤشر بيبنيه البوت بينحفظ هون تلقائياً (على كل أجهزتك). افتح أي واحد وكمّل تعديل عليه.', 'Every indicator the bot builds is saved here automatically (on all your devices). Open any one to keep editing it.'],
     lib_search: ['دوّر بالاسم…', 'Search by name…'],
@@ -184,7 +193,8 @@
   var introHtml = $('intro') ? $('intro').outerHTML : '';
 
   /* ---------- state ---------- */
-  var S = { msgs: [], cur: null, seq: 0 };
+  function newChatId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  var S = { msgs: [], cur: null, seq: 0, chatId: newChatId() };
   // `gen` changes when the conversation is cleared: a reply that belongs to the old conversation is dropped.
   var busy = false, busyAt = 0, ctl = null, gen = 0, pending = [], loading = 0, arts = [], mic = null;
 
@@ -268,18 +278,18 @@
       var m = msgs[i];
       if (m.kind === 'script' && m.code) { if (keep > 0) keep--; else { m = msgs[i] = Object.assign({}, m); m.code = ''; m.dropped = true; } }
     }
-    return JSON.stringify({ v: 2, msgs: msgs, cur: data.cur, seq: data.seq });
+    return JSON.stringify({ v: 2, msgs: msgs, cur: data.cur, seq: data.seq, chatId: data.chatId });
   }
   function save() {
     var msgs = S.msgs.slice(-30), cur = S.cur;
     if (cur && msgs.some(function (m) { return m.id === cur.id && m.code; })) cur = { id: cur.id, file: cur.file, libId: cur.libId };
-    var data = { v: 2, msgs: msgs, cur: cur, seq: S.seq }, full = JSON.stringify(data), slim = null, saved = 0;
+    var data = { v: 2, msgs: msgs, cur: cur, seq: S.seq, chatId: S.chatId }, full = JSON.stringify(data), slim = null, saved = 0;
     stores().forEach(function (st) {
       try { st.setItem(STORE, full); saved++; }
       catch (e) { try { if (slim === null) slim = slimJson(data); st.setItem(STORE, slim); saved++; } catch (e2) { try { st.removeItem(STORE); } catch (e3) {} } }
     });
     if (!saved && !save.warned) { save.warned = true; toast(t('e_store'), 5000); }
-    pushSync();
+    pushSync(); archiveChat();
   }
 
   /* ---------- one conversation on all the owner's devices (pages with CFG.sync, activated with the owner key) ---------- */
@@ -292,7 +302,7 @@
     } catch (e) {}
   }
   function syncData() {
-    var slim = JSON.parse(slimJson({ msgs: S.msgs.slice(-30), cur: S.cur ? { id: S.cur.id, file: S.cur.file, libId: S.cur.libId } : null, seq: S.seq }));
+    var slim = JSON.parse(slimJson({ msgs: S.msgs.slice(-30), cur: S.cur ? { id: S.cur.id, file: S.cur.file, libId: S.cur.libId } : null, seq: S.seq, chatId: S.chatId }));
     return slim;
   }
   function pushSync() {
@@ -314,7 +324,7 @@
       if (JSON.stringify(d.data) === before) return;
       var text = JSON.stringify(d.data);
       stores().forEach(function (st) { try { st.setItem(STORE, text); } catch (e) {} });
-      S = { msgs: [], cur: null, seq: 0 }; load(); renderAll();
+      S = { msgs: [], cur: null, seq: 0, chatId: newChatId() }; load(); renderAll();
       if (!first) toast(t('sync_in'), 2500);
     }).catch(function () {});
   }
@@ -329,8 +339,9 @@
         var c = d.cur && typeof d.cur === 'object' ? { id: num(d.cur.id, 0), file: safeName(d.cur.file), code: str(d.cur.code, MAX_CODE * 2), libId: libIdOk(d.cur.libId) ? d.cur.libId : undefined } : null;
         if (c && !c.code) { var src = S.msgs.filter(function (m) { return m.kind === 'script' && m.id === c.id && m.code; })[0]; c = src ? { id: src.id, file: src.file, code: src.code, libId: src.libId || c.libId } : null; }
         S.cur = c;
+        if (typeof d.chatId === 'string' && /^[a-z0-9]{6,24}$/.test(d.chatId)) S.chatId = d.chatId;
       }
-    } catch (e) { S = { msgs: [], cur: null, seq: 0 }; }
+    } catch (e) { S = { msgs: [], cur: null, seq: 0, chatId: newChatId() }; }
     try { localStorage.removeItem('nexus_convo'); localStorage.removeItem('brain_ind_convo'); } catch (e) {}
   }
 
@@ -721,7 +732,7 @@
       else if (m.kind === 'script') out.push({ role: 'assistant', content: String(m.explain || '').slice(0, 3000) + '\n[script delivered: ' + (m.file || 'script.pine') + ']' });
       else if (m.kind === 'text') out.push({ role: 'assistant', content: String(m.explain || '').slice(0, 3000) });
     });
-    return out.slice(-12);
+    return out.slice(-30);
   }
   function httpError(status) { var e = new Error('http ' + status); e.status = status; return e; }
   function errText(e) {
@@ -743,7 +754,8 @@
     var ended = false;
     function feed(line) { line = line.trim(); if (!line) return; var ev; try { ev = JSON.parse(line); } catch (e) { return; } if (ev && typeof ev === 'object') { onEvent(ev); if (ev.t === 'final' || ev.t === 'error') ended = true; } }
     try {
-      var r = await fetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: my.signal });
+      var hdr = { 'content-type': 'application/json' }; if (LIB && syncKey) hdr['x-brain-key'] = syncKey;
+      var r = await fetch(ENDPOINT, { method: 'POST', headers: hdr, body: JSON.stringify(body), signal: my.signal });
       var ct = String(r.headers.get('content-type') || '').toLowerCase();
       if (ct.indexOf('application/json') >= 0) {
         var j = null; try { j = await r.json(); } catch (e) { if (e && e.name === 'AbortError') throw e; }
@@ -807,7 +819,7 @@
       var res = await call(body, function (ev) {
         if (ev.t === 'stage') prog.stage(ev);
         else if (ev.t === 'code') prog.code(ev.d);
-        else if (ev.t === 'final') fin = ev;
+        else if (ev.t === 'final') { fin = ev; if (typeof ev.remember === 'string' && ev.remember) setTimeout(function () { toast(t('pref_saved') + ' ' + ev.remember.slice(0, 120), 4000); }, 1200); }
         else if (ev.t === 'error') err = str(ev.message, 600) || t('e_empty');
       });
       if (res.json) {
@@ -835,6 +847,87 @@
     } catch (e) {
       renderNotice(col, '⚠️ ' + t('e_empty'), 'err', retry);
     } finally { setBusy(false); toBottom(true); }
+  }
+
+  /* ---------- every conversation is kept: locally (last 15) and, on Brain with the owner key, on the server ---------- */
+  var ARCH = STORE + '_archive', archTimer = null;
+  function chatTitle(msgs) { for (var i = 0; i < msgs.length; i++) if (msgs[i].r === 'u' && msgs[i].text) return String(msgs[i].text).replace(/\s+/g, ' ').slice(0, 80); return '…'; }
+  function readArchive() { try { var a = JSON.parse(localStorage.getItem(ARCH) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function archiveChat(now) {
+    if (!S.msgs.length) return;
+    var snap = JSON.parse(slimJson({ msgs: S.msgs.slice(-30), cur: S.cur ? { id: S.cur.id, file: S.cur.file, libId: S.cur.libId } : null, seq: S.seq, chatId: S.chatId }));
+    var title = chatTitle(S.msgs), id = S.chatId;
+    try {
+      var a = readArchive().filter(function (c) { return c.id !== id; });
+      a.unshift({ id: id, title: title, updated: Date.now(), data: snap });
+      while (a.length) { try { localStorage.setItem(ARCH, JSON.stringify(a.slice(0, 15))); break; } catch (e) { a.pop(); if (a.length <= 1) break; } }
+    } catch (e) {}
+    if (CHATS && syncKey) {
+      clearTimeout(archTimer);
+      var go = function () { fetch(CHATS, { method: 'POST', headers: { 'content-type': 'application/json', 'x-brain-key': syncKey }, body: JSON.stringify({ action: 'save', id: id, title: title, data: snap }) }).catch(function () {}); };
+      if (now) go(); else archTimer = setTimeout(go, 1500);
+    }
+  }
+  function openChatData(id, data) {
+    if (busy) { toast(t('wait_busy')); return; }
+    archiveChat(true);
+    stores().forEach(function (st) { try { st.setItem(STORE, JSON.stringify(data)); } catch (e) {} });
+    S = { msgs: [], cur: null, seq: 0, chatId: id }; load(); S.chatId = id; closeModals(); renderAll(); pushSync(); toast(t('chat_opened'));
+  }
+  function openChats() {
+    openModal('chatModal');
+    var list = $('chatList'); list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), 'lib_loading'));
+    var local = readArchive();
+    var show = function (items, remote) {
+      list.innerHTML = '';
+      if (!items.length) { list.appendChild(tx(el('div', 'libnote'), 'chat_empty')); return; }
+      items.forEach(function (c) {
+        var row = el('div', 'librow'), head = el('div', 'libhead'), nm = el('b', '', String(c.title || '…'));
+        nm.dir = dirOf(c.title); head.appendChild(nm);
+        if (c.id === S.chatId) head.appendChild(tx(el('span', 'badge ok'), 'chat_now'));
+        row.appendChild(head); row.appendChild(el('div', 'libmeta', fmtDate(c.updated) + (c.count ? ' · ' + c.count + ' msg' : '')));
+        var acts = el('div', 'libacts'), bo = tx(el('button', 'btn2 pri'), 'chat_open'), bd = tx(el('button', 'btn2'), 'lib_del');
+        bo.type = bd.type = 'button';
+        bo.onclick = function () {
+          if (c.data) return openChatData(c.id, c.data);
+          fetch(CHATS + '?id=' + encodeURIComponent(c.id), { headers: { 'x-brain-key': syncKey }, cache: 'no-store' }).then(function (r) { return r.json(); })
+            .then(function (j) { if (j && j.ok && j.chat && j.chat.data) openChatData(c.id, j.chat.data); else toast(t('lib_err'), 3000); }).catch(function () { toast(t('lib_err'), 3000); });
+        };
+        var armed = 0;
+        bd.onclick = function () {
+          if (Date.now() - armed > 3000) { armed = Date.now(); tx(bd, 'lib_del_sure'); return; }
+          try { localStorage.setItem(ARCH, JSON.stringify(readArchive().filter(function (x) { return x.id !== c.id; }))); } catch (e) {}
+          if (remote) fetch(CHATS, { method: 'POST', headers: { 'content-type': 'application/json', 'x-brain-key': syncKey }, body: JSON.stringify({ action: 'delete', id: c.id }) }).catch(function () {});
+          row.remove(); toast(t('lib_deleted'));
+        };
+        if (c.id !== S.chatId) acts.appendChild(bo);
+        acts.appendChild(bd); row.appendChild(acts); list.appendChild(row);
+      });
+    };
+    if (CHATS && syncKey) {
+      fetch(CHATS, { headers: { 'x-brain-key': syncKey }, cache: 'no-store' }).then(function (r) { return r.json(); })
+        .then(function (j) { if (j && j.ok) show(j.chats || [], true); else show(local, false); }).catch(function () { show(local, false); });
+    } else show(local, false);
+  }
+  function openPrefs() {
+    openModal('prefModal');
+    var list = $('prefList'); list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), 'lib_loading'));
+    var call2 = function (extra) {
+      return fetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json', 'x-brain-key': syncKey }, body: JSON.stringify(Object.assign({ v: 2, mode: 'prefs' }, extra || {})) }).then(function (r) { return r.json(); });
+    };
+    var show = function (j) {
+      list.innerHTML = '';
+      var prefs = j && Array.isArray(j.prefs) ? j.prefs : null;
+      if (!prefs) { list.appendChild(tx(el('div', 'libnote'), syncKey ? 'lib_err' : 'lib_locked')); return; }
+      if (!prefs.length) { list.appendChild(tx(el('div', 'libnote'), 'pref_empty')); return; }
+      prefs.forEach(function (p, i) {
+        var row = el('div', 'librow'), head = el('div', 'libhead'), nm = el('span', '', p), bd = tx(el('button', 'btn2'), 'lib_del');
+        nm.dir = dirOf(p); bd.type = 'button'; bd.onclick = function () { call2({ remove: i }).then(show).catch(function () { toast(t('lib_err'), 3000); }); };
+        head.appendChild(nm); head.appendChild(bd); row.appendChild(head); list.appendChild(row);
+      });
+    };
+    if (!syncKey) return show(null);
+    call2().then(show).catch(function () { show(null); });
   }
 
   /* ---------- saved indicators library (Brain only: CFG.library + the owner key) ---------- */
@@ -1011,6 +1104,8 @@
     if (name === 'how') return openModal('howModal');
     if (name === 'check') return openModal('checkModal');
     if (name === 'lib') return openLibrary();
+    if (name === 'chats') return openChats();
+    if (name === 'prefs') return openPrefs();
     // The prepared request is added once a file was really chosen (a cancelled picker changes nothing).
     if (name === 'image') return pickFile('image/*', function () { setDraft(t('p_img'), true, true); });
     if (name === 'file') return pickFile('.pine,.txt,.pdf,image/*', function () { setDraft(t('p_file'), true, true); });
@@ -1030,7 +1125,8 @@
     newArmed = 0; tx(newBtn, 'btn_new'); newBtn.classList.remove('arm');
     gen++; stopRequest();
     if (mic) mic.stop();
-    S = { msgs: [], cur: null, seq: 0 }; pending = []; renderChips();
+    archiveChat(true);
+    S = { msgs: [], cur: null, seq: 0, chatId: newChatId() }; pending = []; renderChips();
     stores().forEach(function (st) { try { st.removeItem(STORE); } catch (e) {} });
     pushSync();
     renderAll(); input.value = ''; grow();
@@ -1187,7 +1283,7 @@
 
   window.NexusApp = { launch: launch, home: home, toggleLang: toggleLang, useTemplate: function (id) { launch(); useTemplate(id); }, demo: function () { launch(); useTemplate('smc'); } };
 
-  if (!LIB) { var lb = document.querySelector('[data-tool="lib"]'); if (lb) lb.remove(); }
+  if (!LIB) { ['lib', 'prefs'].forEach(function (k) { var lb = document.querySelector('[data-tool="' + k + '"]'); if (lb) lb.remove(); }); }
   load();
   if (SYNC && syncKey) {
     pullSync();

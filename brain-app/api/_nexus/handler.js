@@ -8,6 +8,7 @@ import { LESSONS } from "./lessons.js";
 import { runPipeline } from "./engine.js";
 import { checkPine, summarizeCheck } from "./lint.js";
 import { TEMPLATES, TEMPLATE_BY_ID } from "./templates.js";
+import { brainAuth } from "../_brain/lock.js";
 
 const API = "https://api.anthropic.com/v1/messages";
 const PRIMARY_MODEL = process.env.NEXUS_MODEL || "claude-sonnet-5-5";
@@ -302,6 +303,22 @@ function recordStats(result, mode, ms, tvError, outage, request) {
   return kvPipeline(cmds);
 }
 
+// ---------- the owner's lasting preferences (Brain page with the owner key only; never for public visitors) ----------
+const PREFS_KEY = "brain:ind:prefs";
+async function readPrefs() {
+  const res = await kvPipeline([["GET", PREFS_KEY]]);
+  try { const v = res && res[0] && res[0].result; const a = v ? JSON.parse(v) : []; return Array.isArray(a) ? a.filter((x) => typeof x === "string") : []; } catch (e) { return []; }
+}
+async function addPref(line) {
+  const t = String(line || "").replace(/\s+/g, " ").trim().slice(0, 200);
+  if (t.length < 6) return null;
+  const list = await readPrefs();
+  const low = t.toLowerCase();
+  const next = list.filter((x) => x.toLowerCase() !== low).concat([t]).slice(-30);
+  return kvPipeline([["SET", PREFS_KEY, JSON.stringify(next)]]);
+}
+export const _prefs = { readPrefs, addPref };
+
 // ---------- request helpers ----------
 
 const hasArabic = (s) => /[؀-ۿ]/.test(String(s || ""));
@@ -397,6 +414,14 @@ export async function handle(req, ctx) {
   if (admin) { CORS = corsFor(req, true); json = jsonWith(CORS); }
   if (!admin && !originAllowed(req)) return json({ kind: "error", message: "This site is not allowed to use the service." }, 403);
   if (body.mode === "stats") return admin ? json(await readStats()) : json({ kind: "error", message: "Not allowed." }, 403);
+  const owner = brainAuth(req.headers.get("x-brain-key")) === "ok";
+  if (body.mode === "prefs") {
+    if (!owner) return json({ kind: "error", message: "Not allowed." }, 403);
+    let list = await readPrefs();
+    if (body.clear === true) { list = []; await kvPipeline([["SET", PREFS_KEY, "[]"]]); }
+    else if (Number.isInteger(body.remove) && body.remove >= 0 && body.remove < list.length) { list.splice(body.remove, 1); await kvPipeline([["SET", PREFS_KEY, JSON.stringify(list)]]); }
+    return json({ kind: "prefs", prefs: list });
+  }
   if (body.mode === "feedback") {
     // Free and quick; rate limited like the other no-model modes. Stored best-effort.
     if (await overFreeLimit(req, admin)) return json({ kind: "error", message: "Too many requests." }, 429);
@@ -471,8 +496,11 @@ export async function handle(req, ctx) {
       let result = null, outage = "";
       try {
         const currentFile = String(body.file || "").replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 80);
-        result = await runPipeline({ mode: mode === "fix" ? "fix" : "build", lang, history, userContent, currentCode, currentFile, tvError: body.tvError, callModel: makeCaller(key, deadline, state, abort.signal), emit, deadline, effort, signal: abort.signal });
+        const prefs = owner ? await readPrefs().catch(() => []) : [];
+        result = await runPipeline({ mode: mode === "fix" ? "fix" : "build", lang, history, userContent, currentCode, currentFile, tvError: body.tvError, prefs, callModel: makeCaller(key, deadline, state, abort.signal), emit, deadline, effort, signal: abort.signal });
         result.ms = Date.now() - started;
+        if (owner && result.remember) { const pp = addPref(result.remember).catch(() => {}); if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(pp); else await pp; }
+        if (!owner) delete result.remember;
         if (v2) {
           // Token usage, the model id and the repair history are internal: only sent when the client asks for them.
           const { usage, model, ...pub } = result;
