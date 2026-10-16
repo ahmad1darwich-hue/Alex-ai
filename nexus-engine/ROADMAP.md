@@ -7,8 +7,15 @@ script the bot builds is drawn on it at once, so Ahmad does not have to paste in
 TradingView stays the final check.
 
 Decision: OUR OWN engine (no AGPL code). Do NOT use PineTS / Vela (AGPL-3.0 or paid licence).
-- Chart: TradingView Lightweight Charts (Apache-2.0), bundled into the page by build-ui.mjs (no CDN; keep the
-  page CSP in ui.test.mjs green). Boxes / lines / labels / tables drawn on an overlay canvas using the time scale.
+
+STATUS 2026-10-16: shipped in Brain Indicators. `api/preview.js` (POST code+symbol+tf) -> `_brain/candles.js`
+(Yahoo / Binance data mirror / Kraken, sample candles as last resort) -> `_nexus/preview-run.js` (our Pine runner on
+the bundled parser: series, var, ta.*, user functions + types, arrays/maps, drawings with max counts, tables,
+request.security HTF, time() sessions, strategy simulator) -> `ui/chart.js` (our own canvas chart, no library) shown
+in every script card. Tests: tests/preview.test.mjs. All 9 templates preview with nothing unsupported.
+NEXT: check the `PREVIEW` / `PREVIEW_CANDLES_FAIL` logs (are live candles arriving?), widen coverage from
+`unsupported` lists in the logs, split view (chat beside the chart) on wide screens, then the public Nexus site.
+- Chart: our own canvas renderer in nexus-engine/ui/chart.js (Lightweight Charts could not be downloaded here).
 - Candles: a small server endpoint `api/candles.js` (Edge, cached ~60 s, rate limited) that fetches public OHLC:
   crypto from Binance klines, gold / forex / indices from a free source verified at build time. Symbols and
   timeframes: XAUUSD, BTCUSDT, EURUSD, US100 on 1m-1D.

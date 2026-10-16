@@ -243,6 +243,32 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 .libnote{color:var(--mut);font-size:13.5px;padding:14px 4px;text-align:center}
 @media(pointer:coarse){.libq{font-size:16px}}
 
+/* chart preview (Brain Indicators) */
+.pv{border-top:1px solid var(--line);background:#0b0f15}
+.pv-top{display:flex;gap:8px;align-items:center;padding:8px 10px;flex-wrap:wrap}
+.pv-title{font-weight:600;font-size:12.5px;color:var(--acc);margin-inline-end:auto}
+.pv-sel{background:var(--panel2);color:var(--txt);border:1px solid var(--line2);border-radius:8px;padding:4px 6px;font:inherit;font-size:12px}
+.pv-tfs{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:2px;direction:ltr}
+.pv-tf{background:none;border:0;color:var(--mut);font:600 11.5px var(--sans,inherit);padding:3px 7px;border-radius:6px;cursor:pointer}
+.pv-tf.on{background:var(--acc);color:#04121a}
+.pv-stage{position:relative;min-height:56px;display:flex;align-items:center;justify-content:center}
+.pv-wait{color:var(--mut);font-size:12.5px;padding:18px}
+.pv-show{margin:10px}
+.pv-chart{position:relative;width:100%;height:400px;direction:ltr;overflow:hidden}
+.pv-cv{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+.pv-leg{position:absolute;top:6px;left:8px;font:11px Inter,system-ui,sans-serif;color:#9aa5b5;pointer-events:none;line-height:1.55;text-align:left;max-width:70%}
+.pv-leg b{color:#e8edf4;font-weight:600}.pv-leg i{font-style:normal;color:#e8edf4}.pv-leg i.u{color:#26a69a}.pv-leg i.d{color:#ef5350}
+.pv-tbls{position:absolute;top:0;left:0;right:64px;bottom:20px;pointer-events:none}
+.pv-tbl{position:absolute;border-collapse:collapse;font:11px Inter,system-ui,sans-serif;color:#d1d4dc;background:rgba(19,23,34,.82)}
+.pv-tbl td{padding:3px 7px;white-space:nowrap}
+.p-top_right{top:6px;right:6px}.p-top_left{top:46px;left:6px}.p-top_center{top:6px;left:50%;transform:translateX(-50%)}
+.p-middle_right{top:50%;right:6px;transform:translateY(-50%)}.p-middle_left{top:50%;left:6px;transform:translateY(-50%)}.p-middle_center{top:50%;left:50%;transform:translate(-50%,-50%)}
+.p-bottom_right{bottom:6px;right:6px}.p-bottom_left{bottom:6px;left:6px}.p-bottom_center{bottom:6px;left:50%;transform:translateX(-50%)}
+.pv-note{padding:6px 10px 9px;font-size:11.5px;color:var(--mut);line-height:1.65}
+.pv-note .err{color:#ff8a8a}
+@media (min-width:1100px){.pv-chart{height:460px}}
+@media (max-width:640px){.pv-chart{height:320px}.pv-tbl{font-size:9.5px}.pv-tbl td{padding:2px 5px}.pv-title{width:100%}}
+
 </style>
 </head>
 <body>
@@ -377,6 +403,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
   var LANDING = !!CFG.landing;
   var LIB = CFG.library || '';
   var CHATS = CFG.chats || '';
+  var PREVIEW = CFG.preview || '';
   var MAX_CODE = 120000; // same limit as the server
   var root = document.documentElement;
   var $ = function (id) { return document.getElementById(id); };
@@ -387,6 +414,12 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
   /* ---------- i18n: [Arabic, English] ---------- */
   var I18N = {
     btn_new: ['+ جديد', '+ New'],
+    pv_title: ['معاينة على الشارت', 'Chart preview'], pv_show: ['▶ اعرضه على الشارت', '▶ Show on the chart'], pv_sym: ['الرمز', 'Symbol'],
+    pv_loading: ['عم نجيب الأسعار ونرسم المؤشر…', 'Loading prices and drawing the indicator…'],
+    pv_note: ['معاينة تقريبية بمحرّكنا الخاص · التأكيد النهائي على TradingView', 'Approximate preview by our own engine · final check on TradingView'],
+    pv_sample: ['ما وصلت أسعار حيّة هلّق، هاي شموع تجريبية', 'Live prices are unavailable right now; these are sample candles'],
+    pv_fail: ['ما قدرت جيب المعاينة: ', 'Could not load the preview: '], pv_err: ['ما قدرت ارسم المؤشر: ', 'Could not draw the indicator: '],
+    pv_unsup: ['ما انرسم بالمعاينة: ', 'Not drawn in the preview: '], pv_src: ['المصدر: ', 'Source: '], pv_hint: ['اسحب لتتحرك · عجلة الماوس أو إصبعين للتكبير · دبل كليك للرجوع', 'Drag to move · wheel or pinch to zoom · double-click to reset'],
     new_sure: ['اضغط كمان مرّة لمسح المحادثة', 'Press again to clear the conversation'],
     new_arm: ['أكيد؟', 'Sure?'],
     b_crash: ['⚠ ما انفحص', '⚠ Not checked'],
@@ -900,9 +933,60 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     bFixAuto.onclick = function () { if (busy) { toast(t('wait_busy')); return; } runFix(msg, ''); };
     bUse.onclick = function () { S.cur = { id: msg.id, code: msg.code, file: msg.file, libId: msg.libId }; save(); refreshCurrent(); toast(t('use_ok')); };
 
+    if (PREVIEW && msg.code && window.NexusChart) { art.insertBefore(previewBlock(msg), cw); setTimeout(pvAutoLatest, 30); }
     col.appendChild(art);
     arts.push({ msg: msg, use: bUse });
     refreshCurrent(); toBottom();
+  }
+
+  /* ---------- chart preview (Brain Indicators): candles + what the script draws, from /api/preview ---------- */
+  var PV_SYMS = [['XAUUSD', 'Gold'], ['BTCUSD', 'BTC'], ['ETHUSD', 'ETH'], ['EURUSD', 'EUR/USD'], ['US100', 'NAS100'], ['US30', 'US30']];
+  var PV_TFS = [['1', '1m'], ['5', '5m'], ['15', '15m'], ['60', '1H'], ['240', '4H'], ['1D', '1D']];
+  var pvActive = null;
+  function pvPrefs() { var p = { symbol: 'XAUUSD', tf: '15' }; try { var s = JSON.parse(localStorage.getItem('nx_pv') || 'null'); if (s && s.symbol) p.symbol = s.symbol; if (s && s.tf) p.tf = s.tf; } catch (e) {} return p; }
+  function pvAutoLatest() { var all = thread.querySelectorAll('.pv'); var last = all[all.length - 1]; if (last && !last._loaded && last._load) last._load(); }
+  function previewBlock(msg) {
+    var box = el('div', 'pv'), top = el('div', 'pv-top'), sel = el('select', 'pv-sel'), tfs = el('div', 'pv-tfs'), stage = el('div', 'pv-stage'), note = el('div', 'pv-note');
+    var pref = pvPrefs();
+    top.appendChild(tx(el('span', 'pv-title'), 'pv_title'));
+    PV_SYMS.forEach(function (s) { var o = el('option', '', s[1]); o.value = s[0]; if (s[0] === pref.symbol) o.selected = true; sel.appendChild(o); });
+    sel.setAttribute('aria-label', t('pv_sym'));
+    PV_TFS.forEach(function (x) { var b = el('button', 'pv-tf' + (x[0] === pref.tf ? ' on' : ''), x[1]); b.type = 'button'; b.setAttribute('data-tf', x[0]); tfs.appendChild(b); });
+    top.appendChild(sel); top.appendChild(tfs); box.appendChild(top); box.appendChild(stage); box.appendChild(note);
+    var chart = null, seq = 0;
+    function showBtn() { stage.innerHTML = ''; var b = tx(el('button', 'btn2 pv-show'), 'pv_show'); b.type = 'button'; b.onclick = load; stage.appendChild(b); }
+    function collapse() { if (chart) { try { chart.destroy(); } catch (e) {} chart = null; } box._loaded = false; showBtn(); }
+    function save() { try { localStorage.setItem('nx_pv', JSON.stringify(pref)); } catch (e) {} }
+    function load() {
+      if (pvActive && pvActive !== collapse) pvActive();
+      pvActive = collapse; box._loaded = true;
+      var my = ++seq;
+      stage.innerHTML = ''; stage.appendChild(el('div', 'pv-wait', t('pv_loading'))); note.textContent = '';
+      fetch(PREVIEW, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: msg.code, symbol: pref.symbol, tf: pref.tf }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (my !== seq) return;
+          if (!d || !d.ok || !Array.isArray(d.candles)) throw new Error((d && d.message) || 'error');
+          var holder = el('div', 'pv-chart'); stage.innerHTML = ''; stage.appendChild(holder);
+          PV_TFS.forEach(function (x) { if (x[0] === d.tf) d.tfName = x[1]; });
+          if (chart) { try { chart.destroy(); } catch (e) {} }
+          chart = window.NexusChart.create(holder, d);
+          var res = d.result || {}, bits = [];
+          if (d.sample) bits.push('<span class="err">' + esc(t('pv_sample')) + '</span>');
+          if (!res.ok && res.error) bits.push('<span class="err">' + esc(t('pv_err') + res.error + (res.errorLine ? ' (line ' + res.errorLine + ')' : '')) + '</span>');
+          if (res.unsupported && res.unsupported.length) bits.push(esc(t('pv_unsup') + res.unsupported.join(', ')));
+          if (res.stats) bits.push(esc((L ? 'Trades: ' : 'صفقات: ') + res.stats.closed + (res.stats.closed ? ' · ' + (L ? 'win rate ' : 'نسبة الربح ') + Math.round(100 * res.stats.wins / res.stats.closed) + '%' : '')));
+          bits.push(esc(t('pv_note') + (d.source && !d.sample ? ' · ' + t('pv_src') + d.source : '')));
+          bits.push(esc(t('pv_hint')));
+          note.innerHTML = bits.join('<br>');
+        })
+        .catch(function (e) { if (my !== seq) return; box._loaded = false; showBtn(); note.innerHTML = '<span class="err">' + esc(t('pv_fail') + String(e && e.message || e)) + '</span>'; });
+    }
+    sel.onchange = function () { pref.symbol = sel.value; save(); load(); };
+    tfs.onclick = function (e) { var b = e.target.closest('button'); if (!b) return; pref.tf = b.getAttribute('data-tf'); save(); tfs.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); load(); };
+    box._load = load;
+    showBtn();
+    return box;
   }
 
   function renderAll() {

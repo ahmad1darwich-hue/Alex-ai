@@ -32,7 +32,7 @@ The indicator engine behind `brain-app/api/indicator.js` (used by Nexus and Brai
 - `tests/` - run all of them before deploying (the model API is mocked; no key or network needed):
   `lint.test.mjs`, `engine.test.mjs`, `handler.test.mjs` (engine), `ui.test.mjs` (generated pages are up to date,
   the security policy matches the page, every text key exists), `brain-lock.test.mjs` (Brain's private endpoints),
-  and `ui-e2e.mjs` (the pages in a real browser; optional, needs Playwright and Chromium).
+  `preview.test.mjs` (chart preview runner and endpoint) and `ui-e2e.mjs` (the pages in a real browser; optional, needs Playwright and Chromium).
 
 Engine code deployed with the Brain project: `brain-app/api/_nexus/` (`handler.js`, `engine.js`, `lint.js`,
 `knowledge.js`, `templates.js`, `pine-lint.mjs`). `brain-app/api/indicator.js` and `brain-app/api/nexus.js` are

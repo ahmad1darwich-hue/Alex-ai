@@ -1,0 +1,149 @@
+// Chart preview: our Pine runner (brain-app/api/_nexus/preview-run.js), the candles module and /api/preview.
+//   node nexus-engine/tests/preview.test.mjs   (no network: candle sources are mocked)
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { runPreview } from "../../brain-app/api/_nexus/preview-run.js";
+import { aggregate, sampleCandles } from "../../brain-app/api/_brain/candles.js";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+let n = 0; const t = async (name, fn) => { try { await fn(); n++; } catch (e) { console.error("FAIL", name, e); process.exitCode = 1; } };
+const GOLD = { tickerid: "OANDA:XAUUSD", ticker: "XAUUSD", mintick: 0.01, type: "cfd", timezone: "America/New_York", currency: "USD" };
+const candles = sampleCandles(900, 700, 2400);
+
+await t("every verified template runs and draws something", () => {
+  for (const f of fs.readdirSync(path.join(here, "..", "templates")).filter((x) => x.endsWith(".pine"))) {
+    const r = runPreview(fs.readFileSync(path.join(here, "..", "templates", f), "utf8"), candles, { tfSec: 900, symbol: GOLD });
+    assert.ok(r.ok, f + ": " + r.error);
+    const drawn = r.plots.length + r.shapes.length + r.labels.length + r.lines.length + r.boxes.length + r.tables.length + r.trades.length;
+    assert.ok(drawn > 0, f + " drew nothing");
+    assert.deepEqual(r.unsupported, [], f + " unsupported: " + r.unsupported.join(", "));
+    assert.ok(r.ms < 2500, f + " too slow: " + r.ms + " ms");
+  }
+});
+
+await t("series maths match hand-computed values (sma, ema, history, var in functions)", () => {
+  const cs = []; for (let i = 0; i < 40; i++) { const c = 100 + i + (i % 3) * 2; cs.push({ t: Date.UTC(2026, 0, 1) + i * 3600e3, o: c - 1, h: c + 2, l: c - 2, c, v: 10 }); }
+  const code = `//@version=6
+indicator("t")
+f(x) =>
+    var int k = 0
+    k += 1
+    x * 2 + k
+plot(ta.sma(close, 5))
+plot(ta.ema(close, 5))
+plot(close[1])
+plot(f(close))
+plot(ta.rsi(close, 14))`;
+  const r = runPreview(code, cs, { tfSec: 3600 });
+  assert.ok(r.ok, r.error);
+  const C = cs.map((x) => x.c), sma = (k) => C.slice(k - 4, k + 1).reduce((a, b) => a + b, 0) / 5;
+  let ema = sma(4); for (let k = 5; k <= 10; k++) ema = (2 / 6) * C[k] + (4 / 6) * ema;
+  assert.equal(r.plots[0].values[10], sma(10));
+  assert.ok(Math.abs(r.plots[1].values[10] - ema) < 1e-9);
+  assert.equal(r.plots[2].values[4], C[3]);
+  assert.equal(r.plots[3].values[4], C[4] * 2 + 5);
+  assert.equal(r.plots[4].values[10], null);
+  const rsi = r.plots[4].values[39]; assert.ok(rsi > 0 && rsi < 100);
+});
+
+await t("drawings respect max counts and deletes; tables keep their cells", () => {
+  const code = `//@version=6
+indicator("d", overlay = true, max_labels_count = 5)
+label.new(bar_index, high, "x")
+var line ln = line.new(na, na, na, na)
+if barstate.islast
+    ln.set_xy1(bar_index - 10, low)
+    ln.set_xy2(bar_index, high)
+b = box.new(bar_index, high, bar_index + 1, low)
+box.delete(b)
+var table tb = table.new(position.top_right, 2, 1)
+if barstate.islast
+    tb.cell(0, 0, "A")
+    table.cell(tb, 1, 0, str.tostring(close, format.mintick))`;
+  const r = runPreview(code, candles.slice(0, 100), { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error);
+  assert.equal(r.labels.length, 5); assert.equal(r.lines.length, 1); assert.equal(r.boxes.length, 0);
+  assert.equal(r.tables[0].cells["0:0"].text, "A"); assert.match(r.tables[0].cells["1:0"].text, /^\d+\.\d{2}$/);
+});
+
+await t("request.security: previous day high from the daily chart, without lookahead into today", () => {
+  const code = `//@version=6
+indicator("pdh", overlay = true)
+pdh = request.security(syminfo.tickerid, "1D", high[1], lookahead = barmerge.lookahead_on)
+plot(pdh)`;
+  const cs = sampleCandles(3600, 24 * 6, 2400); // 6 days of 1h candles
+  const r = runPreview(code, cs, { tfSec: 3600, symbol: { ...GOLD, timezone: "Etc/UTC" } });
+  assert.ok(r.ok, r.error);
+  const day = (ms) => Math.floor(ms / 86400000);
+  const last = cs.length - 1, d = day(cs[last].t);
+  const prevHigh = Math.max(...cs.filter((c) => day(c.t) === d - 1).map((c) => c.h));
+  assert.equal(r.plots[0].values[last], prevHigh);
+});
+
+await t("time() sessions follow the IANA time zone (New York 09:30 open)", () => {
+  const code = `//@version=6
+indicator("s", overlay = true)
+inNy = not na(time(timeframe.period, "0930-1600", "America/New_York"))
+plot(inNy ? 1 : 0)`;
+  const cs = []; const t0 = Date.UTC(2026, 9, 14, 13, 0); // 13:00 UTC = 09:00 New York (EDT)
+  for (let i = 0; i < 12; i++) cs.push({ t: t0 + i * 900e3, o: 1, h: 2, l: 0.5, c: 1.5, v: 1 });
+  const r = runPreview(code, cs, { tfSec: 900 });
+  assert.deepEqual(r.plots[0].values.slice(0, 4), [0, 0, 1, 1]);
+});
+
+await t("strategy simulator fills entries and stop / target exits", () => {
+  const code = `//@version=6
+strategy("st", overlay = true)
+if bar_index % 20 == 0
+    strategy.entry("L", strategy.long)
+strategy.exit("x", "L", stop = close - 5, limit = close + 5)`;
+  const r = runPreview(code, candles.slice(0, 300), { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error); assert.ok(r.trades.some((x) => x.kind === "entry")); assert.ok(r.stats.closed >= 1);
+});
+
+await t("broken or unknown code is reported, never crashes", () => {
+  const r1 = runPreview(`//@version=6\nindicator("x")\nplot(close +)`, candles.slice(0, 50), { tfSec: 900 });
+  assert.equal(r1.ok, false); assert.match(r1.error, /syntax|parse/);
+  const r2 = runPreview(`//@version=6\nindicator("x")\nplot(ta.someMadeUpThing(close))`, candles.slice(0, 50), { tfSec: 900 });
+  assert.ok(r2.ok); assert.ok(r2.unsupported.includes("ta.someMadeUpThing"));
+  const r3 = runPreview(`//@version=6\nindicator("x")\na = array.new_float(0)\nplot(a.get(3))`, candles.slice(0, 50), { tfSec: 900 });
+  assert.equal(r3.ok, false); assert.match(r3.error, /out of bounds/);
+  const r4 = runPreview(`//@version=6\nindicator("x")\nvar float s = 0\nwhile true\n    s += 1\nplot(s)`, candles.slice(0, 50), { tfSec: 900 });
+  assert.equal(r4.ok, false);
+});
+
+await t("candles: 4h aggregation from 1h", () => {
+  const h = []; for (let i = 0; i < 8; i++) h.push({ t: Date.UTC(2026, 0, 1, i), o: i, h: i + 1, l: i - 1, c: i + 0.5, v: 1 });
+  const a = aggregate(h, 14400);
+  assert.equal(a.length, 2); assert.deepEqual([a[0].o, a[0].h, a[0].l, a[0].c, a[0].v], [0, 4, -1, 3.5, 4]);
+});
+
+await t("/api/preview: live source first, sample candles when every source fails", async () => {
+  const real = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (url) => {
+    calls++;
+    if (String(url).includes("yahoo")) {
+      const ts = Array.from({ length: 120 }, (_, k) => 1760000000 + k * 900);
+      return new Response(JSON.stringify({ chart: { result: [{ timestamp: ts, indicators: { quote: [{ open: ts.map(() => 2400), high: ts.map(() => 2402), low: ts.map(() => 2398), close: ts.map(() => 2401), volume: ts.map(() => 5) }] } }] } }), { status: 200 });
+    }
+    return new Response("blocked", { status: 451 });
+  };
+  try {
+    const { default: preview } = await import("../../brain-app/api/preview.js");
+    const post = (b) => preview(new Request("https://b.test/api/preview", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "1.2.3.4" }, body: JSON.stringify(b) }));
+    const code = fs.readFileSync(path.join(here, "..", "templates", "trend.pine"), "utf8");
+    const j = await (await post({ code, symbol: "XAUUSD", tf: "15" })).json();
+    assert.equal(j.ok, true); assert.equal(j.source, "yahoo"); assert.equal(j.candles.length, 120); assert.equal(j.result.ok, true);
+    const k = await (await post({ code, symbol: "BTCUSD", tf: "5" })).json();
+    assert.equal(k.ok, true); assert.ok(k.source === "yahoo" || k.sample);
+    globalThis.fetch = async () => new Response("down", { status: 500 });
+    const s = await (await post({ code, symbol: "ETHUSD", tf: "60" })).json();
+    assert.equal(s.sample, true); assert.ok(s.candles.length > 100);
+    assert.equal((await post({ symbol: "XAUUSD" })).status, 400);
+  } finally { globalThis.fetch = real; }
+});
+
+console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
