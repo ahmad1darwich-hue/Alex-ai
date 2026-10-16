@@ -1,0 +1,28 @@
+# Nexus / Brain Indicators roadmap (read by every daily run)
+
+## NEXT BIG FEATURE: live chart preview next to the chat (decided by Ahmad, 2026-10-16)
+
+Goal: in Brain Indicators (and later the public Nexus site) the page shows a live chart beside the chat; every
+script the bot builds is drawn on it at once, so Ahmad does not have to paste into TradingView to see it.
+TradingView stays the final check.
+
+Decision: OUR OWN engine (no AGPL code). Do NOT use PineTS / Vela (AGPL-3.0 or paid licence).
+- Chart: TradingView Lightweight Charts (Apache-2.0), bundled into the page by build-ui.mjs (no CDN; keep the
+  page CSP in ui.test.mjs green). Boxes / lines / labels / tables drawn on an overlay canvas using the time scale.
+- Candles: a small server endpoint `api/candles.js` (Edge, cached ~60 s, rate limited) that fetches public OHLC:
+  crypto from Binance klines, gold / forex / indices from a free source verified at build time. Symbols and
+  timeframes: XAUUSD, BTCUSDT, EURUSD, US100 on 1m-1D.
+- Runner: `nexus-engine/preview/runner.mjs`, evaluates Pine v6 on the browser over the candles, using the parser
+  already bundled in `_nexus/pine-lint.mjs` (export it as PineParser). Bar-by-bar series semantics, var/varip,
+  if/for/switch/ternary, user functions, UDTs and arrays, inputs at their defaults.
+
+Phases (one per daily run, keep all tests green, add tests/preview.test.mjs):
+1. Parser export + runner core (series, math, inputs, ta.sma/ema/rma/rsi/atr/tr/crossover/crossunder/highest/
+   lowest/change/stdev) + plot / plotshape / hline / bgcolor / barcolor; chart panel with candles; the trend,
+   scalper and RSI templates preview correctly.
+2. Drawings: label / line / box (+ setters, delete, max counts), tables; ta.pivothigh/pivotlow; arrays + UDTs.
+   SMC, S/R, sessions and signals templates preview.
+3. request.security (higher timeframe from the candles endpoint, lookahead rules), time() sessions with time
+   zones, strategy.* (entries/exits drawn, simple stats).
+4. Every script the bot builds is previewed automatically; unsupported calls are listed honestly
+   ("preview approximate: X not drawn"). Then the same panel on the public Nexus site.

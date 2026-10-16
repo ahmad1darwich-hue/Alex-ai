@@ -1,5 +1,7 @@
 # Nexus engine
 
+> Daily runs: read `ROADMAP.md` first - the live chart preview is the current big feature.
+
 The indicator engine behind `brain-app/api/indicator.js` (used by Nexus and Brain Indicators).
 
 ## How a request is handled
