@@ -58,3 +58,8 @@ Where it went:
 - lint.js: design glyphs (▲ ▼ ● ◆ • ✕ ■) are now allowed inside strings - the design rules asked for them while the
   checker flagged them as must-fix, which wasted repair rounds.
 - bench.js: new case gold_killzones. Market report: gold's London/NY kill zones printed in Sydney time (computed, DST-aware).
+
+## 2026-10-16 (run 3) · vendor library page (public text only)
+Ideas: dashboards that prove themselves (track record of signals / how often a read held), trade overlays with risk
+and reward boxes and R targets, MTF alignment shown as check rows, stale levels cleared automatically.
+Where it went: knowledge.js DESIGN DIRECTOR rule 6b.
