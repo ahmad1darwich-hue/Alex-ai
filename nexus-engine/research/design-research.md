@@ -63,3 +63,9 @@ Where it went:
 Ideas: dashboards that prove themselves (track record of signals / how often a read held), trade overlays with risk
 and reward boxes and R targets, MTF alignment shown as check rows, stale levels cleared automatically.
 Where it went: knowledge.js DESIGN DIRECTOR rule 6b.
+
+## 2026-10-16 (run 4) · Ahmad's screenshots (vendor library + AI chart app)
+Seen: SMC chart with live zones extended to the right edge, strong contrasting supply/demand hues, thin structure
+lines with tiny CHoCH/BOS labels; an AI chat docked next to a live chart (build -> see it on the chart at once).
+Where it went: knowledge.js rule 6c. The chat-next-to-chart preview is the next big feature (needs a Pine runtime;
+the open-source one is AGPL-3.0 - licence decision with Ahmad).
