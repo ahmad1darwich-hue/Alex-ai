@@ -1,12 +1,13 @@
 // Main Brain assistant (brain-app/api/agent.js): modes, tools, thinking, fallbacks.   node nexus-engine/tests/agent.test.mjs
 import assert from "node:assert/strict";
 process.env.ANTHROPIC_API_KEY = "k"; process.env.BRAIN_KEY = "owner-key-0123456789abcdefghij"; delete process.env.BRAIN_MODEL;
+const FLAT = ((b) => (Array.isArray(b.system) ? Object.assign(b, { rawSystem: b.system, system: b.system.map((x) => x.text).join("\n") }) : b));
 const bodies = []; let failFirst = "";
 const sse = (text) => new Response(new ReadableStream({ start(c) { const e = new TextEncoder(); c.enqueue(e.encode("data: " + JSON.stringify({ type: "content_block_delta", delta: { type: "text_delta", text } }) + "\n\n")); c.close(); } }), { status: 200, headers: { "content-type": "text/event-stream" } });
 globalThis.fetch = async (url, init) => {
   const u = String(url);
   if (u.includes("api.anthropic.com")) {
-    const b = JSON.parse(init.body); bodies.push(b);
+    const b = FLAT(JSON.parse(init.body)); bodies.push(b);
     if (failFirst && bodies.length === 1) return new Response(failFirst, { status: 400 });
     return sse("ok");
   }
@@ -48,7 +49,7 @@ await t("web answers end with their sources; quote and life modes", async () => 
   const { sourcesFooter } = await import("../../brain-app/api/agent.js");
   const ev = (o) => "data: " + JSON.stringify(o) + "\n\n";
   const prev = globalThis.fetch;
-  globalThis.fetch = async (url, init) => { bodies.push(JSON.parse(init.body)); return new Response(new ReadableStream({ start(c) { const e = new TextEncoder();
+  globalThis.fetch = async (url, init) => { bodies.push(FLAT(JSON.parse(init.body))); return new Response(new ReadableStream({ start(c) { const e = new TextEncoder();
     c.enqueue(e.encode(ev({ type: "content_block_start", content_block: { type: "web_search_tool_result", content: [{ type: "web_search_result", url: "https://a.test/1", title: "A" }] } })));
     c.enqueue(e.encode(ev({ type: "content_block_delta", delta: { type: "text_delta", text: "سعر الذهب 4000" } })));
     c.enqueue(e.encode(ev({ type: "content_block_delta", delta: { type: "citations_delta", citation: { url: "https://b.test/2", title: "B news" } } })));
@@ -74,5 +75,14 @@ await t("a file sent for checking is fingerprinted and its real type compared wi
   await (await post({ messages: [{ role: "user", content: "safe?" }], scan: [{ name: "invoice.pdf.exe", size: 202, data: fake }] })).text();
   const sys = bodies.at(-1).system;
   assert.match(sys, /FILE CHECK/); assert.match(sys, /double extension/); assert.match(sys, /virustotal\.com\/gui\/file\/[0-9a-f]{64}/); assert.match(sys, /SECURITY CHECK/);
+});
+await t("Pro switch and heavy modes use the strongest model; plain chat stays fast; fixed instructions are cached", async () => {
+  bodies.length = 0; await (await post({ pro: true, messages: [{ role: "user", content: "hello" }] })).text();
+  assert.equal(bodies[0].model, "claude-opus-5-5"); assert.equal(bodies[0].output_config.effort, "high");
+  assert.equal(bodies[0].rawSystem[0].cache_control.type, "ephemeral"); assert.match(bodies[0].rawSystem[1].text, /NOW:/);
+  bodies.length = 0; await (await post({ mode: "deep", messages: [{ role: "user", content: "research" }] })).text();
+  assert.equal(bodies[0].model, "claude-opus-5-5");
+  bodies.length = 0; const r = await post({ messages: [{ role: "user", content: "hi" }] }); await r.text();
+  assert.equal(bodies[0].model, "claude-sonnet-5-5"); assert.equal(r.headers.get("x-brain-model"), "claude-sonnet-5-5");
 });
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

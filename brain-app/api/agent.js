@@ -8,6 +8,9 @@ export const config = { runtime: "edge" };
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-5-5";
 // Tried in order when the configured model is not available to the account.
+// Pro: the strongest everyday model, used when Ahmad switches Pro on and for the heavy modes (deep research,
+// workflow, plans, security). Model ids checked against the official models page (Oct 2026).
+const PRO_MODEL = process.env.BRAIN_PRO_MODEL || "claude-opus-5-5";
 const FALLBACKS = (process.env.BRAIN_FALLBACK_MODELS || "claude-sonnet-4-5").split(",").map((x) => x.trim()).filter(Boolean);
 const isAdaptive = (m) => /^claude-(?:opus|sonnet|fable|mythos|haiku)-(?:[5-9]|4-[6-9])/.test(m);
 const API = "https://api.anthropic.com/v1/messages";
@@ -151,7 +154,7 @@ export default async function handler(req) {
   const key = process.env.ANTHROPIC_API_KEY;
   const auth = brainAuth(req.headers.get("x-brain-key"));
   // The status call tells the page whether this device is activated; it reveals nothing else to other callers.
-  if (req.method === "GET") return jsonResp(auth === "ok" ? { ok: true, auth, hasKey: !!key, model: MODEL, streaming: true } : { ok: true, auth });
+  if (req.method === "GET") return jsonResp(auth === "ok" ? { ok: true, auth, hasKey: !!key, model: MODEL, proModel: PRO_MODEL, streaming: true } : { ok: true, auth });
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
   if (auth !== "ok") return jsonResp({ locked: true, reply: lockedReply(auth) }, auth === "unset" ? 503 : 401);
 
@@ -178,6 +181,12 @@ export default async function handler(req) {
   if (body.voice) sys += "\n\n" + VOICE;
   sys += "\n\nNOW: " + new Date().toLocaleString("en-AU", { timeZone: "Australia/Sydney", dateStyle: "full", timeStyle: "short" }) + " (Sydney).";
   const heavy = mode === "deep" || mode === "workflow" || mode === "plan";
+  const pro = body.pro === true || heavy || mode === "security";
+  const models = [...new Set([...(pro ? [PRO_MODEL] : []), MODEL, ...FALLBACKS])];
+  // The long, fixed instructions are cached (cheaper and faster on every turn); the per-request part follows.
+  const system = sys.length > SYSTEM.length && sys.startsWith(SYSTEM)
+    ? [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }, { type: "text", text: sys.slice(SYSTEM.length).trim() }]
+    : [{ type: "text", text: sys, cache_control: { type: "ephemeral" } }];
 
   // Tool sets, from the richest to none: a request the account cannot serve falls back to the next one.
   const TOOLSETS = [
@@ -186,9 +195,9 @@ export default async function handler(req) {
     null,
   ];
   function reqBody(model, tools, think) {
-    const b = { model, max_tokens: heavy ? 20000 : 8000, system: sys, messages, stream: true };
+    const b = { model, max_tokens: heavy ? 20000 : pro ? 12000 : 8000, system, messages, stream: true };
     if (tools) b.tools = tools;
-    if (think && isAdaptive(model)) { b.thinking = { type: "adaptive" }; b.output_config = { effort: heavy ? "high" : "medium" }; }
+    if (think && isAdaptive(model)) { b.thinking = { type: "adaptive" }; b.output_config = { effort: heavy || pro ? "high" : "medium" }; }
     return JSON.stringify(b);
   }
   function call(model, tools, think) {
@@ -199,13 +208,13 @@ export default async function handler(req) {
     });
   }
 
-  let upstream = null, t = "";
+  let upstream = null, t = "", usedModel = MODEL;
   try {
-    outer: for (const model of [MODEL, ...FALLBACKS.filter((m) => m !== MODEL)]) {
+    outer: for (const model of models) {
       for (let i = 0; i < TOOLSETS.length; i++) {
         for (const think of [true, false]) {
           upstream = await call(model, TOOLSETS[i], think);
-          if (upstream.ok) break outer;
+          if (upstream.ok) { usedModel = model; break outer; }
           t = ""; try { t = await upstream.text(); } catch (e) {}
           if (/thinking|output_config|effort/i.test(t) && think) continue; // older request shape
           break;
@@ -213,7 +222,7 @@ export default async function handler(req) {
         if (/web_fetch|web_search|tool|unsupported|not[_ ]?support|beta/i.test(t)) continue; // fewer tools
         break;
       }
-      if (/not_found|model/i.test(t) || upstream.status === 404) continue; // next model
+      if (/not_found|model|overloaded/i.test(t) || [404, 429, 529].includes(upstream.status)) continue; // next model
       break;
     }
   } catch (e) { return jsonResp({ reply: "⚠️ تعذّر الاتصال: " + String(e && e.message || e) }); }
@@ -223,7 +232,7 @@ export default async function handler(req) {
       let t2 = t;
       let hint = "";
       if (/401|authentication|invalid x-api-key/i.test(t2)) hint = " (مفتاح API غير صالح)";
-      else if (/credit|billing|quota|insufficient|402/i.test(t2)) hint = " (نفد الرصيد — اشحن حساب Anthropic)";
+      else if (/credit|billing|quota|insufficient|402/i.test(t2)) return jsonResp({ reply: "💳 رصيد Claude API خلص، فـBrain وقف.\nاشحن من هون: https://platform.claude.com/settings/billing (Buy credits)، وفعّل Auto-reload لحتى ما يوقف مرة تانية. بعد الشحن بيرجع يشتغل عطول." });
       else if (/429|rate|overloaded|529/i.test(t2)) hint = " (ضغط مؤقت — جرّب بعد دقيقة)";
       else if (/404|model|not_found/i.test(t2)) hint = " (اسم الموديل غير متاح)";
       return jsonResp({ reply: "⚠️ Brain error " + upstream.status + hint + "\n" + t2.slice(0, 200) });
@@ -279,5 +288,5 @@ export default async function handler(req) {
       }
     }
   });
-  return new Response(stream, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" } });
+  return new Response(stream, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no", "x-brain-model": usedModel } });
 }

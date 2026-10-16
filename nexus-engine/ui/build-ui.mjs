@@ -16,17 +16,17 @@ export const BRAIN_ORIGIN = "https://brain-ahmad-93cb.vercel.app";
 const FONTS = "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap";
 const ICON = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#34e39b"/><path d="M12 34c6-14 12-14 20 0s14 14 20 0" fill="none" stroke="#042016" stroke-width="6" stroke-linecap="round"/></svg>');
 
-// Card texts for the template gallery (ids must exist in ../catalog.mjs).
+// Card texts for the template gallery (ids must exist in ../catalog.mjs). `icon` is inline SVG markup (24x24, stroked).
 const CARDS = {
-  smc: { icon: "📦", name: { ar: "SMC كامل", en: "Full SMC" }, blurb: { ar: "هيكل السوق، Order Blocks، FVG وسيولة", en: "Structure, order blocks, FVG, liquidity" } },
-  trend: { icon: "📈", name: { ar: "اتجاه + تنبيه", en: "Trend + alerts" }, blurb: { ar: "صاعد / هابط / محايد مع تنبيه عند التغيّر", en: "Up / down / neutral with change alerts" } },
-  signals: { icon: "🔔", name: { ar: "إشارات Buy/Sell مع أهداف", en: "Buy/Sell signals with targets" }, blurb: { ar: "دخول، وقف وثلاث أهداف لكل إشارة", en: "Entry, stop and three targets per signal" } },
-  sr: { icon: "📐", name: { ar: "دعوم ومقاومات", en: "Support & Resistance" }, blurb: { ar: "مناطق بتتحدّث لحالها وبتنمسح لما تنكسر", en: "Zones that update and clear when broken" } },
-  scalper: { icon: "⚡", name: { ar: "سكالبينغ / زخم", en: "Scalping / momentum" }, blurb: { ar: "دخول سريع على فريمات 1 إلى 15 دقيقة", en: "Fast entries for 1 to 15 minute charts" } },
-  mtf: { icon: "🧭", name: { ar: "جدول متعدّد الفريمات", en: "Multi-timeframe table" }, blurb: { ar: "اتجاه أربع فريمات بجدول واحد", en: "Trend on four timeframes in one table" } },
-  sessions: { icon: "🕒", name: { ar: "جلسات ومستويات أمس", en: "Sessions & previous levels" }, blurb: { ar: "آسيا، لندن، نيويورك وقمة وقاع اليوم السابق", en: "Asia, London, New York and yesterday's range" } },
-  rsi_div: { icon: "〽️", name: { ar: "دايفرجنس RSI", en: "RSI divergence" }, blurb: { ar: "عادي ومخفي، مع خطوط وتنبيهات", en: "Regular and hidden, with lines and alerts" } },
-  strategy: { icon: "🧪", name: { ar: "قالب ستراتيجي (باك-تست)", en: "Strategy template (backtest)" }, blurb: { ar: "مخاطرة ثابتة، وقف ATR وهدف", en: "Fixed risk, ATR stop and target" } },
+  smc: { icon: "<path d=\"M3 18l4-4 4 3 4-6 6 5\"/><rect x=\"4\" y=\"4\" width=\"7\" height=\"4\" rx=\"1\"/><rect x=\"13\" y=\"14\" width=\"7\" height=\"4\" rx=\"1\"/>", name: { ar: "SMC كامل", en: "Full SMC" }, blurb: { ar: "هيكل السوق، Order Blocks، FVG وسيولة", en: "Structure, order blocks, FVG, liquidity" } },
+  trend: { icon: "<path d=\"M3 17l6-6 4 4 8-8\"/><path d=\"M15 7h6v6\"/>", name: { ar: "اتجاه + تنبيه", en: "Trend + alerts" }, blurb: { ar: "صاعد / هابط / محايد مع تنبيه عند التغيّر", en: "Up / down / neutral with change alerts" } },
+  signals: { icon: "<circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v3M12 19v3M2 12h3M19 12h3\"/>", name: { ar: "إشارات Buy/Sell مع أهداف", en: "Buy/Sell signals with targets" }, blurb: { ar: "دخول، وقف وثلاث أهداف لكل إشارة", en: "Entry, stop and three targets per signal" } },
+  sr: { icon: "<path d=\"M3 6h18M3 18h18\"/><path d=\"M4 15l4-6 4 5 3-3 4 3\"/>", name: { ar: "دعوم ومقاومات", en: "Support & Resistance" }, blurb: { ar: "مناطق بتتحدّث لحالها وبتنمسح لما تنكسر", en: "Zones that update and clear when broken" } },
+  scalper: { icon: "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", name: { ar: "سكالبينغ / زخم", en: "Scalping / momentum" }, blurb: { ar: "دخول سريع على فريمات 1 إلى 15 دقيقة", en: "Fast entries for 1 to 15 minute charts" } },
+  mtf: { icon: "<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 10h18M3 15h18M10 4v16\"/>", name: { ar: "جدول متعدّد الفريمات", en: "Multi-timeframe table" }, blurb: { ar: "اتجاه أربع فريمات بجدول واحد", en: "Trend on four timeframes in one table" } },
+  sessions: { icon: "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>", name: { ar: "جلسات وكِل زونز", en: "Sessions & kill zones" }, blurb: { ar: "لندن ونيويورك، سيولة الجلسات وSWEEP ومدى اليوم", en: "London and New York, session liquidity, sweeps and daily range" } },
+  rsi_div: { icon: "<path d=\"M3 16c3-7 5-7 8 0s5 7 10-5\"/><path d=\"M4 7l6 2M14 9l6-3\"/>", name: { ar: "دايفرجنس RSI", en: "RSI divergence" }, blurb: { ar: "عادي ومخفي، مع خطوط وتنبيهات", en: "Regular and hidden, with lines and alerts" } },
+  strategy: { icon: "<path d=\"M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3\"/><path d=\"M7.5 15h9\"/>", name: { ar: "قالب ستراتيجي (باك-تست)", en: "Strategy template (backtest)" }, blurb: { ar: "مخاطرة ثابتة، وقف ATR وهدف", en: "Fixed risk, ATR stop and target" } },
 };
 const templates = CATALOG.map((t) => {
   const c = CARDS[t.id];

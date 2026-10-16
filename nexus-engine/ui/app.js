@@ -560,7 +560,7 @@
 
   /* ---------- intro, drawer, context bar ---------- */
   function cardHtml(tp) {
-    return '<span class="ti" aria-hidden="true">' + esc(tp.icon) + '</span><span><b>' + esc(tp.title[L ? 'en' : 'ar']) + '</b><small>' + esc(tp.blurb[L ? 'en' : 'ar']) + '</small></span>';
+    return '<span class="ti" aria-hidden="true">' + svgIcon(tp.icon) + '</span><span><b>' + esc(tp.title[L ? 'en' : 'ar']) + '</b><small>' + esc(tp.blurb[L ? 'en' : 'ar']) + '</small></span>';
   }
   function buildIntro() {
     var grid = $('tgrid'), sug = $('sug');
@@ -577,10 +577,12 @@
       SUG.forEach(function (s) { var b = el('button', '', s[L]); b.type = 'button'; b.onclick = function () { if (busy) { toast(t('wait_busy')); return; } send(s[L], []); }; sug.appendChild(b); });
     }
   }
+  // Template icons are trusted SVG markup generated at build time (build-ui.mjs); anything else is shown as text.
+  function svgIcon(m) { return /^<(path|rect|circle)\b/.test(String(m || '')) ? '<svg viewBox="0 0 24 24">' + m + '</svg>' : esc(m); }
   function buildDrawer() {
     var box = $('dwTpl'); if (!box) return; box.innerHTML = '';
     TPL.forEach(function (tp) {
-      var b = el('button'); b.type = 'button'; b.innerHTML = '<span class="em" aria-hidden="true">' + esc(tp.icon) + '</span> <span>' + esc(tp.title[L ? 'en' : 'ar']) + '</span>';
+      var b = el('button'); b.type = 'button'; b.innerHTML = '<span class="em" aria-hidden="true">' + svgIcon(tp.icon) + '</span> <span>' + esc(tp.title[L ? 'en' : 'ar']) + '</span>';
       b.onclick = function () { closeDrawer(); useTemplate(tp.id); };
       box.appendChild(b);
     });

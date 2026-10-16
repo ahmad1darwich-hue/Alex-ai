@@ -140,6 +140,8 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 .tcard{display:flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:12px;cursor:pointer;font:inherit;color:var(--txt);text-align:start;transition:border-color .15s,transform .15s}
 .tcard:hover{border-color:var(--acc);transform:translateY(-2px)}
 .tcard .ti{width:36px;height:36px;border-radius:10px;background:rgba(52,227,155,.1);border:1px solid rgba(52,227,155,.2);display:grid;place-items:center;font-size:18px;flex:none}
+.tcard .ti svg,.dsec button .em svg{width:18px;height:18px;fill:none;stroke:var(--acc);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.dsec button .em svg{width:16px;height:16px}
 .tcard b{display:block;font-size:14px;font-weight:600;line-height:1.35}
 .tcard small{display:block;color:var(--mut);font-size:12px;line-height:1.5;margin-top:2px}
 .sug{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}

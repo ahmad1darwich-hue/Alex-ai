@@ -7,7 +7,7 @@ globalThis.fetch = async (url, init) => {
   if (u.endsWith("/audio/transcriptions")) return new Response(JSON.stringify({ text: "شو سعر الذهب هلّق" }), { status: 200 });
   if (u.includes("api.elevenlabs.io")) { calls[calls.length - 1].body = JSON.parse(init.body); if (elevenFail) return new Response('{"detail":{"status":"quota_exceeded"}}', { status: elevenFail }); return new Response(new Uint8Array([73, 68, 51]), { status: 200, headers: { "content-type": "audio/mpeg" } }); }
   if (u.endsWith("/audio/speech")) return new Response(new Uint8Array([82, 73, 70, 70]), { status: 200, headers: { "content-type": "audio/wav" } });
-  if (u.includes("api.anthropic.com")) { calls[calls.length - 1].body = JSON.parse(init.body); return new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"ok"}}\n\n')); c.close(); } }), { status: 200 }); }
+  if (u.includes("api.anthropic.com")) { const bb = JSON.parse(init.body); if (Array.isArray(bb.system)) bb.system = bb.system.map((x) => x.text).join("\n"); calls[calls.length - 1].body = bb; return new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"ok"}}\n\n')); c.close(); } }), { status: 200 }); }
   return new Response("{}", { status: 200 });
 };
 const { default: voice, speakable } = await import("../../brain-app/api/voice.js");
