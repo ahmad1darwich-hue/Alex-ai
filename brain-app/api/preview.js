@@ -18,7 +18,16 @@ function limited(ip) {
 const json = (o, s) => new Response(JSON.stringify(o), { status: s || 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 
 export default async function handler(req) {
-  if (req.method === "GET") return json({ ok: true, symbols: Object.fromEntries(Object.entries(SYMBOLS).map(([k, v]) => [k, v.label])), timeframes: Object.keys(TIMEFRAMES) });
+  if (req.method === "GET") {
+    // GET ?symbol=XAUUSD&tf=15 checks the candle sources (used by the daily self-check and for diagnosis).
+    const q = new URL(req.url).searchParams, ps = q.get("symbol");
+    if (ps && SYMBOLS[ps]) {
+      const tfq = TIMEFRAMES[q.get("tf")] ? q.get("tf") : "15";
+      try { const r = await getCandles(ps, TIMEFRAMES[tfq], 700); const c = r.candles[r.candles.length - 1]; return json({ ok: true, symbol: ps, tf: tfq, source: r.source, count: r.candles.length, last: c }); }
+      catch (e) { return json({ ok: false, symbol: ps, tf: tfq, message: String(e && e.message || e).slice(0, 300) }); }
+    }
+    return json({ ok: true, symbols: Object.fromEntries(Object.entries(SYMBOLS).map(([k, v]) => [k, v.label])), timeframes: Object.keys(TIMEFRAMES) });
+  }
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "x";
   if (limited(ip)) return json({ ok: false, message: "too many previews, wait a minute" }, 429);
