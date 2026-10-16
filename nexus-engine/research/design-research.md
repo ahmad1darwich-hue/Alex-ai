@@ -69,3 +69,25 @@ Seen: SMC chart with live zones extended to the right edge, strong contrasting s
 lines with tiny CHoCH/BOS labels; an AI chat docked next to a live chart (build -> see it on the chart at once).
 Where it went: knowledge.js rule 6c. The chat-next-to-chart preview is the next big feature (needs a Pine runtime;
 the open-source one is AGPL-3.0 - licence decision with Ahmad).
+
+## 2026-10-16 (run 5) · oscillators and divergence
+Sources: luxalgo.com library pages (RSI divergences, realtime divergence for any indicator, divergence detector),
+prorealcode "Multiple divergences - a confluence counter across ten oscillators", TradingView open-source RSI
+divergence script descriptions and release notes (feature text only).
+What traders want / complain about:
+- Divergence only on CONFIRMED pivots (right bars closed); a divergence drawn on a forming pivot vanishes = top complaint.
+  The honest cost is lag of "pivot length" bars - say it, never hide it with offset.
+- Pair the two most recent oscillator pivots with price's extreme of the same swing; bad pairing = phantom divergences.
+- Filters that cut noise: min / max bars between pivots (common 5 / 60), a minimum oscillator difference, toggles per
+  type (regular = reversal, hidden = continuation); several oscillators agreeing ("count x3") = stronger.
+- Mark it on the PRICE chart too, not only in the oscillator pane; colors per type, regular solid / hidden dashed.
+- Alerts fired more than once per divergence were a recurring bug: tie each alert to the confirmation bar.
+- Confirm before acting (structure break, reversal candle, trigger-level cross) - divergence is timing, not a signal alone.
+Where it went:
+- knowledge.js: new "DIVERGENCE AND OSCILLATOR ENGINE RULES"; design rule 8 sharpened (hline colors cannot come from
+  the theme function - the checker rejects series colors there - theme colors go in fills of hidden level plots).
+- templates/rsi_divergence.pine rebuilt on the design system: theme, gradient RSI with glow, OB/OS heat fills, auto
+  lengths per timeframe, price extreme within one bar of the RSI pivot, minimum RSI difference, marks on the price
+  chart with force_overlay, track record (hit = 1 ATR its way first) + hit rate in a dashboard.
+- Chart preview: drawings with force_overlay = true are now drawn on the price pane (they were drawn in the oscillator pane).
+- bench.js: new case stoch_hidden_div; tests/preview.test.mjs: force_overlay + track-record check.

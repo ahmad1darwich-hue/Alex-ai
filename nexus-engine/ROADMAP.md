@@ -8,7 +8,7 @@ TradingView stays the final check.
 
 Decision: OUR OWN engine (no AGPL code). Do NOT use PineTS / Vela (AGPL-3.0 or paid licence).
 
-STATUS 2026-10-16: shipped in Brain Indicators. `api/preview.js` (POST code+symbol+tf) -> `_brain/candles.js`
+STATUS 2026-10-16: shipped (run 5: force_overlay drawings now go to the price pane) in Brain Indicators. `api/preview.js` (POST code+symbol+tf) -> `_brain/candles.js`
 (Yahoo / Binance data mirror / Kraken, sample candles as last resort) -> `_nexus/preview-run.js` (our Pine runner on
 the bundled parser: series, var, ta.*, user functions + types, arrays/maps, drawings with max counts, tables,
 request.security HTF, time() sessions, strategy simulator) -> `ui/chart.js` (our own canvas chart, no library) shown

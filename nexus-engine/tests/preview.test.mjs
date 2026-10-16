@@ -146,4 +146,18 @@ await t("/api/preview: live source first, sample candles when every source fails
   } finally { globalThis.fetch = real; }
 });
 
+await t("force_overlay drawings of a pane script are flagged for the price chart (RSI divergence template)", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "rsi_divergence.pine"), "utf8");
+  const r = runPreview(code, candles, { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error);
+  assert.equal(r.overlay, false);
+  const onPrice = r.labels.filter((l) => l.fo);
+  assert.ok(onPrice.length > 0, "divergences should also be marked on the price chart");
+  assert.ok(onPrice.every((l) => /DIV/.test(l.text)));
+  assert.ok(r.labels.some((l) => !l.fo), "pane markers stay in the pane");
+  assert.ok(r.lines.some((l) => l.fo) && r.lines.some((l) => !l.fo));
+  const cells = r.tables[0].cells;
+  assert.match(cells["1:4"].text, /^\d+ \/ \d+ of \d+$/, "track record row");
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

@@ -107,7 +107,7 @@
       // background colors
       (r.bg || []).forEach(function (c, j) { if (c && j >= a && j <= b) { ctx.fillStyle = c; ctx.fillRect(self.xOf(j) - self.spacing / 2, P.top, self.spacing + 0.5, P.h); } });
       this.fills(P, a, b);
-      (r.boxes || []).forEach(function (bx) { self.boxDraw(bx, P); });
+      (r.boxes || []).forEach(function (bx) { self.boxDraw(bx, bx.fo ? A : P); });
     }
     // candles
     var bw = Math.max(1, Math.min(13, this.spacing * 0.7));
@@ -121,10 +121,10 @@
     if (r.ok) {
       (r.plots || []).forEach(function (p) { if (!p.hidden) self.plot(p, p.forceOverlay ? A : P, a, b); });
       (r.hlines || []).forEach(function (h) { if (h.hidden || !isNum(h.price)) return; ctx.strokeStyle = h.color; ctx.lineWidth = h.width || 1; dash(ctx, h.style); var y = Math.round(P.y(h.price)) + 0.5; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(self.W, y); ctx.stroke(); ctx.setLineDash([]); });
-      (r.lines || []).forEach(function (l) { self.lineDraw(l, P); });
+      (r.lines || []).forEach(function (l) { self.lineDraw(l, l.fo ? A : P); });
       (r.shapes || []).forEach(function (s) { if (s.bar >= a - 1 && s.bar <= b + 1) self.shape(s, P); });
       (r.trades || []).forEach(function (t) { if (t.bar >= a && t.bar <= b) self.trade(t); });
-      (r.labels || []).forEach(function (l) { self.label(l, P); });
+      (r.labels || []).forEach(function (l) { self.label(l, l.fo ? A : P); });
     }
     ctx.restore();
     this.axes(A, true); if (B) this.axes(B, false);
