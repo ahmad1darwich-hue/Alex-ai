@@ -24,6 +24,7 @@ export const LESSONS = [
   { id: "L013", added: "2026-10-15", source: "seed", text: "Every alertcondition() needs a constant title and message; put {{ticker}} and {{interval}} in the message. For a message with live prices use alert(str.format(...), alert.freq_once_per_bar_close) inside an if." },
   { id: "L014", added: "2026-10-15", source: "seed", text: "Deleting drawings from an array: loop backwards (for i = arr.size() - 1 to 0) and guard arr.size() > 0 first; call .delete() on the drawing before arr.remove(i). Cap arrays with a max input and shift() + delete the oldest." },
   { id: "L015", added: "2026-10-15", source: "seed", text: "Strategy exits: strategy.exit(\"TP/SL\", from_entry = \"Long\", stop = sl, limit = tp) with prices, or loss/profit in ticks; compute sl/tp once at entry and keep them in var floats so they do not move every bar." },
+  { id: "L016", added: "2026-10-16", source: "owner", text: "Images labelled VIDEO are frames of one recording, in order. Read them together: which zones, lines, labels and signals appear, when, and how they change (touched, broken, recolored); build an indicator that reproduces that automatically." },
 ];
 
 // The block appended to the user turn. Empty when there are no lessons.

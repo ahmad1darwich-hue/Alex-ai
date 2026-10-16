@@ -473,7 +473,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 </div>
 <div class="hint" data-i18n="hint">Nexus · Pine Script v6 · أداة تعليمية، مش نصيحة مالية</div>
 </div>
-<input type="file" id="file" accept="image/*,.pine,.txt,.pdf" hidden tabindex="-1" aria-hidden="true">
+<input type="file" id="file" accept="image/*,video/*,.pine,.txt,.pdf" hidden tabindex="-1" aria-hidden="true">
 
 <div class="modal" id="howModal" role="dialog" aria-modal="true" aria-labelledby="howTitle">
 <div class="mcard">
@@ -567,7 +567,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     chk_crash: ['الفاحص التلقائي ما قدر يحلّل هالكود، فهو مش مفحوص. الصقه بـ TradingView لتعرف إذا بيشتغل.', 'The automatic checker could not analyse this code, so it is not checked. Paste it into TradingView to see whether it compiles.'],
     unfinished: ['هالطلب ما خلص (الصفحة تسكّرت أو تحدّثت قبل ما يوصل الرد).', 'This request did not finish (the page was closed or reloaded before the reply arrived).'],
     t_menu: ['القائمة', 'Menu'], t_home: ['الرئيسية', 'Home'], t_new: ['محادثة جديدة', 'New chat'], t_lang: ['Switch to English', 'التحويل للعربية'],
-    t_att: ['ارفع صورة أو ملف', 'Upload an image or file'], t_mic: ['تكلّم', 'Speak'], t_send: ['إرسال', 'Send'], t_stop: ['إيقاف', 'Stop'],
+    t_att: ['ارفع صورة، فيديو أو ملف', 'Upload an image, video or file'], t_mic: ['تكلّم', 'Speak'], t_send: ['إرسال', 'Send'], t_stop: ['إيقاف', 'Stop'],
     t_close: ['إغلاق', 'Close'], t_remove: ['شيل المرفق', 'Remove attachment'],
     a_in: ['طلبك', 'Your request'],
     ph_in: ['وصّف المؤشر اللي بدك ياه…', 'Describe the indicator you want…'],
@@ -662,7 +662,11 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     big_pdf: ['ملف الـ PDF كبير (أقصى شي 1MB).', 'The PDF is too large (max 1MB).'],
     one_pdf: ['ملف PDF واحد بكل طلب.', 'One PDF per request.'],
     att_max: ['أقصى شي 3 مرفقات بالطلب.', 'At most 3 attachments per request.'],
-    badtype: ['نوع الملف مش مدعوم. ارفع صورة، PDF، أو ملف نص / Pine.', 'Unsupported file type. Upload an image, a PDF, or a text / Pine file.'],
+    badtype: ['نوع الملف مش مدعوم. ارفع صورة، فيديو قصير، PDF، أو ملف نص / Pine.', 'Unsupported file type. Upload an image, a short video, a PDF, or a text / Pine file.'],
+    vid_long: ['الفيديو أطول من 10 ثواني، أخدت أول 10 ثواني منه.', 'The video is longer than 10 seconds; the first 10 seconds were used.'],
+    vid_fail: ['ما قدرت اقرا الفيديو. جرّب مقطع MP4 أو MOV أقصر.', 'Could not read the video. Try a shorter MP4 or MOV clip.'],
+    vid_big: ['الفيديو كبير كتير (الحد 200MB).', 'The video is too large (limit 200 MB).'],
+    vid_tag: ['🎬 فيديو', '🎬 Video'],
     noimg: ['ما قدرت اقرأ الصورة.', 'Could not read the image.'],
     mic_denied: ['المتصفح مانع المايك. اسمحله من إعدادات الموقع.', 'The browser blocked the microphone. Allow it in the site settings.'],
     attach: ['مرفق', 'attachment'],
@@ -1257,12 +1261,14 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 
   /* ---------- attachments ---------- */
   var afterPick = null, pdfLoading = 0;
-  function pickFile(accept, then) { afterPick = then || null; fileInput.accept = accept || 'image/*,.pine,.txt,.pdf'; fileInput.value = ''; fileInput.click(); }
+  function pickFile(accept, then) { afterPick = then || null; fileInput.accept = accept || 'image/*,video/*,.pine,.txt,.pdf'; fileInput.value = ''; fileInput.click(); }
   function handleFile(f) {
     if (!f) return false;
     var name = String(f.name || ''), isImg = /^image\//.test(f.type), isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(name);
-    var isText = !isImg && !isPdf && (/^text\//.test(f.type) || /\.(pine|txt|md|csv|json)$/i.test(name));
-    if (!isImg && !isPdf && !isText) { toast(t('badtype'), 3500); return false; }
+    var isVid = !isImg && (/^video\//.test(f.type) || /\.(mp4|mov|m4v|webm|3gp)$/i.test(name));
+    var isText = !isImg && !isPdf && !isVid && (/^text\//.test(f.type) || /\.(pine|txt|md|csv|json)$/i.test(name));
+    if (!isImg && !isPdf && !isText && !isVid) { toast(t('badtype'), 3500); return false; }
+    if (isVid && f.size > 200 * 1024 * 1024) { toast(t('vid_big'), 3500); return false; }
     if (pending.length + loading >= 3) { toast(t('att_max'), 3000); return false; }
     if (isPdf && (pdfLoading || pending.some(function (p) { return p.kind === 'document'; }))) { toast(t('one_pdf'), 3000); return false; }
     // Limits match the server: a PDF travels as base64 inside the request, text files are clipped to the first 60,000 characters.
@@ -1273,7 +1279,8 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     var settled = false, g = gen;
     function done(item) { if (settled) return; settled = true; loading = Math.max(0, loading - 1); if (isPdf) pdfLoading = Math.max(0, pdfLoading - 1); if (item && g === gen) pending.push(item); renderChips(); }
     function fail() { toast(t('noimg'), 3000); done(null); }
-    if (isImg) resizeImage(f, 1280, function (b64) { done({ kind: 'image', media_type: 'image/jpeg', data: b64, name: name, preview: 'data:image/jpeg;base64,' + b64 }); }, fail);
+    if (isVid) videoFrames(f, function (item) { item.name = name; done(item); }, function () { toast(t('vid_fail'), 4000); done(null); });
+    else if (isImg) resizeImage(f, 1280, function (b64) { done({ kind: 'image', media_type: 'image/jpeg', data: b64, name: name, preview: 'data:image/jpeg;base64,' + b64 }); }, fail);
     else {
       var r = new FileReader();
       r.onerror = fail;
@@ -1281,6 +1288,31 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
       else { r.onload = function () { done({ kind: 'text', name: name.replace(/["\n\r]/g, '_').slice(0, 80), text: String(r.result).slice(0, 60000) }); }; r.readAsText(f); }
     }
     return true;
+  }
+  // A short video (the first 10 seconds) becomes 8 evenly spaced frames: the model reads them in order as one recording.
+  function videoFrames(f, cb, fail) {
+    var v = document.createElement('video'), url = URL.createObjectURL(f), frames = [], times = [], k = 0, over = false, timer;
+    v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.crossOrigin = 'anonymous';
+    function end(ok) { clearTimeout(timer); try { URL.revokeObjectURL(url); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} if (ok) { if (over) toast(t('vid_long'), 3500); cb({ kind: 'video', frames: frames, times: times, dur: Math.min(10, isFinite(v.duration) ? v.duration : 10), preview: 'data:image/jpeg;base64,' + frames[0] }); } else fail(); }
+    timer = setTimeout(function () { if (frames.length >= 2) end(true); else end(false); }, 25000);
+    function grab() {
+      try {
+        var s = Math.min(1, 960 / Math.max(v.videoWidth || 1, v.videoHeight || 1)), c = el('canvas');
+        c.width = Math.max(1, Math.round((v.videoWidth || 640) * s)); c.height = Math.max(1, Math.round((v.videoHeight || 360) * s));
+        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+        var b = c.toDataURL('image/jpeg', 0.72).split(',')[1] || '';
+        if (b && b.length < 900000) { frames.push(b); times.push(Math.round(v.currentTime * 10) / 10); }
+      } catch (e) {}
+    }
+    var plan = [];
+    v.onloadedmetadata = function () {
+      var d = isFinite(v.duration) && v.duration > 0 ? v.duration : 10; over = d > 10.5; d = Math.min(10, d);
+      for (var i = 0; i < 8; i++) plan.push(Math.min(d - 0.05, Math.max(0.05, d * (i + 0.5) / 8)));
+    };
+    v.onloadeddata = function () { if (!plan.length) return end(false); v.currentTime = plan[0]; };
+    v.onseeked = function () { grab(); k++; if (k < plan.length) v.currentTime = plan[k]; else end(frames.length > 0); };
+    v.onerror = function () { end(false); };
+    v.src = url;
   }
   function resizeImage(f, maxDim, cb, fail) {
     var img = new Image(), url = URL.createObjectURL(f);
@@ -1302,7 +1334,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     chipsEl.innerHTML = '';
     pending.forEach(function (p, i) {
       var c = el('div', 'chip');
-      if (p.kind === 'image') { var im = el('img'); im.alt = ''; im.src = p.preview; c.appendChild(im); } else { var ic = el('span', '', p.kind === 'document' ? '📄' : '📝'); ic.setAttribute('aria-hidden', 'true'); c.appendChild(ic); }
+      if (p.kind === 'image' || p.kind === 'video') { var im = el('img'); im.alt = ''; im.src = p.preview; c.appendChild(im); if (p.kind === 'video') c.appendChild(el('span', 'nm', t('vid_tag') + ' ' + Math.round(p.dur || 10) + 's')); } else { var ic = el('span', '', p.kind === 'document' ? '📄' : '📝'); ic.setAttribute('aria-hidden', 'true'); c.appendChild(ic); }
       c.appendChild(el('span', 'nm', p.name || t('attach')));
       var x = el('button', 'x', '✕'); x.type = 'button'; x.setAttribute('data-i18n-aria', 't_remove'); x.setAttribute('aria-label', t('t_remove'));
       x.onclick = function () { pending.splice(i, 1); renderChips(); input.focus(); };
@@ -1601,17 +1633,23 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
   // Sends a build request: `text` plus attachments. The script being edited is fixed at this moment, also for retries.
   function send(text, atts) {
     atts = atts || [];
-    var previews = atts.filter(function (a) { return a.kind === 'image'; }).map(function (a) { return a.preview; });
+    var previews = atts.filter(function (a) { return a.kind === 'image' || a.kind === 'video'; }).map(function (a) { return a.preview; });
     var fileText = '';
     atts.forEach(function (a) { if (a.kind === 'text') fileText += '\nFile "' + a.name + '":\n' + a.text + '\n'; });
     var bin = atts.filter(function (a) { return a.kind !== 'text'; });
     var plain = (text || t('fromAtt')) + (fileText ? '\n' + fileText : ''), content = plain;
     if (bin.length) {
-      content = bin.map(function (a) { return { type: a.kind === 'image' ? 'image' : 'document', source: { type: 'base64', media_type: a.media_type, data: a.data } }; });
+      content = [];
+      bin.forEach(function (a) {
+        if (a.kind === 'video') {
+          content.push({ type: 'text', text: 'VIDEO: the next ' + a.frames.length + ' images are frames of one ' + Math.round(a.dur) + '-second screen recording, in order (at ' + a.times.join(', ') + ' s). Read them together: what is on the chart and how it changes over time.' });
+          a.frames.forEach(function (fr) { content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: fr } }); });
+        } else content.push({ type: a.kind === 'image' ? 'image' : 'document', source: { type: 'base64', media_type: a.media_type, data: a.data } });
+      });
       content.push({ type: 'text', text: plain });
     }
     addUser(text || '(' + t('attach') + ')', previews);
-    S.msgs.push({ r: 'u', text: (text || t('fromAtt')).slice(0, 20000), api: fileText ? plain.slice(0, 4000) : undefined, imgs: bin.length || undefined });
+    S.msgs.push({ r: 'u', text: (text || t('fromAtt')).slice(0, 20000), api: fileText ? plain.slice(0, 4000) : undefined, imgs: bin.length || undefined, vid: bin.some(function (a) { return a.kind === 'video'; }) || undefined });
     save();
     var cur = S.cur && S.cur.code ? { code: S.cur.code, file: S.cur.file, libId: S.cur.libId } : null;
     var go = function () {
@@ -1703,8 +1741,8 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     if (name === 'chats') return openChats();
     if (name === 'prefs') return openPrefs();
     // The prepared request is added once a file was really chosen (a cancelled picker changes nothing).
-    if (name === 'image') return pickFile('image/*', function () { setDraft(t('p_img'), true, true); });
-    if (name === 'file') return pickFile('.pine,.txt,.pdf,image/*', function () { setDraft(t('p_file'), true, true); });
+    if (name === 'image') return pickFile('image/*,video/*', function () { setDraft(t('p_img'), true, true); });
+    if (name === 'file') return pickFile('.pine,.txt,.pdf,image/*,video/*', function () { setDraft(t('p_file'), true, true); });
     if (name === 'explain' && cur) { if (busy) toast(t('wait_busy')); else send(t('p_explain_cur'), []); return; }
     if (name === 'idea') setDraft(t('p_idea'), false);
     else if (name === 'strategy') setDraft(cur ? t('p_strat_cur') : t('p_strat'), !!cur);
