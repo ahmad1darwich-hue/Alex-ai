@@ -91,3 +91,25 @@ Where it went:
   chart with force_overlay, track record (hit = 1 ATR its way first) + hit rate in a dashboard.
 - Chart preview: drawings with force_overlay = true are now drawn on the price pane (they were drawn in the oscillator pane).
 - bench.js: new case stoch_hidden_div; tests/preview.test.mjs: force_overlay + track-record check.
+
+## 2026-10-17 · trend tools, ribbons and chop filters
+Sources: luxalgo.com library "Trend Ribbon" and "Moving Average Ribbon" pages, TradingView script descriptions
+"Trend Stability Ribbon" (efficiency + ATR-normalised slope, four states stable/noisy up/down) and "SuperTrend Engine"
+(efficiency-adaptive factor, whipsaw shield, graded flips, settled markers, R trade plan), strategyquant
+"Efficiency SuperTrend" (trail freezes below ER 0.30), prorealcode forum thread "Filters - what works for you?".
+What traders want / complain about:
+- Direction alone is not enough: they want to know HOW WELL price trends. Chop = the #1 complaint about SuperTrend /
+  trail tools (rapid flips). ADX > 30 filters were dropped by forum users for entering "super late"; efficiency
+  ratio (net move / path) and rising-volatility gates are reported as more useful.
+- Freeze, don't flip: in a low-efficiency stretch the trail holds its level (consolidation is visible) instead of
+  ratcheting into price; a flip needs a close beyond the trail plus a volatility margin. Honest cost: later flips.
+- Ribbons are read as one band: stack order = trend, spread = momentum, tangled knot = range/transition
+  (setup for breakout traders, not a signal). Close through the whole ribbon = strong warning.
+- Proof: graded signals (A/B), counts of blocked whipsaws, hit-rate per symbol, R plan (stop, 1R, 2R) drawn
+  for the open signal only.
+Where it went:
+- knowledge.js: new "TREND ENGINE RULES" (efficiency regime, whipsaw shield, ribbon reading, grading, track record).
+- templates/trend.pine rebuilt as "Nexus Trend - Adaptive Ribbon & Trail" on the design system: theme, auto
+  lengths per timeframe, 4-EMA ribbon with spread-strength fill, ER-frozen ATR trail with glow and shield, graded
+  alternating BUY/SELL labels, one live trade plan with risk/reward boxes, regime + track-record dashboard, alerts.
+- bench.js: new case trend_chop_filter (Arabic, gold 15m). tests/preview.test.mjs: trend template checks.

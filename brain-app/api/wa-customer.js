@@ -9,14 +9,16 @@
 //   WA_BIZ_PHONE_ID     - the business number's Phone number ID (Meta)
 //   WA_BIZ_VERIFY_TOKEN - any secret string; enter the SAME value in Meta's webhook config
 // Optional:
-//   BRAIN_MODEL         - overrides the model (default claude-sonnet-4-5)
+//   BRAIN_MODEL         - overrides the model (default claude-sonnet-5-5; falls back to BRAIN_FALLBACK_MODELS,
+//                         default claude-sonnet-4-5, when the model is unavailable or overloaded)
 //   WA_BIZ_APP_SECRET   - the Meta app secret of the business app (falls back to WA_APP_SECRET; required): calls
 //                         that are not signed by Meta are ignored.
 // Without WA_BIZ_TOKEN, WA_BIZ_PHONE_ID and the app secret the bot is off: nothing is sent to the model.
 import { metaSignatureOk } from "./_brain/lock.js";
+import { askModel, modelList } from "./_brain/model.js";
 export const config = { runtime: "edge" };
 
-const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-4-5";
+const MODELS = modelList(process.env.BRAIN_MODEL || "claude-sonnet-5-5", process.env.BRAIN_FALLBACK_MODELS || "claude-sonnet-4-5");
 const API = "https://api.anthropic.com/v1/messages";
 const GRAPH = "https://graph.facebook.com/v21.0";
 
@@ -63,15 +65,9 @@ function verify(req) {
 }
 
 async function askBot(key, userText) {
-  const r = await fetch(API, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 900, system: SYSTEM, messages: [{ role: "user", content: userText }] })
-  });
+  const r = await askModel({ key, models: MODELS, system: SYSTEM, user: userText, maxTokens: 900 });
   if (!r.ok) return "Thanks for messaging USWS! For a quick response please call us on 0434 449 997.";
-  const j = await r.json();
-  const txt = (j && j.content || []).filter(b => b && b.type === "text").map(b => b.text).join("\n").trim();
-  return txt || "Thanks for messaging USWS! How can we help with your landscaping project?";
+  return r.text || "Thanks for messaging USWS! How can we help with your landscaping project?";
 }
 
 async function sendWA(to, body) {

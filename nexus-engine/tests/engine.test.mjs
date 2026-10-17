@@ -54,9 +54,9 @@ await t("pipeline: template delivered unchanged is verified with zero repair rou
   assert.ok(ev.some((e) => e.t === "stage" && e.id === "template"));
 });
 await t("pipeline: template with an edit", async () => {
-  const cm = mock(['<nexus><base>TEMPLATE:trend</base><edits>\n<<<<<<< FIND\nint    emaLenInput    = input.int(50, "Baseline EMA length", minval = 2, group = GRP_T, tooltip = "Price must be on the trend side of this EMA.")\n=======\nint    emaLenInput    = input.int(100, "Baseline EMA length", minval = 2, group = GRP_T, tooltip = "Price must be on the trend side of this EMA.")\n>>>>>>> END\n</edits><explain>ok</explain></nexus>']);
+  const cm = mock(['<nexus><base>TEMPLATE:trend</base><edits>\n<<<<<<< FIND\nint    atrLenInput    = input.int(10, "ATR length", minval = 1, group = GRP_T)\n=======\nint    atrLenInput    = input.int(14, "ATR length", minval = 1, group = GRP_T)\n>>>>>>> END\n</edits><explain>ok</explain></nexus>']);
   const r = await runPipeline({ mode: "build", lang: "en", history: [], userContent: "trend with ema 100", callModel: cm });
-  assert.match(r.code, /input\.int\(100, "Baseline EMA length"/); assert.equal(r.report.verified, true); assert.equal(r.report.unappliedEdits, 0);
+  assert.match(r.code, /input\.int\(14, "ATR length"/); assert.equal(r.report.verified, true); assert.equal(r.report.unappliedEdits, 0);
 });
 await t("pipeline: broken NEW script is repaired by edits", async () => {
   const cm = mock([`<nexus><base>NEW</base><title>T</title><file>t.pine</file><code>\n${BAD}</code><explain>e</explain></nexus>`, "<nexus><base>CURRENT</base><edits>\n<<<<<<< FIND\nema = ta.ema(close, lenInput\n=======\nema = ta.ema(close, lenInput)\n>>>>>>> END\n</edits><explain></explain></nexus>"]);

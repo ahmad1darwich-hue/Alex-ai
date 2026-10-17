@@ -26,6 +26,7 @@ export const BENCH = [
   { id: "pdh_pdl_sweep", lang: "ar", text: "مؤشر سيولة: ارسم أعلى وأدنى اليوم السابق، وحط إشارة لما السعر يكسر أحدهم بذيل ويسكّر راجع جوّا (sweep) مع تنبيه", expect: ["request\\.security\\(", "line\\.new\\(|plot\\(", "plotshape\\(|label\\.new\\(", "alertcondition\\(|alert\\("], overlay: true },
   { id: "gold_killzones", lang: "ar", text: "مؤشر كِل زونز للذهب: لندن ونيويورك كمربّعات، قمة وقاع آسيا يضلّوا خطوط سيولة لحتى ينضربوا، وحط SWEEP لما السعر يضربهم بذيل ويسكّر راجع، مع جدول فيه مدى اليوم مقارنة بالـ ADR وتنبيهات", expect: ["time\\(", "America/New_York|tzInput|timezone", "box\\.new\\(", "line\\.new\\(", "table\\.new\\(", "alertcondition\\(|alert\\("], overlay: true },
   { id: "stoch_hidden_div", lang: "ar", text: "ستوكاستيك RSI بنافذة لحالو، يكشف الدايفرجنس المخفي (استمرار الترند) والعادي، يرسم الخطوط على المؤشر وعلى شارت السعر كمان، مع فلتر أقل فرق بين القمتين وتنبيهات", expect: ["ta\\.stoch\\(", "ta\\.pivothigh\\(|ta\\.pivotlow\\(", "force_overlay\\s*=\\s*true", "line\\.new\\(", "alertcondition\\(", "overlay\\s*=\\s*false"], overlay: false },
+  { id: "trend_chop_filter", lang: "ar", text: "مؤشر ترند للذهب على الربع ساعة: ريبون EMA وخط تريلنغ ATR، بس ما يقلب الاتجاه بالتذبذب (فلتر efficiency أو ADX)، إشارة BUY/SELL مرّة وحدة لكل اتجاه، وجدول فيه حالة السوق (ترند نظيف أو تذبذب) ونسبة نجاح الإشارات، مع تنبيهات", expect: ["ta\\.ema\\(", "ta\\.atr\\(", "math\\.sum\\(|ta\\.adx|ta\\.dmi\\(|efficien", "table\\.new\\(", "label\\.new\\(|plotshape\\(", "alertcondition\\(|alert\\("], overlay: true },
 ];
 
 export const PER_RUN = 3;

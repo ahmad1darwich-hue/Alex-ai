@@ -10,13 +10,15 @@
 // Optional:
 //   WA_ALLOWED          - comma-separated phone numbers allowed to use the bot (digits only, with country code),
 //                         e.g. "61434449997". If set, messages from other numbers are ignored.
-//   BRAIN_MODEL         - overrides the model (default claude-sonnet-4-5)
+//   BRAIN_MODEL         - overrides the model (default claude-sonnet-5-5; falls back to BRAIN_FALLBACK_MODELS,
+//                         default claude-sonnet-4-5, when the model is unavailable or overloaded)
 //   WA_APP_SECRET       - the Meta app secret (required): calls that are not signed by Meta are ignored.
 // Without WA_TOKEN, WA_PHONE_ID and WA_APP_SECRET the bot is off: nothing is sent to the model.
 import { metaSignatureOk } from "./_brain/lock.js";
+import { askModel, modelList } from "./_brain/model.js";
 export const config = { runtime: "edge" };
 
-const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-4-5";
+const MODELS = modelList(process.env.BRAIN_MODEL || "claude-sonnet-5-5", process.env.BRAIN_FALLBACK_MODELS || "claude-sonnet-4-5");
 const API = "https://api.anthropic.com/v1/messages";
 const GRAPH = "https://graph.facebook.com/v21.0";
 
@@ -54,21 +56,15 @@ function verify(req) {
 }
 
 async function askBrain(key, userText) {
-  const r = await fetch(API, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1500, system: SYSTEM, messages: [{ role: "user", content: userText }] })
-  });
+  const r = await askModel({ key, models: MODELS, system: SYSTEM, user: userText, maxTokens: 1500 });
   if (!r.ok) {
-    let t = ""; try { t = await r.text(); } catch (e) {}
-    if (/401|invalid x-api-key|authentication/i.test(t)) return "⚠️ Brain: API key issue.";
-    if (/credit|billing|quota|insufficient|402/i.test(t)) return "⚠️ Brain: الرصيد خلص — اشحن حساب Anthropic.";
-    if (/429|rate|overloaded|529/i.test(t)) return "⚠️ ضغط مؤقت، جرّب بعد شوي.";
+    const t = r.error || "";
+    if (r.status === 401 || /invalid x-api-key|authentication/i.test(t)) return "⚠️ Brain: API key issue.";
+    if (r.status === 402 || /credit|billing|quota|insufficient/i.test(t)) return "⚠️ Brain: الرصيد خلص — اشحن حساب Anthropic.";
+    if (r.status === 429 || r.status === 529 || /rate|overloaded/i.test(t)) return "⚠️ ضغط مؤقت، جرّب بعد شوي.";
     return "⚠️ Brain error " + r.status;
   }
-  const j = await r.json();
-  const txt = (j && j.content || []).filter(b => b && b.type === "text").map(b => b.text).join("\n").trim();
-  return txt || "…";
+  return r.text || "…";
 }
 
 async function sendWA(to, body) {

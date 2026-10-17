@@ -85,4 +85,22 @@ await t("Pro switch and heavy modes use the strongest model; plain chat stays fa
   bodies.length = 0; const r = await post({ messages: [{ role: "user", content: "hi" }] }); await r.text();
   assert.equal(bodies[0].model, "claude-sonnet-5-5"); assert.equal(r.headers.get("x-brain-model"), "claude-sonnet-5-5");
 });
+await t("WhatsApp model helper: falls back on a retired or overloaded model, stops on other errors", async () => {
+  const { askModel, modelList } = await import("../../brain-app/api/_brain/model.js");
+  assert.deepEqual(modelList("claude-sonnet-5-5", "claude-sonnet-4-5, claude-sonnet-5-5,"), ["claude-sonnet-5-5", "claude-sonnet-4-5"]);
+  const saved = globalThis.fetch; const seen = [];
+  try {
+    globalThis.fetch = async (u, init) => { const m = JSON.parse(init.body).model; seen.push(m);
+      if (m === "a") return new Response(JSON.stringify({ type: "error", error: { type: "not_found_error", message: "model: a" } }), { status: 404 });
+      if (m === "b") return new Response("{\"error\":{\"type\":\"overloaded_error\"}}", { status: 529 });
+      return new Response(JSON.stringify({ content: [{ type: "text", text: "hi" }] }), { status: 200 }); };
+    const r = await askModel({ key: "k", models: ["a", "b", "c"], system: "s", user: "u" });
+    assert.equal(r.ok, true); assert.equal(r.text, "hi"); assert.equal(r.model, "c"); assert.deepEqual(seen, ["a", "b", "c"]);
+    seen.length = 0;
+    globalThis.fetch = async (u, init) => { seen.push(JSON.parse(init.body).model); return new Response("{\"error\":{\"type\":\"authentication_error\"}}", { status: 401 }); };
+    const bad = await askModel({ key: "k", models: ["a", "b"], system: "s", user: "u" });
+    assert.equal(bad.ok, false); assert.equal(bad.status, 401); assert.deepEqual(seen, ["a"], "auth errors are not retried on other models");
+  } finally { globalThis.fetch = saved; }
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

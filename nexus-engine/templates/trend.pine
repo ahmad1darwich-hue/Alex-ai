@@ -1,64 +1,232 @@
 //@version=6
-indicator("Nexus Trend - EMA & ATR Trail", shorttitle = "NX Trend", overlay = true, max_labels_count = 500)
+indicator("Nexus Trend - Adaptive Ribbon & Trail", shorttitle = "NX Trend", overlay = true, max_labels_count = 300, max_lines_count = 300, max_boxes_count = 100)
 
 // ---------- Inputs ----------
 string GRP_T = "Trend engine"
-int    emaLenInput    = input.int(50, "Baseline EMA length", minval = 2, group = GRP_T, tooltip = "Price must be on the trend side of this EMA.")
+bool   autoInput      = input.bool(true, "Auto settings", group = GRP_T, tooltip = "Picks the ribbon lengths and trail multiplier from the chart timeframe: 5m and below EMA 9-21 / trail x2.0, intraday EMA 21-50 / x2.5, 4h and above EMA 50-200 / x3.0. Turn off to use the manual values below.")
+int    fastLenInput   = input.int(21, "Ribbon fast EMA (manual)", minval = 2, group = GRP_T)
+int    slowLenInput   = input.int(50, "Ribbon slow EMA (manual)", minval = 3, group = GRP_T)
+float  atrMultInput   = input.float(2.5, "Trail ATR multiplier (manual)", minval = 0.5, step = 0.1, group = GRP_T, tooltip = "Higher = fewer, slower trend changes.")
 int    atrLenInput    = input.int(10, "ATR length", minval = 1, group = GRP_T)
-float  atrMultInput   = input.float(3.0, "ATR trail multiplier", minval = 0.5, step = 0.1, group = GRP_T, tooltip = "Higher = fewer, slower trend changes.")
+float  shieldInput    = input.float(0.25, "Whipsaw shield (ATR)", minval = 0, step = 0.05, group = GRP_T, tooltip = "A trend flip needs a close beyond the trail by this many ATR. Closes that only poke through are counted as blocked whipsaws.")
+int    erLenInput     = input.int(14, "Efficiency length", minval = 2, group = GRP_T, tooltip = "Efficiency = net move / total path over this many bars (1 = clean trend, 0 = chop).")
+float  erMinInput     = input.float(0.30, "Noisy below", minval = 0, maxval = 1, step = 0.05, group = GRP_T, tooltip = "Below this efficiency the market is called Noisy: the trail stops tightening and signals get grade B.")
 bool   useHtfInput    = input.bool(false, "Require higher-timeframe agreement", group = GRP_T, inline = "htf")
 string htfInput       = input.timeframe("240", "", group = GRP_T, inline = "htf", tooltip = "Uses the last CLOSED higher-timeframe bar, so it does not repaint.")
 
-string GRP_V = "Visuals"
-color  upColorInput   = input.color(#089981, "Up", group = GRP_V, inline = "c")
-color  dnColorInput   = input.color(#F23645, "Down", group = GRP_V, inline = "c")
-color  flatColorInput = input.color(#787B86, "Neutral", group = GRP_V, inline = "c")
-bool   showTrailInput = input.bool(true, "Show ATR trail", group = GRP_V)
-bool   showCloudInput = input.bool(true, "Shade between price and trail", group = GRP_V)
-bool   colorBarsInput = input.bool(false, "Color bars by trend", group = GRP_V)
-bool   showMarksInput = input.bool(true, "Mark trend changes", group = GRP_V)
+string GRP_L = "Layers"
+bool   showRibbonInput = input.bool(true, "Ribbon", group = GRP_L, inline = "l1")
+bool   showTrailInput  = input.bool(true, "ATR trail", group = GRP_L, inline = "l1")
+bool   showCloudInput  = input.bool(true, "Trend cloud", group = GRP_L, inline = "l2")
+bool   colorBarsInput  = input.bool(true, "Color candles", group = GRP_L, inline = "l2")
+bool   showSigInput    = input.bool(true, "BUY / SELL signals", group = GRP_L, inline = "l3")
+bool   onlyAInput      = input.bool(false, "Grade A only", group = GRP_L, inline = "l3", tooltip = "Grade A = clean trend (efficiency above the noise level) and the ribbon stacked the same way.")
+bool   showPlanInput   = input.bool(true, "Trade plan for the last signal (stop, 1R, 2R)", group = GRP_L)
 
-// ---------- Calculations ----------
-float ema = ta.ema(close, emaLenInput)
-[trail, stDir] = ta.supertrend(atrMultInput, atrLenInput)
-// ta.supertrend(): direction < 0 while price is above the trail (uptrend).
-bool trailUp = stDir < 0
-bool trailDn = stDir > 0
+string GRP_R = "Track record"
+bool   showDashInput  = input.bool(true, "Show dashboard", group = GRP_R)
+string dashPosInput   = input.string("Top right", "Position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = GRP_R)
+float  targetRInput   = input.float(1.0, "Hit = reaches this many R", minval = 0.5, step = 0.25, group = GRP_R, tooltip = "A signal counts as a hit when price reaches entry + this many times the risk (entry to trail) before the stop.")
+int    expiryInput    = input.int(40, "Give up after (bars)", minval = 5, group = GRP_R)
+
+string GRP_ST = "Style"
+string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_ST)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color accentC  = pick(#7C4DFF, #2962FF, #B2B5BE, #E0E3EB)
+color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
+
+// ---------- Auto settings ----------
+int   tfSec   = timeframe.in_seconds()
+int   fastLen = autoInput ? (tfSec <= 300 ? 9 : tfSec < 14400 ? 21 : 50) : fastLenInput
+int   slowLen = autoInput ? (tfSec <= 300 ? 21 : tfSec < 14400 ? 50 : 200) : math.max(slowLenInput, fastLenInput + 3)
+float mult    = autoInput ? (tfSec <= 300 ? 2.0 : tfSec < 14400 ? 2.5 : 3.0) : atrMultInput
+int   midLen1 = int(fastLen + (slowLen - fastLen) / 3)
+int   midLen2 = int(fastLen + 2 * (slowLen - fastLen) / 3)
+
+// ---------- Ribbon ----------
+float e1 = ta.ema(close, fastLen)
+float e2 = ta.ema(close, midLen1)
+float e3 = ta.ema(close, midLen2)
+float e4 = ta.ema(close, slowLen)
+float atr = ta.atr(atrLenInput)
+bool  stackUp = e1 > e2 and e2 > e3 and e3 > e4
+bool  stackDn = e1 < e2 and e2 < e3 and e3 < e4
+float spreadAtr = atr > 0 ? (math.max(e1, e2, e3, e4) - math.min(e1, e2, e3, e4)) / atr : 0.0
+
+// ---------- Efficiency (clean trend vs chop) ----------
+float pathLen = math.sum(math.abs(close - close[1]), erLenInput)
+float er      = pathLen > 0 ? math.abs(close - close[erLenInput]) / pathLen : 0.0
+bool  noisy   = er < erMinInput
+
+// ---------- Adaptive trail with whipsaw shield ----------
+// The trail only tightens while the market trends cleanly; in noisy stretches it holds its level.
+// A flip needs a close beyond the trail by the shield margin, so pokes through it do not flip the trend.
+var int   dir     = 1
+var float trail   = na
+var int   blocked = 0
+float upBand = hl2 - mult * atr
+float dnBand = hl2 + mult * atr
+float margin = shieldInput * atr
+bool  flipUp = false
+bool  flipDn = false
+if na(trail)
+    trail := upBand
+else if dir == 1
+    if close < trail - margin
+        dir    := -1
+        trail  := dnBand
+        flipDn := true
+    else
+        if close < trail and barstate.isconfirmed
+            blocked += 1
+        if not noisy
+            trail := math.max(trail, upBand)
+else
+    if close > trail + margin
+        dir    := 1
+        trail  := upBand
+        flipUp := true
+    else
+        if close > trail and barstate.isconfirmed
+            blocked += 1
+        if not noisy
+            trail := math.min(trail, dnBand)
 
 // Higher-timeframe bias from the last closed HTF bar (offset + lookahead_on = no repainting).
-float htfClose = request.security(syminfo.tickerid, htfInput, close[1], lookahead = barmerge.lookahead_on)
-float htfEma   = request.security(syminfo.tickerid, htfInput, ta.ema(close, emaLenInput)[1], lookahead = barmerge.lookahead_on)
-bool  htfUp    = not useHtfInput or htfClose > htfEma
-bool  htfDn    = not useHtfInput or htfClose < htfEma
+[htfClose, htfEma] = request.security(syminfo.tickerid, htfInput, [close[1], ta.ema(close, 50)[1]], lookahead = barmerge.lookahead_on)
+bool htfUp = not useHtfInput or htfClose > htfEma
+bool htfDn = not useHtfInput or htfClose < htfEma
 
-// State: 1 up, -1 down, 0 neutral (trail and baseline disagree).
-int state = trailUp and close > ema and htfUp ? 1 : trailDn and close < ema and htfDn ? -1 : 0
+// ---------- Signals (confirmed bars, alternating, graded) ----------
+type Pending
+    int   dir
+    float entry
+    float risk
+    int   bar
 
-// A change is reported once, on the bar close where a NEW directional state appears.
-// Neutral bars do not reset it, so up -> neutral -> up prints nothing.
-var int lastDir = 0
-bool turnedUp = false
-bool turnedDn = false
-if barstate.isconfirmed and state != 0 and state != lastDir
-    turnedUp := state == 1
-    turnedDn := state == -1
-    lastDir  := state
+var array<Pending> pending = array.new<Pending>()
+var int    hits = 0
+var int    fails = 0
+var int    sigs = 0
+var int    lastSigDir = 0
+var int    lastSigBar = na
+var string lastSigText = "-"
+var array<line> planLines = array.new<line>()
+var array<label> planLabels = array.new<label>()
+var array<box> planBoxes = array.new<box>()
 
-color stateColor = state == 1 ? upColorInput : state == -1 ? dnColorInput : flatColorInput
+bool gradeA  = not noisy
+bool sigA    = false
+bool buySig  = false
+bool sellSig = false
+if barstate.isconfirmed and (flipUp or flipDn)
+    int  d  = flipUp ? 1 : -1
+    bool a  = gradeA and (d == 1 ? stackUp : stackDn)
+    bool ok = d != lastSigDir and (d == 1 ? htfUp : htfDn) and (a or not onlyAInput)
+    if ok
+        buySig  := d == 1
+        sellSig := d == -1
+        sigA    := a
+        lastSigDir := d
+        lastSigBar := bar_index
+        lastSigText := (d == 1 ? "▲ BUY" : "▼ SELL") + (a ? " • A" : " • B")
+        float risk = math.max(math.abs(close - trail), atr * 0.5)
+        pending.push(Pending.new(d, close, risk, bar_index))
+        sigs += 1
+        if showSigInput
+            color c = d == 1 ? bullC : bearC
+            label.new(bar_index, d == 1 ? low - atr * 0.4 : high + atr * 0.4, lastSigText, style = d == 1 ? label.style_label_up : label.style_label_down, color = a ? c : color.new(c, 35), textcolor = color.white, size = size.small, tooltip = "Entry " + str.tostring(close, format.mintick) + " • stop " + str.tostring(close - d * risk, format.mintick))
+        if showPlanInput
+            for l in planLines
+                l.delete()
+            for b in planLabels
+                b.delete()
+            for x in planBoxes
+                x.delete()
+            planLines.clear()
+            planLabels.clear()
+            planBoxes.clear()
+            float stop = close - d * risk
+            float t1   = close + d * risk
+            float t2   = close + d * risk * 2
+            int   x2   = bar_index + 20
+            planBoxes.push(box.new(bar_index, close, x2, stop, border_color = color.new(bearC, 70), bgcolor = color.new(bearC, 88)))
+            planBoxes.push(box.new(bar_index, close, x2, t2, border_color = color.new(bullC, 70), bgcolor = color.new(bullC, 90)))
+            planLines.push(line.new(bar_index, close, x2, close, color = color.new(textC, 20), width = 1))
+            planLines.push(line.new(bar_index, t1, x2, t1, color = color.new(bullC, 30), width = 1, style = line.style_dashed))
+            planLabels.push(label.new(x2, stop, "SL " + str.tostring(stop, format.mintick), style = label.style_label_left, color = color.new(bearC, 100), textcolor = bearC, size = size.tiny))
+            planLabels.push(label.new(x2, t1, "1R " + str.tostring(t1, format.mintick), style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
+            planLabels.push(label.new(x2, t2, "2R " + str.tostring(t2, format.mintick), style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
+
+// Track record: each signal is judged on later confirmed bars (target first = hit, stop first = fail, or expired).
+if barstate.isconfirmed and pending.size() > 0
+    for i = pending.size() - 1 to 0
+        Pending p = pending.get(i)
+        if bar_index > p.bar
+            float tgt  = p.entry + p.dir * p.risk * targetRInput
+            float stp  = p.entry - p.dir * p.risk
+            bool  won  = p.dir == 1 ? high >= tgt : low <= tgt
+            bool  lost = p.dir == 1 ? low <= stp : high >= stp
+            if won and not lost
+                hits += 1
+                pending.remove(i)
+            else if lost
+                fails += 1
+                pending.remove(i)
+            else if bar_index - p.bar >= expiryInput
+                pending.remove(i)
 
 // ---------- Visuals ----------
-plot(ema, "Baseline EMA", color = stateColor, linewidth = 2)
-pPrice   = plot(showCloudInput ? hl2 : na, "Mid price", color = na, editable = false, display = display.none)
-// Two series so the trail breaks cleanly when it flips sides (no vertical connector).
-pTrailUp = plot(showTrailInput and trailUp ? trail : na, "ATR trail (up)", color = upColorInput, style = plot.style_linebr, linewidth = 1)
-pTrailDn = plot(showTrailInput and trailDn ? trail : na, "ATR trail (down)", color = dnColorInput, style = plot.style_linebr, linewidth = 1)
-fill(pPrice, pTrailUp, color = showCloudInput ? color.new(upColorInput, 90) : na, title = "Up shade")
-fill(pPrice, pTrailDn, color = showCloudInput ? color.new(dnColorInput, 90) : na, title = "Down shade")
-barcolor(colorBarsInput ? stateColor : na, title = "Bar color")
-plotshape(showMarksInput and turnedUp, "Trend up", shape.labelup, location.belowbar, color = upColorInput, text = "UP", textcolor = color.white, size = size.tiny)
-plotshape(showMarksInput and turnedDn, "Trend down", shape.labeldown, location.abovebar, color = dnColorInput, text = "DOWN", textcolor = color.white, size = size.tiny)
+color trendC  = dir == 1 ? bullC : bearC
+color ribbonC = stackUp ? bullC : stackDn ? bearC : neutralC
+pE1 = plot(showRibbonInput ? e1 : na, "Ribbon fast", color = color.new(ribbonC, 10), linewidth = 2)
+plot(showRibbonInput ? e2 : na, "Ribbon 2", color = color.new(ribbonC, 60), linewidth = 1)
+plot(showRibbonInput ? e3 : na, "Ribbon 3", color = color.new(ribbonC, 60), linewidth = 1)
+pE4 = plot(showRibbonInput ? e4 : na, "Ribbon slow", color = color.new(ribbonC, 30), linewidth = 1)
+// Ribbon fill gets stronger as the ribbon fans out; a tangled ribbon (knot) stays faint.
+fill(pE1, pE4, color = stackUp or stackDn ? color.from_gradient(spreadAtr, 0, 3, color.new(ribbonC, 88), color.new(ribbonC, 70)) : color.new(neutralC, 90), title = "Ribbon fill")
+
+color trailC = noisy ? color.new(trendC, 50) : trendC
+plot(showTrailInput and dir == 1 ? trail : na, "Trail glow (up)", color = color.new(bullC, 85), linewidth = 7, style = plot.style_linebr, display = display.pane)
+plot(showTrailInput and dir == -1 ? trail : na, "Trail glow (down)", color = color.new(bearC, 85), linewidth = 7, style = plot.style_linebr, display = display.pane)
+pTrailUp = plot(showTrailInput and dir == 1 ? trail : na, "ATR trail (up)", color = trailC, linewidth = 2, style = plot.style_linebr)
+pTrailDn = plot(showTrailInput and dir == -1 ? trail : na, "ATR trail (down)", color = trailC, linewidth = 2, style = plot.style_linebr)
+pMid = plot(showCloudInput ? hl2 : na, "Mid price", color = na, editable = false, display = display.none)
+float distAtr = atr > 0 ? math.abs(hl2 - trail) / atr : 0.0
+color cloudC  = color.from_gradient(distAtr, 0, 4, color.new(trendC, 94), color.new(trendC, 78))
+fill(pMid, pTrailUp, color = showCloudInput ? cloudC : na, title = "Up cloud")
+fill(pMid, pTrailDn, color = showCloudInput ? cloudC : na, title = "Down cloud")
+barcolor(colorBarsInput ? (noisy ? neutralC : color.from_gradient(er, erMinInput, 0.8, color.new(trendC, 45), trendC)) : na, title = "Candle color")
+
+// ---------- Dashboard ----------
+dashPos = dashPosInput == "Top right" ? position.top_right : dashPosInput == "Bottom right" ? position.bottom_right : dashPosInput == "Top left" ? position.top_left : position.bottom_left
+var table dash = table.new(dashPos, 2, 8, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+
+row(int r, string k, string v, color vc) =>
+    dash.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, r, v, text_color = vc, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+
+if showDashInput and barstate.islast
+    int judged = hits + fails
+    dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    dash.cell(1, 0, "Trend", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    row(1, "Trend", dir == 1 ? "▲ Up" : "▼ Down", trendC)
+    row(2, "Regime", (noisy ? "Noisy " : "Stable ") + str.tostring(er, "0.00"), noisy ? neutralC : color.from_gradient(er, erMinInput, 0.8, textC, trendC))
+    row(3, "Ribbon", (stackUp ? "Stacked ▲ " : stackDn ? "Stacked ▼ " : "Knot ") + str.tostring(spreadAtr, "#.#") + " ATR", ribbonC)
+    row(4, "HTF " + htfInput, not useHtfInput ? "off" : htfClose > htfEma ? "▲ Up" : "▼ Down", not useHtfInput ? textC : htfClose > htfEma ? bullC : bearC)
+    row(5, "Last signal", na(lastSigBar) ? "-" : lastSigText + " • " + str.tostring(bar_index - lastSigBar) + " bars", lastSigDir == 1 ? bullC : lastSigDir == -1 ? bearC : textC)
+    row(6, "Hits / fails", str.tostring(hits) + " / " + str.tostring(fails) + (judged > 0 ? " • " + str.tostring(hits * 100.0 / judged, "#") + "%" : ""), judged > 0 ? color.from_gradient(hits * 100.0 / judged, 35, 65, bearC, bullC) : textC)
+    row(7, "Whipsaws blocked", str.tostring(blocked), accentC)
 
 // ---------- Alerts ----------
-alertcondition(turnedUp, "Trend turned up", "Nexus Trend: UP on {{ticker}} {{interval}} at {{close}}")
-alertcondition(turnedDn, "Trend turned down", "Nexus Trend: DOWN on {{ticker}} {{interval}} at {{close}}")
-alertcondition(turnedUp or turnedDn, "Any trend change", "Nexus Trend: trend changed on {{ticker}} {{interval}} at {{close}}")
+alertcondition(buySig, "BUY signal", "Nexus Trend: BUY on {{ticker}} {{interval}} at {{close}}")
+alertcondition(sellSig, "SELL signal", "Nexus Trend: SELL on {{ticker}} {{interval}} at {{close}}")
+alertcondition(sigA, "Grade A signal", "Nexus Trend: grade A signal on {{ticker}} {{interval}} at {{close}}")
+alertcondition(buySig or sellSig, "Any signal", "Nexus Trend: trend changed on {{ticker}} {{interval}} at {{close}}")

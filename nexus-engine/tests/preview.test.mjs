@@ -160,4 +160,19 @@ await t("force_overlay drawings of a pane script are flagged for the price chart
   assert.match(cells["1:4"].text, /^\d+ \/ \d+ of \d+$/, "track record row");
 });
 
+await t("trend template: graded alternating signals, one trade plan, regime + whipsaw dashboard", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "trend.pine"), "utf8");
+  const r = runPreview(code, sampleCandles(900, 1000, 2400), { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error);
+  const sigs = r.labels.filter((l) => /^(▲ BUY|▼ SELL) • [AB]$/.test(l.text));
+  assert.ok(sigs.length > 0, "signals are drawn");
+  for (let i = 1; i < sigs.length; i++) assert.notEqual(sigs[i].text.slice(0, 1), sigs[i - 1].text.slice(0, 1), "signals alternate");
+  assert.equal(r.labels.filter((l) => /^SL /.test(l.text)).length, 1, "only the last signal keeps a trade plan");
+  assert.equal(r.boxes.length, 2, "risk and reward boxes of the last plan");
+  const cells = r.tables[0].cells;
+  assert.match(cells["1:2"].text, /^(Noisy|Stable) \d\.\d\d$/, "regime row");
+  assert.match(cells["1:3"].text, /^(Stacked ▲|Stacked ▼|Knot) [\d.]+ ATR$/, "ribbon row");
+  assert.match(cells["1:7"].text, /^\d+$/, "whipsaws blocked row");
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
