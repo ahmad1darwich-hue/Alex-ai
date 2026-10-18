@@ -86,9 +86,12 @@ moment (code XX)" and the reason is in the Vercel logs and in the stats (`outage
 
 ## Deploying
 
-Pushing to `main` does not deploy by itself on this account. After the tests pass and the commit is on GitHub,
-create a production deployment for each project (Vercel dashboard -> project -> Deployments -> Create
-Deployment -> `main`, or the Vercel API with `gitSource` and the root directory below):
+Since 2026-10-18 the `indicator-build` project is connected to this repository (Git: Alex-ai, root directory
+`indicator-build`, "skip deployments when nothing changed in the root directory" on): a push to `main` that changes
+`indicator-build/` deploys the public Nexus site by itself. The `brain` project is still linked to the old
+`ahmad1darwich-hue/brain` repository (never push there), so Brain is deployed after each push with a production
+deployment (Vercel API `create_deployment` with `gitSource` Alex-ai + the root directory below). A manual
+deployment of `indicator-build` the same way stays a valid fallback.
 
 | Vercel project    | Root directory    | Serves                                                     |
 | ----------------- | ----------------- | ---------------------------------------------------------- |
