@@ -7,6 +7,7 @@ export const SYMBOLS = {
   BTCUSD: { label: "Bitcoin", tickerid: "BINANCE:BTCUSDT", ticker: "BTCUSDT", mintick: 0.01, type: "crypto", timezone: "Etc/UTC", currency: "USD", binance: "BTCUSDT", kraken: "XBTUSD", yahoo: "BTC-USD" },
   ETHUSD: { label: "Ethereum", tickerid: "BINANCE:ETHUSDT", ticker: "ETHUSDT", mintick: 0.01, type: "crypto", timezone: "Etc/UTC", currency: "USD", binance: "ETHUSDT", kraken: "ETHUSD", yahoo: "ETH-USD" },
   EURUSD: { label: "EUR/USD", tickerid: "OANDA:EURUSD", ticker: "EURUSD", mintick: 0.00001, type: "forex", timezone: "America/New_York", currency: "USD", yahoo: "EURUSD=X" },
+  USOIL: { label: "WTI crude oil", tickerid: "TVC:USOIL", ticker: "USOIL", mintick: 0.01, type: "cfd", timezone: "America/New_York", currency: "USD", yahoo: "CL=F" },
   US100: { label: "Nasdaq 100", tickerid: "CAPITALCOM:US100", ticker: "US100", mintick: 0.25, type: "cfd", timezone: "America/New_York", currency: "USD", yahoo: "NQ=F" },
   US30: { label: "Dow Jones", tickerid: "CAPITALCOM:US30", ticker: "US30", mintick: 1, type: "cfd", timezone: "America/New_York", currency: "USD", yahoo: "YM=F" },
 };

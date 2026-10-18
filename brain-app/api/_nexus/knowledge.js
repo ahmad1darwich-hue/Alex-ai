@@ -180,6 +180,8 @@ Limits
 - Liquidity: equal highs/lows = two confirmed pivots within 0.1 x ATR; draw a dotted line and an "EQH"/"EQL" tag; mark the sweep when price wicks through and closes back.
 - Premium / discount: 50% of the current swing range is equilibrium; shade the upper part as premium (bear color, 93 transparency) and the lower as discount.
 - Stops for zone trades: 0.5 x ATR beyond the far side.
+- Support / resistance zones: build from confirmed pivots, wick extreme to body edge, height clamped between min and max x ATR (inputs ~0.15 / 0.8; wider = context, not an entry). A new pivot overlapping a zone merges into it; count a touch only for a separate visit (>= pivot length bars after the last one). Strength 0-100 shown on the zone: touches + freshness that decays with bars since the last visit + confluence (HTF swing inside the zone, round number); fill opacity from the score with color.from_gradient.
+- Break = full-body close beyond the zone (input "Full body" / "Close"); wick probes never break. Role flip only for zones with 2+ touches (dashed border, "flip" tag); the FIRST return that closes back out on the new side is the retest signal (one per flip, stop 0.5 x ATR beyond the far side, judged in a track record). A flipped zone broken back = failed flip: remove it and count it.
 
 # ADAPT TO EVERY MARKET AND TIMEFRAME BY DEFAULT
 

@@ -175,4 +175,24 @@ await t("trend template: graded alternating signals, one trade plan, regime + wh
   assert.match(cells["1:7"].text, /^\d+$/, "whipsaws blocked row");
 });
 
+await t("sr template: scored zones to the right edge, one retest per flip, nearest S/R dashboard", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "sr.pine"), "utf8");
+  const cs = sampleCandles(900, 900, 2400);
+  const r = runPreview(code, cs, { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error);
+  assert.ok(r.boxes.length > 0 && r.boxes.length <= 8, "live zones stay under the cap (Present mode): " + r.boxes.length);
+  for (const b of r.boxes) {
+    assert.match(b.text, /^[SR]( flip)?( • HTF)? • x\d+ • \d+$/, "zone text: " + b.text);
+    assert.ok(b.top > b.bottom, "zone has height");
+    assert.equal(b.right, cs.length - 1 + 20, "live zones run to the right edge");
+  }
+  const flips = r.boxes.filter((b) => / flip/.test(b.text));
+  assert.ok(flips.every((b) => /dash/.test(String(b.bs))) && r.boxes.filter((b) => !/ flip/.test(b.text)).every((b) => /solid/.test(String(b.bs))), "flipped zones are dashed");
+  assert.ok(r.labels.every((l) => /^(▲|▼) RETEST$/.test(l.text)), "only retest signals are labelled");
+  const cells = r.tables[0].cells;
+  assert.match(cells["1:1"].text, /^(-|[\d.]+ • [\d.]+ ATR)$/, "nearest resistance row");
+  assert.match(cells["1:3"].text, /^\d+ S \/ \d+ R$/, "live zones row");
+  assert.match(cells["1:6"].text, /^\d+ \/ \d+( • \d+%)?$/, "retest track record row");
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

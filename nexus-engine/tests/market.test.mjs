@@ -59,4 +59,14 @@ await t("gold kill zones in Sydney time are added before the disclaimer (DST-awa
   assert.equal(addKillZones(out, oct), out);
   const r = await call("?report=1&key=" + process.env.DAILY_KEY); assert.match(r.body.report.text, /⏰/);
 });
+await t("price levels from daily candles feed the prompt (support / resistance from data)", async () => {
+  const { levelsFromDaily, priceLevels } = await import("../../brain-app/api/_brain/market.js");
+  const cs = []; for (let i = 0; i < 20; i++) cs.push({ t: Date.UTC(2026, 9, 1 + i, 21), o: 2400 + i, h: 2410 + i, l: 2390 + i, c: 2405 + i });
+  const L = levelsFromDaily(cs);
+  assert.equal(L.close, 2424); assert.equal(L.prevHigh, 2428); assert.equal(L.prevLow, 2408); assert.equal(L.wkHigh, 2429); assert.equal(L.wkLow, 2405); assert.equal(L.adr, 20);
+  assert.equal(levelsFromDaily(cs.slice(0, 5)), null, "too few candles");
+  const txt = await priceLevels(["XAUUSD (Gold)", "NOPE (x)"], async (sym) => { if (sym !== "XAUUSD") throw new Error("down"); return { candles: cs, source: "yahoo" }; });
+  assert.match(txt, /^PRICE DATA/); assert.match(txt, /XAUUSD: last daily candle .* close 2424\.0/); assert.match(txt, /previous day high 2428\.0 \/ low 2408\.0/); assert.doesNotMatch(txt, /NOPE/);
+  assert.equal(await priceLevels(["NOPE"], async () => { throw new Error("down"); }), "", "no data = no block");
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

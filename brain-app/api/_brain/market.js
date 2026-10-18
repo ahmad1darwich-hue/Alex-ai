@@ -5,6 +5,8 @@
 //
 // It is educational analysis, not financial advice, and it never places trades.
 
+import { getCandles } from "./candles.js";
+
 const API = "https://api.anthropic.com/v1/messages";
 export const MARKET_MODEL = process.env.MARKET_MODEL || process.env.BRAIN_MODEL || "claude-sonnet-5-5";
 const FALLBACK = (process.env.MARKET_FALLBACK_MODELS || "claude-sonnet-4-5").split(",").map((s) => s.trim()).filter(Boolean);
@@ -53,16 +55,44 @@ export function addKillZones(text, ms = Date.now()) {
   return i > 0 ? t.slice(0, i).trimEnd() + "\n\n" + line + "\n\n" + t.slice(i) : t + "\n\n" + line;
 }
 
+// Levels computed from real daily candles (Yahoo futures; crypto from Binance/Kraken), so the report's support /
+// resistance and price come from data instead of the model's guess. Returns "" when no source answered.
+const fmt = (x) => (Math.abs(x) >= 1000 ? x.toFixed(1) : Math.abs(x) >= 10 ? x.toFixed(2) : x.toFixed(4));
+export function levelsFromDaily(candles) {
+  const c = (candles || []).filter((x) => x && isFinite(x.h) && isFinite(x.l) && isFinite(x.c));
+  if (c.length < 16) return null;
+  const last = c[c.length - 1], prev = c[c.length - 2], wk = c.slice(-5), rng = c.slice(-15, -1);
+  const adr = rng.reduce((a, x) => a + (x.h - x.l), 0) / rng.length;
+  return {
+    date: sydneyDay(last.t), close: last.c, high: last.h, low: last.l, prevHigh: prev.h, prevLow: prev.l,
+    wkHigh: Math.max(...wk.map((x) => x.h)), wkLow: Math.min(...wk.map((x) => x.l)), adr,
+    pivot: (last.h + last.l + last.c) / 3, chg: ((last.c - prev.c) / prev.c) * 100,
+  };
+}
+export async function priceLevels(markets = MARKETS, fetchDaily = (sym) => getCandles(sym, 86400, 40)) {
+  const lines = await Promise.all(markets.map(async (m) => {
+    const sym = String(m).split(/[\s(]/)[0].toUpperCase();
+    try {
+      const { candles, source } = await fetchDaily(sym);
+      const L = levelsFromDaily(candles);
+      if (!L) return "";
+      return `${sym}: last daily candle ${L.date} close ${fmt(L.close)} (${L.chg >= 0 ? "+" : ""}${L.chg.toFixed(2)}%), high ${fmt(L.high)}, low ${fmt(L.low)}; previous day high ${fmt(L.prevHigh)} / low ${fmt(L.prevLow)}; 5-day high ${fmt(L.wkHigh)} / low ${fmt(L.wkLow)}; classic pivot ${fmt(L.pivot)}; average daily range (14) ${fmt(L.adr)} [${source}]`;
+    } catch (e) { return ""; }
+  }));
+  const ok = lines.filter(Boolean);
+  return ok.length ? "PRICE DATA from daily candles (futures / exchange feeds; a broker's CFD price can differ a little - say ~):\n" + ok.join("\n") : "";
+}
+
 export const DISCLAIMER = "تحليل تعليمي مش نصيحة مالية. قرار الصفقة إلك.";
 
-const PROMPT = (markets) => `You are Brain, the market analyst of Ahmad, a Sydney-based trader (gold first, also oil and US indices; Smart Money Concepts style). It is ${sydneyNow()} in Sydney.
+const PROMPT = (markets, levels = "") => `You are Brain, the market analyst of Ahmad, a Sydney-based trader (gold first, also oil and US indices; Smart Money Concepts style). It is ${sydneyNow()} in Sydney.
 
 Use web_search NOW to get today's real information (do not rely on memory): the latest price and overnight move of each market below, the market-moving news of the last 24 hours, and today's HIGH-impact economic calendar events (mostly USD: CPI, NFP, FOMC/Fed speakers, PCE, GDP, jobless claims, ISM; plus OPEC/EIA oil inventories for oil) with their Sydney times.
 
 ${sessionClock()}
 
 Markets: ${markets.join(", ")}.
-
+${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason. If a search price is fresher, prefer it and keep levels consistent with it.\n" : ""}
 Ahmad wants it SHORT: no long explanations. Write in Levantine Arabic (tickers and numbers in English). Plain text for a chat app: no markdown headings, no tables, no ** bold. Exactly this layout:
 
 📊 الذهب والنفط والمؤشرات · <date>
@@ -82,8 +112,8 @@ Close with exactly: "${DISCLAIMER}"
 
 Rules: every price, level and event must come from today's search results; if you could not confirm something write "مش مأكد" instead of inventing it. Use 🟡 when the evidence is mixed. Keep the whole report under 1200 characters. Output only the report.`;
 
-async function callModel(key, model, markets, signal) {
-  const body = { model, max_tokens: 6000, messages: [{ role: "user", content: PROMPT(markets) }], tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }] };
+async function callModel(key, model, markets, signal, levels = "") {
+  const body = { model, max_tokens: 6000, messages: [{ role: "user", content: PROMPT(markets, levels) }], tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }] };
   const r = await fetch(API, { method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }, body: JSON.stringify(body), signal });
   const t = await r.text();
   if (!r.ok) { const e = new Error("model " + r.status + ": " + t.slice(0, 200)); e.status = r.status; throw e; }
@@ -104,11 +134,15 @@ async function callModel(key, model, markets, signal) {
 export async function buildReport({ key, markets = MARKETS, signal } = {}) {
   if (!key) throw new Error("ANTHROPIC_API_KEY missing");
   let last = null;
+  // Price data never holds the report up for long: 12 s at most, then the report goes ahead on search alone.
+  let timer;
+  const levels = await Promise.race([priceLevels(markets), new Promise((r) => { timer = setTimeout(() => r(""), 12000); })]).catch(() => "");
+  clearTimeout(timer);
   for (const model of [MARKET_MODEL, ...FALLBACK.filter((m) => m !== MARKET_MODEL)]) {
     try {
-      const out = await callModel(key, model, markets, signal);
+      const out = await callModel(key, model, markets, signal, levels);
       if (!out.text) throw new Error("empty report");
-      return { day: sydneyDay(), at: new Date().toISOString(), model: out.model, markets, text: addKillZones(finishText(out.text, out.sources)), sources: out.sources };
+      return { day: sydneyDay(), at: new Date().toISOString(), model: out.model, markets, levels: !!levels, text: addKillZones(finishText(out.text, out.sources)), sources: out.sources };
     } catch (e) {
       last = e;
       if (e.status === 401 || e.status === 402 || (signal && signal.aborted)) break;

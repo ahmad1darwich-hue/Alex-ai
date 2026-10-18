@@ -33,3 +33,7 @@ Phases (one per daily run, keep all tests green, add tests/preview.test.mjs):
    zones, strategy.* (entries/exits drawn, simple stats).
 4. Every script the bot builds is previewed automatically; unsupported calls are listed honestly
    ("preview approximate: X not drawn"). Then the same panel on the public Nexus site.
+
+## Template upgrades to the design system (one per run)
+Done: sessions, rsi_divergence, trend, sr (2026-10-18: strength zones, role flips, first-retest signals).
+Next: smc (zone engine: displacement + ATR OB, FVG, life cycle, HTF zones), signals, scalper, mtf_dashboard, strategy.

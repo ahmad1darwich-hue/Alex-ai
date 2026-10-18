@@ -113,3 +113,27 @@ Where it went:
   lengths per timeframe, 4-EMA ribbon with spread-strength fill, ER-frozen ATR trail with glow and shield, graded
   alternating BUY/SELL labels, one live trade plan with risk/reward boxes, regime + track-record dashboard, alerts.
 - bench.js: new case trend_chop_filter (Arabic, gold 15m). tests/preview.test.mjs: trend template checks.
+
+## 2026-10-18 · support / resistance zones, role reversal and retests
+Sources: luxalgo.com library "Role Reversal" and "Retest" concept pages, "Strong Retest Zones" and "Support and
+Resistance Retest/Breakout Signals" pages, TradingView open-source "Dynamic Support & Resistance Zones" description
+(feature text only), nexusfi / mql5 forum threads on automatic S/R indicators.
+What traders want / complain about:
+- Too many lines is the #1 complaint about auto S/R: old and weak levels never go away. Wanted: a cap, merging of
+  nearby levels, weakest dropped, only "real" levels (2+ separate visits) and a freshness decay.
+- A level is a band, not a price: outer edge at the wick extreme, inner edge at the body; keep the height sane in ATR
+  (very wide zones are context, not entries).
+- Strength they trust: touches counted as independent visits (not one choppy episode), freshness, confluence
+  (higher-timeframe swing, round number, volume shelf) - shown as a score, with bolder fills for stronger zones.
+- Breaks: a full-bodied close beyond the zone, never a wick probe. Role flip only for levels with history; the FIRST
+  retest carries the most interest; a flip broken back = failed flip (a signal in itself) - remove the level.
+- Panel: nearest support / resistance with distance, live zone counts; alerts on entry, break and retest.
+Where it went:
+- knowledge.js ZONE ENGINE RULES: two new S/R lines (wick-to-body construction, separate-visit touches, strength
+  score, full-body breaks, flip only with history, first-retest signal, failed flip removal).
+- templates/sr.pine rebuilt as "Nexus S/R - Strength Zones & Role Flips" on the design system (theme, auto pivot
+  length, strength-graded fills, zones to the right edge, dashed flipped zones, ▲/▼ RETEST with stop 0.5 ATR beyond,
+  retest track record, failed flips, Present / Historical mode, HTF confluence tag, nearest S/R dashboard).
+- bench.js: new case sr_flip_retest. tests/preview.test.mjs: S/R template checks.
+- Market report: support / resistance and prices now come from real daily candles (previous day high/low, 5-day
+  range, pivot, ADR) fed into the prompt, not from the model's memory.
