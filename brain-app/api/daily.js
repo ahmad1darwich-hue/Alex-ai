@@ -65,6 +65,7 @@ async function runCase(c, key, deadline, signal) {
     out.pass = j.pass; out.verified = j.verified; out.lines = j.lines; out.inputs = j.inputs; out.expectFailed = j.expectFailed;
     if (result.kind === "script") {
       out.rounds = result.report.rounds || 0;
+      if (result.report.design) out.design = result.report.design; // look score (and the score before the polish round)
       out.errors = result.report.errors.slice(0, 3).map((e) => clip((e.line ? "L" + e.line + ": " : "") + e.message, 220));
       if (!result.report.verified && !out.errors.length && result.report.warnings) out.errors = result.report.warnings.slice(0, 2).map((e) => clip((e.line ? "L" + e.line + ": " : "") + e.message, 220));
       if (result.report.unappliedEdits) out.errors.push(result.report.unappliedEdits + " requested change(s) not applied");

@@ -13,6 +13,10 @@ The indicator engine behind `brain-app/api/indicator.js` (used by Nexus and Brai
    the templates). The model answers with a full script or with small search/replace edits on a base.
 3. **Automatic check** (`_nexus/lint.js`): a real Pine v6 parser and type checker (`_nexus/pine-lint.mjs`,
    bundled from the MIT-licensed pine-tools project) plus a few Nexus rules.
+4. **Design review** (`_nexus/design.js`): scores the look 0-100 (theme input, colored plots, designed labels instead
+   of plotshape triangles, glow, fills, translucent zones, dashboard, clutter measured by a dry run on sample candles).
+   A clean build below the bar gets ONE polish round (adopted only if it still compiles cleanly and scores higher);
+   the score is in `report.design` and shown as a badge on the script card.
 4. **Automatic repair**: findings go back to the model, up to three rounds, and the best version is kept.
 5. The reply states whether the script passed the check. If TradingView still reports an error, the user pastes
    it (`mode: "fix"`) and it is repaired against the current script.

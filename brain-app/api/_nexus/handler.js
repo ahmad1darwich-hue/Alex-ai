@@ -497,7 +497,7 @@ export async function handle(req, ctx) {
       try {
         const currentFile = String(body.file || "").replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 80);
         const prefs = owner ? await readPrefs().catch(() => []) : [];
-        result = await runPipeline({ mode: mode === "fix" ? "fix" : "build", lang, history, userContent, currentCode, currentFile, tvError: body.tvError, prefs, callModel: makeCaller(key, deadline, state, abort.signal), emit, deadline, effort, signal: abort.signal });
+        result = await runPipeline({ mode: mode === "fix" ? "fix" : "build", lang, history, userContent, currentCode, currentFile, tvError: body.tvError, prefs, callModel: makeCaller(key, deadline, state, abort.signal), emit, deadline, effort, signal: abort.signal, designPolish: true });
         result.ms = Date.now() - started;
         if (owner && result.remember) { const pp = addPref(result.remember).catch(() => {}); if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(pp); else await pp; }
         if (!owner) delete result.remember;

@@ -1,5 +1,6 @@
 // Nexus engine: generate -> check -> repair. Pure orchestration; the model call is injected so it can be tested offline.
 import { checkPine, sanitizeCode, describeDiagnostics, summarizeCheck, rtrimLine } from "./lint.js";
+import { designReview, needsPolish, describeDesign } from "./design.js";
 import { TEMPLATE_BY_ID } from "./templates.js";
 import { modeInstructions } from "./knowledge.js";
 
@@ -258,6 +259,19 @@ function repairMessages({ lang, request, code, check, pending }) {
   return [{ role: "user", content: [{ type: "text", text: parts.join("\n\n") }] }];
 }
 
+// One design polish round: the script compiles, the design review found it below the premium bar.
+function polishMessages({ lang, request, code, review, prefs }) {
+  const parts = [
+    "TASK: the script below compiles. A design review scored its LOOK " + review.score + "/100 against the DESIGN DIRECTOR rules. Upgrade the visuals so it looks like a premium commercial indicator: fix the findings below with <base>CURRENT</base> and search/replace edits. Do NOT change the trading logic, conditions, inputs that exist or alert names. Skip a finding only when it contradicts something the user explicitly asked for (their colors, shapes or a minimal look).",
+    "Put only a single dash in <explain> (the explanation the user already has is kept).",
+  ];
+  if (Array.isArray(prefs) && prefs.length) parts.push("THE USER'S LASTING PREFERENCES:\n- " + prefs.slice(-25).join("\n- "));
+  parts.push("WHAT THE USER ASKED FOR:\n" + clip(request || "(no text)", 1500));
+  parts.push(scriptBlock(code));
+  parts.push("DESIGN FINDINGS (most important first):\n" + describeDesign(review));
+  return [{ role: "user", content: [{ type: "text", text: parts.join("\n\n") }] }];
+}
+
 // ---------- pipeline ----------
 
 // Lower is better. Should-fix findings only break ties, so a round that clears them can be adopted.
@@ -424,6 +438,38 @@ export async function runPipeline(opts) {
     pending = best.pending;
   }
 
+  // ---- design polish (one round, only for a clean build that looks below the bar) ----
+  let design = null;
+  try { design = designReview(best.code); } catch (e) { design = null; }
+  if (design && opts.designPolish && opts.mode !== "fix" && best.check.clean && !best.pending.length && needsPolish(design) && timeLeft() > 60000) {
+    checkAbort();
+    const before = design.score;
+    emit({ t: "stage", id: "design", score: before });
+    try {
+      const rep = await opts.callModel({ messages: polishMessages({ lang: opts.lang, request: requestText, code: best.code, review: design, prefs: opts.prefs }), effort: "medium", maxTokens: 12000, onText: () => {} });
+      addUsage(rep.usage);
+      const rp = parseReply(rep.text);
+      let next = null;
+      if (rp.code !== null && rp.code.trim() && (rp.base === "NEW" || !rp.edits.length)) { if (rp.codeClosed && rep.stopReason !== "max_tokens") next = sanitizeCode(rp.code); }
+      else if (rp.edits.length) next = sanitizeCode(applyEdits(best.code, rp.edits).code);
+      if (next !== null) {
+        const nextCheck = checkPine(next);
+        const nextDesign = designReview(nextCheck.code);
+        // Adopted only when it still compiles cleanly and really looks better.
+        if (nextCheck.clean && nextDesign.score > before) {
+          best = { code: nextCheck.code, check: nextCheck, pending: [] };
+          design = nextDesign;
+          emit({ t: "stage", id: "check", errors: 0, warnings: 0, round: rounds + 1 });
+        }
+        history.push({ round: rounds + 1, design: before + "->" + nextDesign.score, adopted: best.code === nextCheck.code });
+      }
+      design = { ...design, before };
+    } catch (e) {
+      if (e && e.name === "AbortError" && opts.signal && opts.signal.aborted) throw e;
+      history.push({ round: rounds + 1, note: "design polish failed: " + String((e && e.message) || e).slice(0, 120) });
+    }
+  }
+
   const final = best;
   const explain = parsed.explain || (template && (!parsed.edits.length) ? template.explain[opts.lang === "en" ? "en" : "ar"] : "");
   return {
@@ -434,7 +480,7 @@ export async function runPipeline(opts) {
     title: parsed.title || (template ? template.title.en : ""),
     explain,
     base: template && baseKind === "TEMPLATE" ? "template:" + template.id : baseKind === "CURRENT" ? "edit" : "new",
-    report: { ...summarizeCheck(final.check), rounds, fixed, history, unappliedEdits: final.pending.length, verified: final.check.clean && final.pending.length === 0 },
+    report: { ...summarizeCheck(final.check), rounds, fixed, history, unappliedEdits: final.pending.length, verified: final.check.clean && final.pending.length === 0, design: design ? { score: design.score, before: design.before, findings: design.findings.slice(0, 5).map((f) => f.rule.replace("NX_DESIGN_", "").toLowerCase()) } : undefined },
     remember: parsed.remember,
     usage,
     model: modelUsed,

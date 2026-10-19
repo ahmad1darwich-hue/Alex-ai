@@ -639,6 +639,8 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     s_check: ['فحص تلقائي…', 'Automatic check…'],
     s_check_ok: ['الفحص التلقائي: 0 أخطاء', 'Automatic check: 0 errors'],
     s_check_bad: ['الفحص لقى {e} خطأ و{w} ملاحظة', 'The check found {e} error(s) and {w} finding(s)'],
+    s_design: ['عم حسّن الشكل والتصميم (التقييم الحالي {n}/100)…', 'Polishing the look (design score {n}/100)…'],
+    b_design: ['◆ تصميم {n}/100', '◆ Design {n}/100'],
     s_fix: ['عم صلّح اللي لقاه الفحص (جولة {n})…', 'Fixing what the check found (round {n})…'],
     s_tplget: ['عم جيب المؤشر الجاهز…', 'Fetching the ready indicator…'],
     s_lint: ['عم أفحص الكود…', 'Checking the code…'],
@@ -981,6 +983,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
         return step(e + w > 0 ? t('s_check_bad', { e: e, w: w }) : t('s_check_ok'), e + w > 0);
       }
       if (ev.id === 'fix') return step(t('s_fix', { n: num(ev.round, 1) || 1 }));
+      if (ev.id === 'design') return step(t('s_design', { n: num(ev.score, 0) }));
     };
     this.code = function (d) {
       d = String(d == null ? '' : d);
@@ -1014,6 +1017,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     var art = el('div', 'art' + (state ? ' ' + state : '')), bar = el('div', 'bar');
     bar.appendChild(el('span', 'fn', msg.file || 'script.pine'));
     if (rep) bar.appendChild(tx(el('span', 'badge ' + state), verified ? 'b_ok' : nErr ? 'b_err' : crashed ? 'b_crash' : 'b_warn', verified ? null : { n: nErr || Math.max(1, nWarn + nUn) }));
+    if (rep && rep.design && typeof rep.design.score === 'number') bar.appendChild(tx(el('span', 'badge ' + (rep.design.score >= 80 ? 'ok' : 'warn')), 'b_design', { n: rep.design.score }));
     var nLines = String(msg.code || '').replace(/\n$/, '').split('\n').length;
     bar.appendChild(tx(el('span', 'meta'), 'n_lines', { n: nLines }));
     // Copy is the main action only when there is nothing left to repair.

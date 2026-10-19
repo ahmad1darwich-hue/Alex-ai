@@ -211,4 +211,30 @@ await t("streamer: a template id is announced only when complete", () => {
   const st = ev.filter((e) => e.t === "stage" && e.id === "template");
   assert.equal(st.length, 1); assert.equal(st[0].template, "rsi_divergence");
 });
+await t("design polish: a plain clean script gets one design round, adopted only when it compiles and looks better", async () => {
+  const { designReview } = await import("../../brain-app/api/_nexus/design.js");
+  const plain = "//@version=6\nindicator(\"Cross\", overlay = true)\nf = ta.ema(close, 9)\ns = ta.ema(close, 21)\nplot(f)\nplot(s)\nplotshape(ta.crossover(f, s), style = shape.triangleup, location = location.belowbar)\n";
+  assert.ok(designReview(plain).score < 60);
+  const styled = TEMPLATE_BY_ID.get("trend").code;
+  const cm = mock(["<nexus><base>NEW</base><code>\n" + plain + "</code><explain>ok</explain></nexus>", "<nexus><base>NEW</base><code>\n" + styled + "</code><explain>-</explain></nexus>"]);
+  const ev = [];
+  const r = await runPipeline({ mode: "build", lang: "en", history: [], userContent: "ema cross", callModel: cm, emit: (e) => ev.push(e), designPolish: true });
+  assert.equal(cm.calls.length, 2); assert.match(cm.calls[1].messages[0].content[0].text, /DESIGN FINDINGS/);
+  assert.ok(ev.some((e) => e.id === "design"));
+  assert.equal(r.report.verified, true); assert.equal(r.code, styled); assert.ok(r.report.design.score > r.report.design.before);
+  // A polish that breaks the script is not adopted.
+  const cm2 = mock(["<nexus><base>NEW</base><code>\n" + plain + "</code><explain>ok</explain></nexus>", "<nexus><base>NEW</base><code>\n" + plain.replace("ta.ema(close, 21)", "ta.ema(close, 21") + "</code><explain>-</explain></nexus>"]);
+  const r2 = await runPipeline({ mode: "build", lang: "en", history: [], userContent: "ema cross", callModel: cm2, designPolish: true });
+  assert.equal(r2.code, plain); assert.equal(r2.report.verified, true);
+  // Off by default, and never in fix mode.
+  const cm3 = mock(["<nexus><base>NEW</base><code>\n" + plain + "</code><explain>ok</explain></nexus>"]);
+  await runPipeline({ mode: "build", lang: "en", history: [], userContent: "ema cross", callModel: cm3 });
+  assert.equal(cm3.calls.length, 1);
+});
+await t("design review: verified design-system templates score high, a bare script scores low", async () => {
+  const { designReview } = await import("../../brain-app/api/_nexus/design.js");
+  for (const id of ["trend", "sr", "sessions", "rsi_div"]) assert.ok(designReview(TEMPLATE_BY_ID.get(id).code).score >= 90, id);
+  const r = designReview("//@version=6\nindicator(\"x\", overlay = true)\nplot(ta.sma(close, 20))\nplotshape(close > open, style = shape.circle)\n");
+  assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_THEME")); assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_CLUTTER")); assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_BARE_PLOT"));
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
