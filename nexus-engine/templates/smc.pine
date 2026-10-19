@@ -1,84 +1,185 @@
 //@version=6
-indicator("Nexus SMC - Structure, Order Blocks, FVG & Liquidity", shorttitle = "Nexus SMC", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("Nexus SMC - Structure, Zone Engine & Liquidity", shorttitle = "NX SMC", overlay = true, max_bars_back = 500, max_lines_count = 300, max_labels_count = 300, max_boxes_count = 300)
 
 // ---------- Inputs ----------
 string GRP_ST = "Market structure"
-int    swingLenInput    = input.int(10, "Swing length", minval = 2, maxval = 100, group = GRP_ST, tooltip = "Bars on each side of a swing high/low. A swing is confirmed this many bars after it forms.")
-bool   showInternalInput = input.bool(true, "Show internal structure", group = GRP_ST, inline = "int")
-int    internalLenInput = input.int(3, "length", minval = 2, maxval = 50, group = GRP_ST, inline = "int", tooltip = "Shorter-term structure, drawn with dashed lines.")
-string breakSrcInput    = input.string("Close", "Break confirmation", options = ["Close", "Wick"], group = GRP_ST, tooltip = "Close: a bar must close beyond the swing. Wick: any trade beyond the swing counts.")
+bool   autoInput         = input.bool(true, "Auto settings", group = GRP_ST, tooltip = "Picks the swing length from the chart timeframe: 5m and below 5, intraday 8, 4h and above 10. Turn off to use the manual value below.")
+int    swingLenInput     = input.int(10, "Swing length (manual)", minval = 2, maxval = 100, group = GRP_ST, tooltip = "Bars on each side of a swing high/low. A swing is confirmed this many bars after it forms and never moves afterwards.")
+bool   showInternalInput = input.bool(true, "Internal structure", group = GRP_ST, inline = "int")
+int    internalLenInput  = input.int(3, "length", minval = 2, maxval = 50, group = GRP_ST, inline = "int", tooltip = "Shorter-term structure, drawn dashed with tiny labels.")
+string breakSrcInput     = input.string("Close", "Break confirmation", options = ["Close", "Wick"], group = GRP_ST, tooltip = "Close: a bar must close beyond the swing. Wick: any trade beyond the swing counts.")
 bool   showSwingPtsInput = input.bool(false, "Label swing points (HH/HL/LH/LL)", group = GRP_ST)
+bool   showStrongInput   = input.bool(true, "Strong / weak high and low", group = GRP_ST, tooltip = "In an uptrend the low that caused the last break is the strong low (protected) and the high is the weak high (target), and the reverse in a downtrend.")
 
 string GRP_OB = "Order blocks"
-bool   showObInput      = input.bool(true, "Show order blocks", group = GRP_OB)
-int    obCountInput     = input.int(4, "Keep last (per side)", minval = 1, maxval = 20, group = GRP_OB)
-string obRangeInput     = input.string("Full candle", "Zone uses", options = ["Full candle", "Body"], group = GRP_OB)
-string obMitigInput     = input.string("Close", "Remove when", options = ["Close", "Wick"], group = GRP_OB, tooltip = "Close: a bar closes through the far side of the block. Wick: price trades through it.")
+bool   showObInput       = input.bool(true, "Order blocks", group = GRP_OB)
+int    obCountInput      = input.int(4, "Keep last (per side)", minval = 1, maxval = 20, group = GRP_OB)
+float  dispInput         = input.float(1.0, "Displacement (x ATR)", minval = 0.0, step = 0.25, group = GRP_OB, tooltip = "A block is kept only when the breaking candle closes at least this many ATR(14) beyond it - the move that left it must be forceful.")
+string obRangeInput      = input.string("Full candle", "Zone uses", options = ["Full candle", "Body"], group = GRP_OB)
+string obMitigInput      = input.string("Close", "Broken when", options = ["Close", "Wick"], group = GRP_OB, tooltip = "Close: a bar closes through the far side of the block (wick probes keep it alive). Wick: price trades through it.")
+bool   showBreakerInput  = input.bool(true, "Breaker blocks", group = GRP_OB, tooltip = "A broken order block flips side and stays as a dashed breaker until price closes back through it.")
 
 string GRP_FVG = "Fair value gaps"
-bool   showFvgInput     = input.bool(true, "Show fair value gaps", group = GRP_FVG)
-float  fvgMinAtrInput   = input.float(0.25, "Minimum size (x ATR)", minval = 0.0, step = 0.05, group = GRP_FVG, tooltip = "Ignores gaps smaller than this multiple of ATR(14).")
-int    fvgCountInput    = input.int(4, "Keep last (per side)", minval = 1, maxval = 20, group = GRP_FVG)
+bool   showFvgInput      = input.bool(true, "Fair value gaps", group = GRP_FVG)
+float  fvgMinAtrInput    = input.float(0.25, "Minimum size (x ATR)", minval = 0.0, step = 0.05, group = GRP_FVG, tooltip = "Ignores gaps smaller than this multiple of ATR(14).")
+int    fvgCountInput     = input.int(4, "Keep last (per side)", minval = 1, maxval = 20, group = GRP_FVG)
+string fvgFillInput      = input.string("Full", "Filled when", options = ["Full", "Half (CE)"], group = GRP_FVG, tooltip = "Full: a bar closes through the far side. Half (CE): price trades to the gap's midpoint (consequent encroachment).")
+bool   showCeInput       = input.bool(true, "Midpoint (CE) line", group = GRP_FVG)
+bool   showIfvgInput     = input.bool(true, "Inversion gaps", group = GRP_FVG, inline = "ifvg", tooltip = "A gap closed through flips side (IFVG) and acts as support/resistance for this many bars.")
+int    ifvgLifeInput     = input.int(60, "for bars", minval = 5, group = GRP_FVG, inline = "ifvg")
+
+string GRP_HTF = "Higher timeframe"
+bool   useHtfInput       = input.bool(true, "HTF bias and gaps", group = GRP_HTF, inline = "htf")
+string htfInput          = input.timeframe("240", "", group = GRP_HTF, inline = "htf", tooltip = "Adds the higher-timeframe structure bias to the dashboard and draws its fair value gaps with a dashed outline. Uses closed HTF bars only - no repainting. Ignored when it is not above the chart timeframe.")
 
 string GRP_LQ = "Liquidity"
-bool   showEqInput      = input.bool(true, "Show equal highs / lows", group = GRP_LQ)
-float  eqTolInput       = input.float(0.1, "Equal tolerance (x ATR)", minval = 0.01, step = 0.01, group = GRP_LQ)
-bool   showSweepInput   = input.bool(true, "Show liquidity sweeps", group = GRP_LQ, tooltip = "A wick takes out a swing high/low and the bar closes back inside.")
+bool   showEqInput       = input.bool(true, "Equal highs / lows", group = GRP_LQ)
+float  eqTolInput        = input.float(0.1, "Equal tolerance (x ATR)", minval = 0.01, step = 0.01, group = GRP_LQ)
+bool   showSweepInput    = input.bool(true, "Liquidity sweeps", group = GRP_LQ, tooltip = "A wick takes out a swing high/low and the bar closes back inside.")
+bool   showPdInput       = input.bool(true, "Premium / discount", group = GRP_LQ, tooltip = "Splits the current swing range at 50% (equilibrium): sell from premium, buy from discount.")
 
-string GRP_UI = "Style"
-color  bullColorInput   = input.color(#089981, "Bullish", group = GRP_UI, inline = "c")
-color  bearColorInput   = input.color(#F23645, "Bearish", group = GRP_UI, inline = "c")
-color  liqColorInput    = input.color(#B8860B, "Liquidity", group = GRP_UI, inline = "c")
-bool   showDashInput    = input.bool(true, "Show bias table", group = GRP_UI)
+string GRP_L = "Layers"
+string modeInput         = input.string("Present", "Mode", options = ["Present", "Historical"], group = GRP_L, tooltip = "Present keeps only live zones. Historical also keeps the last retired zones, faded, where they ended.")
+bool   showDashInput     = input.bool(true, "Dashboard", group = GRP_L)
+string dashPosInput      = input.string("Top right", "Dashboard position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = GRP_L)
+
+string GRP_R = "Track record"
+float  targetRInput      = input.float(1.0, "Order block held = reaches this many R", minval = 0.5, step = 0.25, group = GRP_R, tooltip = "On the first touch of a fresh order block: entry at the close, stop 0.5 ATR beyond the far side. Held = price reaches entry + this many times the risk before the stop.")
+int    expiryInput       = input.int(40, "Give up after (bars)", minval = 5, group = GRP_R)
+
+string GRP_SY = "Style"
+string themeInput        = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_SY)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color liqC     = pick(#FFC400, #B8860B, #C9A227, #B2B5BE)
+color accentC  = pick(#7C4DFF, #2962FF, #B2B5BE, #E0E3EB)
+color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
 
 // ---------- Types & state ----------
 type Zone
-    box   bx
-    float top
-    float bottom
-    bool  isBull
+    box    bx
+    line   ce
+    float  top
+    float  bot
+    int    left
+    int    dir       // 1 = demand / bullish, -1 = supply / bearish
+    string kind      // "OB", "BRK", "FVG", "IFVG", "HTF FVG"
+    int    base      // quality points from formation (0-75)
+    int    touches
+    bool   inside
+    int    born
 
-var array<Zone> bullObs  = array.new<Zone>()
-var array<Zone> bearObs  = array.new<Zone>()
-var array<Zone> bullFvgs = array.new<Zone>()
-var array<Zone> bearFvgs = array.new<Zone>()
+type Pending
+    int   dir
+    float entry
+    float stop
+    int   bar
 
-float atr = ta.atr(14)
+var array<Zone>    obs     = array.new<Zone>()
+var array<Zone>    fvgs    = array.new<Zone>()
+var array<box>     history = array.new<box>()
+var array<Pending> pending = array.new<Pending>()
+var int held = 0
+var int failed = 0
+
+int   tfSec    = timeframe.in_seconds()
+int   swingLen = autoInput ? (tfSec <= 300 ? 5 : tfSec < 14400 ? 8 : 10) : swingLenInput
+float atr      = ta.atr(14)
 bool  useClose = breakSrcInput == "Close"
+bool  htfOn    = useHtfInput and timeframe.in_seconds(htfInput) > tfSec
 
-// Adds a zone, keeps only the newest of overlapping same-side zones, and trims the list to `maxCount`.
-addZone(array<Zone> zones, int leftBar, float top, float bottom, bool isBull, color c, string txt, int maxCount) =>
+// ---------- Zone helpers ----------
+zoneColor(Zone z) =>
+    z.kind == "HTF FVG" ? accentC : z.dir == 1 ? bullC : bearC
+
+// Quality 0-100: formation points + freshness (untouched 25, touched once 10, more 0).
+score(Zone z) =>
+    math.min(100, z.base + (z.touches == 0 ? 25 : z.touches == 1 ? 10 : 0))
+
+// Adds a zone; a newer overlapping zone of the same side and kind replaces the older one.
+addZone(array<Zone> zones, int left, float top, float bot, int dir, string kind, int base) =>
+    if zones.size() > 0
+        for i = zones.size() - 1 to 0
+            Zone o = zones.get(i)
+            if o.dir == dir and o.kind == kind and top >= o.bot and bot <= o.top
+                o.bx.delete()
+                o.ce.delete()
+                zones.remove(i)
+    color c = kind == "HTF FVG" ? accentC : dir == 1 ? bullC : bearC
+    box b = box.new(left, top, bar_index + 15, bot, border_color = color.new(c, 45), bgcolor = color.new(c, 84), border_width = 1, border_style = kind == "HTF FVG" ? line.style_dashed : line.style_solid, text_size = size.tiny, text_halign = text.align_right, text_color = color.new(c, 10))
+    line m = showCeInput and str.contains(kind, "FVG") ? line.new(left, (top + bot) / 2, bar_index + 15, (top + bot) / 2, color = color.new(c, 45), style = line.style_dotted) : na
+    zones.push(Zone.new(b, m, top, bot, left, dir, kind, base, 0, false, bar_index))
+
+// Keeps the newest `maxCount` zones per side (and per HTF / chart timeframe); flipped zones count on their new side.
+trim(array<Zone> zones, int maxCount) =>
+    int up = 0
+    int dn = 0
+    int hUp = 0
+    int hDn = 0
     if zones.size() > 0
         for i = zones.size() - 1 to 0
             Zone z = zones.get(i)
-            if top >= z.bottom and bottom <= z.top
+            bool htf = z.kind == "HTF FVG"
+            int n = z.dir == 1 ? (htf ? hUp : up) : (htf ? hDn : dn)
+            if n >= maxCount
                 z.bx.delete()
+                z.ce.delete()
                 zones.remove(i)
-    box b = box.new(leftBar, top, bar_index, bottom, border_color = color.new(c, 55), bgcolor = color.new(c, 85), text = txt, text_color = color.new(c, 25), text_size = size.tiny, text_halign = text.align_right, text_valign = text.align_center)
-    zones.push(Zone.new(b, top, bottom, isBull))
-    if zones.size() > maxCount
-        Zone old = zones.shift()
-        old.bx.delete()
-
-// Extends live zones to the current bar and removes the ones price has traded through.
-// Returns true when at least one zone was removed on this bar.
-updateZones(array<Zone> zones, bool closeMode) =>
-    bool removed = false
-    if zones.size() > 0
-        for i = zones.size() - 1 to 0
-            Zone z = zones.get(i)
-            bool gone = z.isBull ? (closeMode ? close < z.bottom : low < z.bottom) : (closeMode ? close > z.top : high > z.top)
-            if gone
-                z.bx.delete()
-                zones.remove(i)
-                removed := true
+            else if z.dir == 1
+                up += htf ? 0 : 1
+                hUp += htf ? 1 : 0
             else
-                z.bx.set_right(bar_index)
-    removed
+                dn += htf ? 0 : 1
+                hDn += htf ? 1 : 0
 
-// One structure layer. Each call site keeps its own state.
-// Returns [bullBos, bullChoch, bearBos, bearChoch, trend, sweepHigh, sweepLow, eqHigh, eqLow].
-structure(int len, bool show, bool dashed, bool makeObs, bool markLiq) =>
+// Ends a zone: deleted in Present mode, kept faded where it ended in Historical mode.
+retire(Zone z) =>
+    z.ce.delete()
+    if modeInput == "Historical"
+        z.bx.set_right(bar_index)
+        z.bx.set_bgcolor(color.new(neutralC, 94))
+        z.bx.set_border_color(color.new(neutralC, 75))
+        z.bx.set_border_style(line.style_dotted)
+        z.bx.set_text("")
+        history.push(z.bx)
+        if history.size() > 20
+            history.shift().delete()
+    else
+        z.bx.delete()
+
+// Order block for a break: the last opposite candle at the extreme of the leg that broke structure.
+// Kept only with displacement (the breaking close is >= dispInput x ATR beyond it). Quality: displacement, an FVG left in the leg, CHoCH.
+makeOb(int dir, int fromBar, bool choch) =>
+    int span = math.min(math.max(bar_index - fromBar, 1), 60)
+    int ext = 1
+    for i = 1 to span
+        if dir == 1 ? low[i] < low[ext] : high[i] > high[ext]
+            ext := i
+    int k = ext
+    for j = ext to math.min(ext + 2, span)
+        if dir == 1 ? close[j] < open[j] : close[j] > open[j]
+            k := j
+            break
+    float top = dir == 1 and obRangeInput == "Body" ? math.max(open[k], close[k]) : high[k]
+    float bot = dir == -1 and obRangeInput == "Body" ? math.min(open[k], close[k]) : low[k]
+    float move = dir == 1 ? close - top : bot - close
+    bool gap = false
+    for j = 0 to math.max(k - 2, 0)
+        if dir == 1 ? low[j] > high[j + 2] : high[j] < low[j + 2]
+            gap := true
+    if showObInput and move >= atr * dispInput and top > bot
+        int base = int(math.min(move / atr, 3.0) / 3.0 * 40.0) + (gap ? 20 : 0) + (choch ? 15 : 8)
+        addZone(obs, bar_index - k, top, bot, dir, "OB", base)
+
+// ---------- Structure (one layer per call site) ----------
+// Returns [bullBos, bullChoch, bearBos, bearChoch, trend, sweepHigh, sweepLow, eqHigh, eqLow, lastHigh, lastHighBar, lastLow, lastLowBar].
+structure(int len, bool show, bool internal) =>
     var float lastHigh    = na
     var int   lastHighBar = na
     var bool  highBroken  = true
@@ -87,57 +188,38 @@ structure(int len, bool show, bool dashed, bool makeObs, bool markLiq) =>
     var int   lastLowBar  = na
     var bool  lowBroken   = true
     var bool  lowSwept    = true
-    var float prevHigh    = na
-    var float prevLow     = na
     var int   trend       = 0
-    // Order-block candidates captured when each swing confirms (small fixed offsets only).
-    var float lowObTop  = na
-    var float lowObBot  = na
-    var int   lowObBar  = na
-    var float highObTop = na
-    var float highObBot = na
-    var int   highObBar = na
-
     float ph = ta.pivothigh(high, len, len)
     float pl = ta.pivotlow(low, len, len)
     bool eqHigh = false
     bool eqLow  = false
+    bool liq = not internal
+    color upC = color.new(bullC, internal ? 35 : 0)
+    color dnC = color.new(bearC, internal ? 35 : 0)
 
     if not na(ph)
-        if markLiq and showEqInput and not na(lastHigh) and math.abs(ph - lastHigh) <= atr * eqTolInput
+        if liq and showEqInput and not na(lastHigh) and math.abs(ph - lastHigh) <= atr * eqTolInput
             eqHigh := true
-            line.new(lastHighBar, lastHigh, bar_index - len, ph, color = liqColorInput, style = line.style_dotted, width = 1)
-            label.new(math.round((lastHighBar + bar_index - len) / 2), math.max(ph, lastHigh), "EQH", style = label.style_label_down, color = color.new(liqColorInput, 100), textcolor = liqColorInput, size = size.tiny)
-        if showSwingPtsInput and show and not dashed
-            label.new(bar_index - len, ph, not na(lastHigh) and ph > lastHigh ? "HH" : "LH", style = label.style_label_down, color = color.new(bearColorInput, 100), textcolor = color.new(bearColorInput, 20), size = size.tiny)
-        prevHigh    := lastHigh
+            line.new(lastHighBar, lastHigh, bar_index - len, ph, color = liqC, style = line.style_dotted, width = 1)
+            label.new(math.round((lastHighBar + bar_index - len) / 2), math.max(ph, lastHigh), "EQH", style = label.style_label_down, color = color.new(liqC, 100), textcolor = liqC, size = size.tiny)
+        if showSwingPtsInput and liq
+            label.new(bar_index - len, ph, not na(lastHigh) and ph > lastHigh ? "HH" : "LH", style = label.style_label_down, color = color.new(bearC, 100), textcolor = color.new(bearC, 20), size = size.tiny)
         lastHigh    := ph
         lastHighBar := bar_index - len
         highBroken  := false
         highSwept   := false
-        // Last up-candle at or just before the swing high: candidate bearish order block.
-        int k = close[len] > open[len] ? len : close[len + 1] > open[len + 1] ? len + 1 : close[len + 2] > open[len + 2] ? len + 2 : len
-        highObTop := high[k]
-        highObBot := obRangeInput == "Body" ? math.min(open[k], close[k]) : low[k]
-        highObBar := bar_index - k
 
     if not na(pl)
-        if markLiq and showEqInput and not na(lastLow) and math.abs(pl - lastLow) <= atr * eqTolInput
+        if liq and showEqInput and not na(lastLow) and math.abs(pl - lastLow) <= atr * eqTolInput
             eqLow := true
-            line.new(lastLowBar, lastLow, bar_index - len, pl, color = liqColorInput, style = line.style_dotted, width = 1)
-            label.new(math.round((lastLowBar + bar_index - len) / 2), math.min(pl, lastLow), "EQL", style = label.style_label_up, color = color.new(liqColorInput, 100), textcolor = liqColorInput, size = size.tiny)
-        if showSwingPtsInput and show and not dashed
-            label.new(bar_index - len, pl, not na(lastLow) and pl < lastLow ? "LL" : "HL", style = label.style_label_up, color = color.new(bullColorInput, 100), textcolor = color.new(bullColorInput, 20), size = size.tiny)
-        prevLow    := lastLow
+            line.new(lastLowBar, lastLow, bar_index - len, pl, color = liqC, style = line.style_dotted, width = 1)
+            label.new(math.round((lastLowBar + bar_index - len) / 2), math.min(pl, lastLow), "EQL", style = label.style_label_up, color = color.new(liqC, 100), textcolor = liqC, size = size.tiny)
+        if showSwingPtsInput and liq
+            label.new(bar_index - len, pl, not na(lastLow) and pl < lastLow ? "LL" : "HL", style = label.style_label_up, color = color.new(bullC, 100), textcolor = color.new(bullC, 20), size = size.tiny)
         lastLow    := pl
         lastLowBar := bar_index - len
         lowBroken  := false
         lowSwept   := false
-        // Last down-candle at or just before the swing low: candidate bullish order block.
-        int k = close[len] < open[len] ? len : close[len + 1] < open[len + 1] ? len + 1 : close[len + 2] < open[len + 2] ? len + 2 : len
-        lowObTop := obRangeInput == "Body" ? math.max(open[k], close[k]) : high[k]
-        lowObBot := low[k]
-        lowObBar := bar_index - k
 
     bool bullBos = false
     bool bullChoch = false
@@ -146,76 +228,282 @@ structure(int len, bool show, bool dashed, bool makeObs, bool markLiq) =>
     bool sweepHigh = false
     bool sweepLow = false
 
-    if barstate.isconfirmed
-        // Bullish break: first bar that trades/closes beyond the unbroken swing high.
+    if barstate.isconfirmed and not na(atr)
         if not highBroken and not na(lastHigh) and (useClose ? close > lastHigh : high > lastHigh)
             highBroken := true
             bullChoch  := trend != 1
             bullBos    := not bullChoch
             trend      := 1
             if show
-                line.new(lastHighBar, lastHigh, bar_index, lastHigh, color = bullColorInput, style = dashed ? line.style_dashed : line.style_solid, width = 1)
-                label.new(math.round((lastHighBar + bar_index) / 2), lastHigh, bullChoch ? "CHoCH" : "BOS", style = label.style_label_down, color = color.new(bullColorInput, 100), textcolor = bullColorInput, size = dashed ? size.tiny : size.small)
-            if makeObs and showObInput and not na(lowObBar)
-                addZone(bullObs, lowObBar, lowObTop, lowObBot, true, bullColorInput, "OB", obCountInput)
-                lowObBar := na
-        // Bearish break.
+                line.new(lastHighBar, lastHigh, bar_index, lastHigh, color = upC, style = internal ? line.style_dashed : line.style_solid, width = 1)
+                label.new(math.round((lastHighBar + bar_index) / 2), lastHigh, bullChoch ? "CHoCH" : "BOS", style = label.style_label_down, color = color.new(bullC, 100), textcolor = upC, size = size.tiny)
+            if not internal and not na(lastLowBar)
+                makeOb(1, lastLowBar, bullChoch)
         if not lowBroken and not na(lastLow) and (useClose ? close < lastLow : low < lastLow)
             lowBroken := true
             bearChoch := trend != -1
             bearBos   := not bearChoch
             trend     := -1
             if show
-                line.new(lastLowBar, lastLow, bar_index, lastLow, color = bearColorInput, style = dashed ? line.style_dashed : line.style_solid, width = 1)
-                label.new(math.round((lastLowBar + bar_index) / 2), lastLow, bearChoch ? "CHoCH" : "BOS", style = label.style_label_up, color = color.new(bearColorInput, 100), textcolor = bearColorInput, size = dashed ? size.tiny : size.small)
-            if makeObs and showObInput and not na(highObBar)
-                addZone(bearObs, highObBar, highObTop, highObBot, false, bearColorInput, "OB", obCountInput)
-                highObBar := na
-        // Liquidity sweep: wick through an unbroken swing, close back inside. One mark per swing.
-        if markLiq and showSweepInput
+                line.new(lastLowBar, lastLow, bar_index, lastLow, color = dnC, style = internal ? line.style_dashed : line.style_solid, width = 1)
+                label.new(math.round((lastLowBar + bar_index) / 2), lastLow, bearChoch ? "CHoCH" : "BOS", style = label.style_label_up, color = color.new(bearC, 100), textcolor = dnC, size = size.tiny)
+            if not internal and not na(lastHighBar)
+                makeOb(-1, lastHighBar, bearChoch)
+        if liq and showSweepInput
             if not highBroken and not highSwept and not na(lastHigh) and high > lastHigh and close < lastHigh
                 highSwept := true
                 sweepHigh := true
-                label.new(bar_index, high, "Sweep", style = label.style_label_down, color = color.new(liqColorInput, 100), textcolor = liqColorInput, size = size.tiny)
+                label.new(bar_index, high, "✕ Sweep", style = label.style_label_down, color = color.new(liqC, 100), textcolor = liqC, size = size.tiny)
             if not lowBroken and not lowSwept and not na(lastLow) and low < lastLow and close > lastLow
                 lowSwept := true
                 sweepLow := true
-                label.new(bar_index, low, "Sweep", style = label.style_label_up, color = color.new(liqColorInput, 100), textcolor = liqColorInput, size = size.tiny)
+                label.new(bar_index, low, "✕ Sweep", style = label.style_label_up, color = color.new(liqC, 100), textcolor = liqC, size = size.tiny)
 
-    [bullBos, bullChoch, bearBos, bearChoch, trend, sweepHigh, sweepLow, eqHigh, eqLow]
+    [bullBos, bullChoch, bearBos, bearChoch, trend, sweepHigh, sweepLow, eqHigh, eqLow, lastHigh, lastHighBar, lastLow, lastLowBar]
+
+// ---------- Higher timeframe (closed bars only) ----------
+htfData() =>
+    var int tr = 0
+    var float hi = na
+    var float lo = na
+    float ph = ta.pivothigh(high, 3, 3)
+    float pl = ta.pivotlow(low, 3, 3)
+    if not na(ph)
+        hi := ph
+    if not na(pl)
+        lo := pl
+    if not na(hi) and close > hi
+        tr := 1
+        hi := na
+    if not na(lo) and close < lo
+        tr := -1
+        lo := na
+    bool bullGap = low[1] > high[3]
+    bool bearGap = high[1] < low[3]
+    [tr[1], bullGap ? low[1] : na, bullGap ? high[3] : na, bearGap ? low[3] : na, bearGap ? high[1] : na]
+
+[htfTrend, hBullTop, hBullBot, hBearTop, hBearBot] = request.security(syminfo.tickerid, htfInput, htfData(), lookahead = barmerge.lookahead_on)
 
 // ---------- Calculations ----------
-[sBullBos, sBullChoch, sBearBos, sBearChoch, swingTrend, sweepHigh, sweepLow, eqHigh, eqLow] = structure(swingLenInput, true, false, true, true)
-[iBullBos, iBullChoch, iBearBos, iBearChoch, internalTrend, iSweepH, iSweepL, iEqH, iEqL] = structure(internalLenInput, showInternalInput, true, false, false)
+[sBullBos, sBullChoch, sBearBos, sBearChoch, swingTrend, sweepHigh, sweepLow, eqHigh, eqLow, swHigh, swHighBar, swLow, swLowBar] = structure(swingLen, true, false)
+[iBullBos, iBullChoch, iBearBos, iBearChoch, internalTrend, iSweepH, iSweepL, iEqH, iEqL, iHigh, iHighBar, iLow, iLowBar] = structure(internalLenInput, showInternalInput, true)
 
-// Fair value gaps: three-candle imbalance, confirmed on the close of the third candle.
 bool bullFvg = false
 bool bearFvg = false
-if barstate.isconfirmed and showFvgInput
+bool htfFvgNew = false
+if barstate.isconfirmed and showFvgInput and not na(atr)
     if low > high[2] and (low - high[2]) >= atr * fvgMinAtrInput
         bullFvg := true
-        addZone(bullFvgs, bar_index - 1, low, high[2], true, bullColorInput, "FVG", fvgCountInput)
+        int q = int(math.min((low - high[2]) / atr, 1.5) / 1.5 * 30.0) + (close > open and (close - open) >= atr ? 20 : 8)
+        addZone(fvgs, bar_index - 2, low, high[2], 1, "FVG", q)
     if high < low[2] and (low[2] - high) >= atr * fvgMinAtrInput
         bearFvg := true
-        addZone(bearFvgs, bar_index - 1, low[2], high, false, bearColorInput, "FVG", fvgCountInput)
+        int q = int(math.min((low[2] - high) / atr, 1.5) / 1.5 * 30.0) + (close < open and (open - close) >= atr ? 20 : 8)
+        addZone(fvgs, bar_index - 2, low[2], high, -1, "FVG", q)
+    if htfOn
+        if not na(hBullTop) and (na(hBullTop[1]) or hBullTop != hBullTop[1]) and hBullTop - hBullBot >= atr * fvgMinAtrInput
+            htfFvgNew := true
+            addZone(fvgs, bar_index, hBullTop, hBullBot, 1, "HTF FVG", 60)
+        if not na(hBearTop) and (na(hBearTop[1]) or hBearTop != hBearTop[1]) and hBearTop - hBearBot >= atr * fvgMinAtrInput
+            htfFvgNew := true
+            addZone(fvgs, bar_index, hBearTop, hBearBot, -1, "HTF FVG", 60)
 
-// Zone lifecycle (runs every bar; a zone created on this bar is not tested until the next one).
-bool obCloseMode = obMitigInput == "Close"
-bool bullObGone = false
-bool bearObGone = false
+// ---------- Zone life cycle (confirmed bars; a zone is not tested on its own bar) ----------
+bool obTouched = false
+bool obBroken = false
+bool breakerNew = false
+bool ifvgNew = false
+if barstate.isconfirmed and obs.size() > 0
+    for i = obs.size() - 1 to 0
+        Zone z = obs.get(i)
+        if bar_index > z.born
+            bool through = z.dir == 1 ? (obMitigInput == "Close" ? close < z.bot : low < z.bot) : (obMitigInput == "Close" ? close > z.top : high > z.top)
+            bool touching = high >= z.bot and low <= z.top
+            if through
+                if z.kind == "OB" and showBreakerInput
+                    obBroken := true
+                    breakerNew := true
+                    z.kind := "BRK"
+                    z.dir := -z.dir
+                    z.touches := 0
+                    z.base := 30
+                    z.born := bar_index
+                    z.inside := true
+                else
+                    obBroken := obBroken or z.kind == "OB"
+                    retire(z)
+                    obs.remove(i)
+            else
+                if touching and not z.inside
+                    if z.kind == "OB" and z.touches == 0
+                        obTouched := true
+                        float stop = z.dir == 1 ? z.bot - atr * 0.5 : z.top + atr * 0.5
+                        pending.push(Pending.new(z.dir, close, stop, bar_index))
+                    z.touches += 1
+                z.inside := touching
+
+if barstate.isconfirmed and fvgs.size() > 0
+    for i = fvgs.size() - 1 to 0
+        Zone z = fvgs.get(i)
+        if bar_index > z.born
+            float mid = (z.top + z.bot) / 2
+            bool closedThrough = z.dir == 1 ? close < z.bot : close > z.top
+            bool halfFilled = z.dir == 1 ? low <= mid : high >= mid
+            bool touching = high >= z.bot and low <= z.top
+            if closedThrough and z.kind != "IFVG" and showIfvgInput
+                ifvgNew := true
+                z.kind := "IFVG"
+                z.dir := -z.dir
+                z.touches := 0
+                z.base := 35
+                z.born := bar_index
+                z.inside := true
+                z.ce.delete()
+                z.ce := na
+            else if closedThrough or (z.kind == "IFVG" and bar_index - z.born > ifvgLifeInput) or (fvgFillInput == "Half (CE)" and z.kind != "IFVG" and halfFilled)
+                retire(z)
+                fvgs.remove(i)
+            else
+                if touching and not z.inside
+                    z.touches += 1
+                z.inside := touching
+
 if barstate.isconfirmed
-    bullObGone := updateZones(bullObs, obCloseMode)
-    bearObGone := updateZones(bearObs, obCloseMode)
-    updateZones(bullFvgs, true)
-    updateZones(bearFvgs, true)
+    trim(obs, obCountInput)
+    trim(fvgs, fvgCountInput)
 
-// ---------- Bias table ----------
-var table dash = table.new(position.top_right, 2, 2, border_width = 1, border_color = color.new(color.gray, 70))
+// Track record of first touches on fresh order blocks (target first = held, stop first = failed, or expired).
+if barstate.isconfirmed and pending.size() > 0
+    for i = pending.size() - 1 to 0
+        Pending p = pending.get(i)
+        if bar_index > p.bar
+            float risk = math.abs(p.entry - p.stop)
+            float tgt  = p.entry + p.dir * risk * targetRInput
+            bool  won  = p.dir == 1 ? high >= tgt : low <= tgt
+            bool  lost = p.dir == 1 ? low <= p.stop : high >= p.stop
+            if lost
+                failed += 1
+                pending.remove(i)
+            else if won
+                held += 1
+                pending.remove(i)
+            else if bar_index - p.bar >= expiryInput
+                pending.remove(i)
+
+// ---------- Drawing on the last bar: live zones to the right edge, quality sets the fill ----------
+float nearDemand = na
+float nearSupply = na
+int nOb = 0
+int nFvg = 0
+paint(Zone z) =>
+    int   sc = score(z)
+    color c  = zoneColor(z)
+    bool  tested = z.touches > 0
+    bool  flipped = z.kind == "BRK" or z.kind == "IFVG"
+    z.bx.set_right(bar_index + 15)
+    z.bx.set_bgcolor(color.from_gradient(sc, 20, 90, color.new(c, tested ? 93 : 90), color.new(c, tested ? 82 : 72)))
+    z.bx.set_border_color(color.new(c, tested ? 60 : 35))
+    z.bx.set_border_style(z.kind == "HTF FVG" or flipped or tested ? line.style_dashed : line.style_solid)
+    z.bx.set_text_color(color.new(c, 10))
+    z.bx.set_text(z.kind + (tested ? " • x" + str.tostring(z.touches) : "") + " • " + str.tostring(sc))
+    if not na(z.ce)
+        z.ce.set_x2(bar_index + 15)
+        z.ce.set_color(color.new(c, 45))
+
+if barstate.islast
+    for z in obs
+        paint(z)
+        nOb += 1
+        if z.dir == 1 and close >= z.bot and (na(nearDemand) or z.top > nearDemand)
+            nearDemand := z.top
+        if z.dir == -1 and close <= z.top and (na(nearSupply) or z.bot < nearSupply)
+            nearSupply := z.bot
+    for z in fvgs
+        paint(z)
+        nFvg += 1
+        if z.dir == 1 and close >= z.bot and (na(nearDemand) or z.top > nearDemand)
+            nearDemand := z.top
+        if z.dir == -1 and close <= z.top and (na(nearSupply) or z.bot < nearSupply)
+            nearSupply := z.bot
+
+// Strong / weak high and low of the swing structure.
+var line strongHiLn = line.new(na, na, na, na, width = 1)
+var line strongLoLn = line.new(na, na, na, na, width = 1)
+var label strongHiLb = label.new(na, na, "", style = label.style_label_left, size = size.tiny)
+var label strongLoLb = label.new(na, na, "", style = label.style_label_left, size = size.tiny)
+if barstate.islast and showStrongInput and not na(swHigh) and not na(swLow)
+    bool hiStrong = swingTrend == -1
+    bool loStrong = swingTrend == 1
+    strongHiLn.set_xy1(swHighBar, swHigh)
+    strongHiLn.set_xy2(bar_index + 15, swHigh)
+    strongHiLn.set_color(color.new(bearC, hiStrong ? 20 : 55))
+    strongHiLn.set_style(hiStrong ? line.style_solid : line.style_dashed)
+    strongHiLb.set_xy(bar_index + 15, swHigh)
+    strongHiLb.set_text(hiStrong ? "Strong High" : "Weak High")
+    strongHiLb.set_color(color.new(bearC, 100))
+    strongHiLb.set_textcolor(color.new(bearC, hiStrong ? 0 : 30))
+    strongLoLn.set_xy1(swLowBar, swLow)
+    strongLoLn.set_xy2(bar_index + 15, swLow)
+    strongLoLn.set_color(color.new(bullC, loStrong ? 20 : 55))
+    strongLoLn.set_style(loStrong ? line.style_solid : line.style_dashed)
+    strongLoLb.set_xy(bar_index + 15, swLow)
+    strongLoLb.set_text(loStrong ? "Strong Low" : "Weak Low")
+    strongLoLb.set_color(color.new(bullC, 100))
+    strongLoLb.set_textcolor(color.new(bullC, loStrong ? 0 : 30))
+
+// Premium / discount of the current swing range.
+var box premBox = box.new(na, na, na, na, border_color = na, text_size = size.tiny, text_halign = text.align_left)
+var box discBox = box.new(na, na, na, na, border_color = na, text_size = size.tiny, text_halign = text.align_left)
+var line eqLine = line.new(na, na, na, na, style = line.style_dotted, width = 1)
+float pdPos = na
+if barstate.islast and not na(swHigh) and not na(swLow) and swHigh > swLow
+    float eqLvl = (swHigh + swLow) / 2
+    pdPos := (close - swLow) / (swHigh - swLow) * 100
+    if showPdInput
+        int left = math.min(swHighBar, swLowBar)
+        premBox.set_lefttop(left, swHigh)
+        premBox.set_rightbottom(bar_index + 15, eqLvl)
+        premBox.set_bgcolor(color.new(bearC, 94))
+        premBox.set_text("Premium")
+        premBox.set_text_color(color.new(bearC, 40))
+        discBox.set_lefttop(left, eqLvl)
+        discBox.set_rightbottom(bar_index + 15, swLow)
+        discBox.set_bgcolor(color.new(bullC, 94))
+        discBox.set_text("Discount")
+        discBox.set_text_color(color.new(bullC, 40))
+        eqLine.set_xy1(left, eqLvl)
+        eqLine.set_xy2(bar_index + 15, eqLvl)
+        eqLine.set_color(color.new(neutralC, 30))
+
+// ---------- Dashboard ----------
+dashPos = dashPosInput == "Top right" ? position.top_right : dashPosInput == "Bottom right" ? position.bottom_right : dashPosInput == "Top left" ? position.top_left : position.bottom_left
+var table dash = table.new(dashPos, 2, 9, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+
+row(int r, string k, string v, color vc) =>
+    dash.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, r, v, text_color = vc, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+
+biasText(int tr) =>
+    tr == 1 ? "Bullish ▲" : tr == -1 ? "Bearish ▼" : "-"
+
+biasColor(int tr) =>
+    tr == 1 ? bullC : tr == -1 ? bearC : textC
+
+distText(float lvl) =>
+    na(lvl) ? "-" : str.tostring(lvl, format.mintick) + " • " + str.tostring(math.abs(close - lvl) / atr, "#.#") + " ATR"
+
 if showDashInput and barstate.islast
-    table.cell(dash, 0, 0, "Swing", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
-    table.cell(dash, 1, 0, swingTrend == 1 ? "Bullish" : swingTrend == -1 ? "Bearish" : "-", text_color = color.white, text_size = size.small, bgcolor = color.new(swingTrend == 1 ? bullColorInput : swingTrend == -1 ? bearColorInput : color.gray, 30))
-    table.cell(dash, 0, 1, "Internal", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
-    table.cell(dash, 1, 1, internalTrend == 1 ? "Bullish" : internalTrend == -1 ? "Bearish" : "-", text_color = color.white, text_size = size.small, bgcolor = color.new(internalTrend == 1 ? bullColorInput : internalTrend == -1 ? bearColorInput : color.gray, 30))
+    int judged = held + failed
+    dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    dash.cell(1, 0, "SMC", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    row(1, "Swing", biasText(swingTrend), biasColor(swingTrend))
+    row(2, "Internal", biasText(internalTrend), biasColor(internalTrend))
+    row(3, "HTF " + htfInput, htfOn ? biasText(htfTrend) : "off", htfOn ? biasColor(htfTrend) : textC)
+    row(4, "Price in range", na(pdPos) ? "-" : (pdPos > 50 ? "Premium " : "Discount ") + str.tostring(pdPos, "#") + "%", na(pdPos) ? textC : pdPos > 50 ? bearC : bullC)
+    row(5, "Supply ▲", distText(nearSupply), bearC)
+    row(6, "Demand ▼", distText(nearDemand), bullC)
+    row(7, "Live zones", str.tostring(nOb) + " OB / " + str.tostring(nFvg) + " FVG", textC)
+    row(8, "OB held", str.tostring(held) + " / " + str.tostring(judged) + (judged > 0 ? " • " + str.tostring(held * 100.0 / judged, "#") + "%" : ""), judged > 0 ? color.from_gradient(held * 100.0 / judged, 35, 65, bearC, bullC) : textC)
 
 // ---------- Alerts ----------
 alertcondition(sBullBos,   "Bullish BOS",   "Nexus SMC: bullish BOS on {{ticker}} {{interval}} at {{close}}")
@@ -224,10 +512,13 @@ alertcondition(sBullChoch, "Bullish CHoCH", "Nexus SMC: bullish CHoCH on {{ticke
 alertcondition(sBearChoch, "Bearish CHoCH", "Nexus SMC: bearish CHoCH on {{ticker}} {{interval}} at {{close}}")
 alertcondition(iBullBos or iBullChoch, "Internal bullish break", "Nexus SMC: internal bullish break on {{ticker}} {{interval}}")
 alertcondition(iBearBos or iBearChoch, "Internal bearish break", "Nexus SMC: internal bearish break on {{ticker}} {{interval}}")
+alertcondition(obTouched,  "Fresh order block touched", "Nexus SMC: first touch of a fresh order block on {{ticker}} {{interval}} at {{close}}")
+alertcondition(obBroken,   "Order block broken", "Nexus SMC: order block closed through on {{ticker}} {{interval}} at {{close}}")
+alertcondition(breakerNew, "Breaker block formed", "Nexus SMC: breaker block formed on {{ticker}} {{interval}}")
 alertcondition(bullFvg,    "Bullish FVG",   "Nexus SMC: bullish FVG on {{ticker}} {{interval}}")
 alertcondition(bearFvg,    "Bearish FVG",   "Nexus SMC: bearish FVG on {{ticker}} {{interval}}")
-alertcondition(bullObGone, "Bullish order block mitigated", "Nexus SMC: bullish order block mitigated on {{ticker}} {{interval}}")
-alertcondition(bearObGone, "Bearish order block mitigated", "Nexus SMC: bearish order block mitigated on {{ticker}} {{interval}}")
+alertcondition(ifvgNew,    "Inversion FVG", "Nexus SMC: fair value gap inverted on {{ticker}} {{interval}}")
+alertcondition(htfFvgNew,  "HTF FVG",       "Nexus SMC: new higher-timeframe FVG on {{ticker}} {{interval}}")
 alertcondition(sweepHigh,  "Buy-side liquidity sweep",  "Nexus SMC: sweep above swing high on {{ticker}} {{interval}}")
 alertcondition(sweepLow,   "Sell-side liquidity sweep", "Nexus SMC: sweep below swing low on {{ticker}} {{interval}}")
 alertcondition(eqHigh or eqLow, "Equal highs / lows", "Nexus SMC: equal highs/lows on {{ticker}} {{interval}}")

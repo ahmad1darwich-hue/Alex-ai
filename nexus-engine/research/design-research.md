@@ -137,3 +137,29 @@ Where it went:
 - bench.js: new case sr_flip_retest. tests/preview.test.mjs: S/R template checks.
 - Market report: support / resistance and prices now come from real daily candles (previous day high/low, 5-day
   range, pivot, ADR) fed into the prompt, not from the model's memory.
+
+## 2026-10-19 · SMC zone life cycle: order blocks, breakers, FVG mitigation and inversion
+Sources: mql5 blog "How Order Blocks Form, Mitigate, and Die" (no-repaint OB article), TradingView FVG script search page
+(feature descriptions only: mitigation modes, inversion, auto clean-up, CE), luxalgo library "Inversion FVG" page title,
+edgeful blog "FVG indicator for TradingView" (same-session fill statistics on YM 30m).
+What traders want / complain about:
+- Repainting is still complaint #1: boxes that "appear exactly where price bounced". Zones must be born and retired only
+  from closed bars, and the chart must show the life cycle (fresh / tested / dead) - identical static rectangles for a
+  fresh and a 3-times-tapped zone make people trade dead blocks.
+- An order block needs an impulsive exit (ideally leaving an FVG); each tap uses up liquidity; a wick through and back
+  is still alive, a decisive CLOSE through kills it - and the dead block becomes a breaker on the other side.
+- FVG options traders ask for: fill by full close-through or by midpoint (consequent encroachment), CE line, inversion
+  (a gap closed through flips to S/R for a limited number of bars), caps per side and auto clean-up, ATR size filter,
+  HTF gaps next to chart gaps, a panel with the nearest gaps per side.
+- Data point (edgeful, small sample, one market): ~7 of 10 30m FVGs were NOT filled the same session -> gaps are
+  context/targets, not entries by themselves.
+Where it went:
+- knowledge.js ZONE ENGINE RULES: FVG CE line + inversion rule, order block from the extreme of the breaking leg with
+  displacement + score + first-touch tracking + breaker, caps after flips, strong/weak swings and HTF gaps.
+- templates/smc.pine rebuilt as "Nexus SMC - Structure, Zone Engine & Liquidity" on the design system (theme, auto swing
+  length, displacement-filtered scored OBs, fresh -> tested (dashed, xN) -> breaker -> removed, FVG CE + Full/Half fill +
+  IFVG, HTF bias and HTF FVGs from closed HTF bars, strong/weak high/low, premium/discount, Present/Historical,
+  dashboard with nearest supply/demand in ATR and the order-block first-touch track record).
+- bench.js: new case fvg_inversion_breaker. tests/preview.test.mjs: SMC template checks (caps, text, dashed states, rows).
+- Market report: data trend per market (20-day average + slope, distance in ADR, position in the 5-day range) fed to the
+  prompt so 🟢/🔴/🟡 follow data unless today's news clearly says otherwise.

@@ -35,5 +35,6 @@ Phases (one per daily run, keep all tests green, add tests/preview.test.mjs):
    ("preview approximate: X not drawn"). Then the same panel on the public Nexus site.
 
 ## Template upgrades to the design system (one per run)
-Done: sessions, rsi_divergence, trend, sr (2026-10-18: strength zones, role flips, first-retest signals).
-Next: smc (zone engine: displacement + ATR OB, FVG, life cycle, HTF zones), signals, scalper, mtf_dashboard, strategy.
+Done: sessions, rsi_divergence, trend, sr (2026-10-18: strength zones, role flips, first-retest signals), smc (2026-10-19:
+displacement-scored OBs, breakers, FVG CE + IFVG, HTF bias + HTF FVGs, strong/weak swings, OB track record).
+Next: signals, scalper, mtf_dashboard, strategy.

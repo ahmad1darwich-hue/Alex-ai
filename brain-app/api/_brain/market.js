@@ -67,8 +67,20 @@ export function levelsFromDaily(candles) {
   return {
     date: sydneyDay(last.t), close: last.c, high: last.h, low: last.l, prevHigh: prev.h, prevLow: prev.l,
     wkHigh: Math.max(...wk.map((x) => x.h)), wkLow: Math.min(...wk.map((x) => x.l)), adr,
-    pivot: (last.h + last.l + last.c) / 3, chg: ((last.c - prev.c) / prev.c) * 100,
+    pivot: (last.h + last.l + last.c) / 3, chg: ((last.c - prev.c) / prev.c) * 100, ...trendFromDaily(c, adr),
   };
+}
+// Data trend from daily closes: 20-day average, its 5-day slope, distance in ADR and where price sits in the 5-day range.
+// A tag, not a forecast: the report may disagree only when today's news clearly says so.
+export function trendFromDaily(c, adr) {
+  const avg = (a) => a.reduce((s, x) => s + x.c, 0) / a.length;
+  const n = Math.min(20, c.length), last = c[c.length - 1];
+  const sma = avg(c.slice(-n));
+  const prevSma = c.length >= n + 5 ? avg(c.slice(-n - 5, -5)) : null;
+  const up = last.c > sma && (prevSma === null || sma >= prevSma);
+  const down = last.c < sma && (prevSma === null || sma <= prevSma);
+  const wk = c.slice(-5), hi = Math.max(...wk.map((x) => x.h)), lo = Math.min(...wk.map((x) => x.l));
+  return { sma20: sma, trend: up ? "up" : down ? "down" : "range", smaDist: adr > 0 ? (last.c - sma) / adr : 0, rangePos: hi > lo ? Math.round(((last.c - lo) / (hi - lo)) * 100) : 50 };
 }
 export async function priceLevels(markets = MARKETS, fetchDaily = (sym) => getCandles(sym, 86400, 40)) {
   const lines = await Promise.all(markets.map(async (m) => {
@@ -77,7 +89,7 @@ export async function priceLevels(markets = MARKETS, fetchDaily = (sym) => getCa
       const { candles, source } = await fetchDaily(sym);
       const L = levelsFromDaily(candles);
       if (!L) return "";
-      return `${sym}: last daily candle ${L.date} close ${fmt(L.close)} (${L.chg >= 0 ? "+" : ""}${L.chg.toFixed(2)}%), high ${fmt(L.high)}, low ${fmt(L.low)}; previous day high ${fmt(L.prevHigh)} / low ${fmt(L.prevLow)}; 5-day high ${fmt(L.wkHigh)} / low ${fmt(L.wkLow)}; classic pivot ${fmt(L.pivot)}; average daily range (14) ${fmt(L.adr)} [${source}]`;
+      return `${sym}: last daily candle ${L.date} close ${fmt(L.close)} (${L.chg >= 0 ? "+" : ""}${L.chg.toFixed(2)}%), high ${fmt(L.high)}, low ${fmt(L.low)}; previous day high ${fmt(L.prevHigh)} / low ${fmt(L.prevLow)}; 5-day high ${fmt(L.wkHigh)} / low ${fmt(L.wkLow)}; classic pivot ${fmt(L.pivot)}; average daily range (14) ${fmt(L.adr)}; data trend ${L.trend} (close ${L.smaDist >= 0 ? "+" : ""}${L.smaDist.toFixed(1)} ADR from the 20-day average ${fmt(L.sma20)}); position in the 5-day range ${L.rangePos}% [${source}]`;
     } catch (e) { return ""; }
   }));
   const ok = lines.filter(Boolean);
@@ -93,7 +105,7 @@ Use web_search NOW to get today's real information (do not rely on memory): the 
 ${sessionClock()}
 
 Markets: ${markets.join(", ")}.
-${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason. If a search price is fresher, prefer it and keep levels consistent with it.\n" : ""}
+${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason. If a search price is fresher, prefer it and keep levels consistent with it. The data trend is a fact, not a forecast: go against it (🟢 in a down trend, 🔴 in an up trend) only when today's news clearly says so, otherwise follow it or use 🟡; near the top of the 5-day range (>85%) or the bottom (<15%) mention the stretch in the reason.\n" : ""}
 Ahmad wants it SHORT: no long explanations. Write in Levantine Arabic (tickers and numbers in English). Plain text for a chat app: no markdown headings, no tables, no ** bold. Exactly this layout:
 
 📊 الذهب والنفط والمؤشرات · <date>

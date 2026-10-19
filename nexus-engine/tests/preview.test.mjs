@@ -195,6 +195,30 @@ await t("sr template: scored zones to the right edge, one retest per flip, neare
   assert.match(cells["1:6"].text, /^\d+ \/ \d+( • \d+%)?$/, "retest track record row");
 });
 
+await t("smc template: capped scored zones to the right edge, life cycle kinds, bias + track record dashboard", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "smc.pine"), "utf8");
+  const cs = sampleCandles(900, 900, 2400);
+  const r = runPreview(code, cs, { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+  const zones = r.boxes.filter((b) => !/^(Premium|Discount)$/.test(b.text));
+  assert.ok(zones.length > 0, "zones are drawn");
+  for (const b of zones) {
+    assert.match(b.text, /^(OB|BRK|FVG|IFVG|HTF FVG)( • x\d+)? • \d+$/, "zone text: " + b.text);
+    assert.equal(b.right, cs.length - 1 + 15, "live zones run to the right edge");
+    if (/^(BRK|IFVG|HTF FVG)/.test(b.text) || / • x\d+/.test(b.text)) assert.match(String(b.bs), /dash/, "flipped / tested / HTF zones are dashed: " + b.text);
+  }
+  assert.ok(zones.filter((b) => /^(OB|BRK)/.test(b.text)).length <= 8, "order blocks capped (4 per side)");
+  assert.ok(zones.filter((b) => /^(FVG|IFVG)/.test(b.text)).length <= 8, "chart-TF gaps capped (4 per side)");
+  const labels = new Set(r.labels.map((l) => l.text));
+  assert.ok([...labels].every((x) => /^(BOS|CHoCH|EQH|EQL|✕ Sweep|Strong High|Weak High|Strong Low|Weak Low)$/.test(x)), "only designed structure labels: " + [...labels].join(","));
+  const cells = r.tables[0].cells;
+  assert.match(cells["1:1"].text, /^(Bullish ▲|Bearish ▼|-)$/, "swing bias row");
+  assert.match(cells["1:3"].text, /^(Bullish ▲|Bearish ▼|-|off)$/, "HTF bias row");
+  assert.match(cells["1:4"].text, /^(-|(Premium|Discount) \d+%)$/, "premium / discount row");
+  assert.match(cells["1:7"].text, /^\d+ OB \/ \d+ FVG$/, "live zones row");
+  assert.match(cells["1:8"].text, /^\d+ \/ \d+( • \d+%)?$/, "order block track record row");
+});
+
 await t("/api/preview accepts big scripts (150k characters) and refuses only past the limit", async () => {
   const real = globalThis.fetch;
   globalThis.fetch = async () => new Response("down", { status: 500 });

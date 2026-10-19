@@ -66,7 +66,10 @@ await t("price levels from daily candles feed the prompt (support / resistance f
   assert.equal(L.close, 2424); assert.equal(L.prevHigh, 2428); assert.equal(L.prevLow, 2408); assert.equal(L.wkHigh, 2429); assert.equal(L.wkLow, 2405); assert.equal(L.adr, 20);
   assert.equal(levelsFromDaily(cs.slice(0, 5)), null, "too few candles");
   const txt = await priceLevels(["XAUUSD (Gold)", "NOPE (x)"], async (sym) => { if (sym !== "XAUUSD") throw new Error("down"); return { candles: cs, source: "yahoo" }; });
-  assert.match(txt, /^PRICE DATA/); assert.match(txt, /XAUUSD: last daily candle .* close 2424\.0/); assert.match(txt, /previous day high 2428\.0 \/ low 2408\.0/); assert.doesNotMatch(txt, /NOPE/);
+  assert.match(txt, /^PRICE DATA/); assert.match(txt, /XAUUSD: last daily candle .* close 2424\.0/); assert.match(txt, /previous day high 2428\.0 \/ low 2408\.0/); assert.match(txt, /data trend up \(close \+0\.5 ADR from the 20-day average 2414\.5\); position in the 5-day range 79%/);
+  assert.equal(L.trend, "up"); assert.equal(L.sma20, 2414.5);
+  const dn = cs.map((x, i) => ({ ...x, c: 2500 - i * 3, h: 2505 - i * 3, l: 2490 - i * 3 })).concat(cs.slice(0, 6).map((x, i) => ({ ...x, c: 2440 - i * 3, h: 2445 - i * 3, l: 2430 - i * 3 })));
+  assert.equal(levelsFromDaily(dn).trend, "down", "falling closes = down trend"); assert.doesNotMatch(txt, /NOPE/);
   assert.equal(await priceLevels(["NOPE"], async () => { throw new Error("down"); }), "", "no data = no block");
 });
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
