@@ -7,7 +7,7 @@ import { runPreview } from "./_nexus/preview-run.js";
 import { getCandles, sampleCandles, SYMBOLS, TIMEFRAMES } from "./_brain/candles.js";
 export const config = { runtime: "edge" };
 
-const MAX_CODE = 120000;
+const MAX_CODE = 400000; // characters of Pine code (big pro scripts with many drawings can pass 120k)
 const hits = new Map();
 function limited(ip) {
   const now = Date.now(), w = hits.get(ip) || [];
@@ -32,7 +32,7 @@ export default async function handler(req) {
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "x";
   if (limited(ip)) return json({ ok: false, message: "too many previews, wait a minute" }, 429);
   let b = null;
-  try { const raw = await req.text(); if (raw.length > MAX_CODE + 4000) return json({ ok: false, message: "too large" }, 413); b = JSON.parse(raw); } catch (e) {}
+  try { const raw = await req.text(); if (raw.length > MAX_CODE + 4000) return json({ ok: false, message: "script too large for the preview (max " + MAX_CODE + " characters)" }, 413); b = JSON.parse(raw); } catch (e) {}
   if (!b || typeof b.code !== "string" || !b.code.trim()) return json({ ok: false, message: "code missing" }, 400);
   const symbol = SYMBOLS[b.symbol] ? b.symbol : "XAUUSD";
   const tf = TIMEFRAMES[b.tf] ? String(b.tf) : "15";

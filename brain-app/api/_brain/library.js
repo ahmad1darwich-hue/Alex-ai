@@ -6,7 +6,7 @@
 
 export const MAX_ITEMS = 300;
 export const MAX_VERSIONS = 5;
-export const MAX_CODE = 120000;
+export const MAX_CODE = 400000;
 const META = "brain:ind:lib:meta", CODE = "brain:ind:lib:code";
 const mem = { meta: new Map(), code: new Map() };
 

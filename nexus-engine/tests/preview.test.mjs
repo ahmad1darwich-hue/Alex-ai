@@ -195,4 +195,20 @@ await t("sr template: scored zones to the right edge, one retest per flip, neare
   assert.match(cells["1:6"].text, /^\d+ \/ \d+( • \d+%)?$/, "retest track record row");
 });
 
+await t("/api/preview accepts big scripts (150k characters) and refuses only past the limit", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => new Response("down", { status: 500 });
+  try {
+    const { default: preview } = await import("../../brain-app/api/preview.js");
+    const post = (b) => preview(new Request("https://b.test/api/preview", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "9.9.9.9" }, body: JSON.stringify(b) }));
+    const base = fs.readFileSync(path.join(here, "..", "templates", "sr.pine"), "utf8");
+    const big = base + "\n" + ("// padding line to make a large pro script " + "x".repeat(60) + "\n").repeat(1400);
+    assert.ok(big.length > 150000);
+    const r = await post({ code: big, symbol: "XAUUSD", tf: "15" });
+    assert.equal(r.status, 200); const j = await r.json(); assert.equal(j.ok, true); assert.equal(j.result.ok, true);
+    const huge = await post({ code: "x".repeat(420000), symbol: "XAUUSD", tf: "15" });
+    assert.equal(huge.status, 413); assert.match((await huge.json()).message, /too large for the preview/);
+  } finally { globalThis.fetch = real; }
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

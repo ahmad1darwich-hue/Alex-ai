@@ -20,7 +20,7 @@ const LIMIT_TOTAL = posInt(process.env.NEXUS_DAILY_TOTAL, 400); // model request
 const LIMIT_FREE_PER_IP = posInt(process.env.NEXUS_DAILY_FREE_PER_IP, 600); // template / check requests (no model call)
 const BUDGET_MS = 280000; // Edge streams may run for 300 s
 const MAX_BODY = 4500000; // bytes; attachments arrive as base64 inside the JSON body
-const MAX_CODE = 120000; // characters of Pine code accepted from the client
+const MAX_CODE = 400000; // characters of Pine code accepted from the client (big pro scripts pass 120k)
 // Optional operator token: lets the owner read stats, skip the per-IP cap and see token usage while testing.
 const ADMIN_TOKEN = process.env.NEXUS_ADMIN_TOKEN || "";
 function isAdmin(body) {
