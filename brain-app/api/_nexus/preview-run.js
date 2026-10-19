@@ -157,6 +157,9 @@ export class PreviewRunner {
     this.unsupported = new Set();
     this.steps = 0;
     this.t0 = 0;
+    // Time / work budget: callers can give big scripts more room (the preview endpoint) or less (the design review).
+    this.maxMs = (opts && opts.maxMs) || MAX_MS;
+    this.maxSteps = (opts && opts.maxSteps) || MAX_STEPS;
     this.decl = { kind: "indicator", title: "", overlay: false, maxLabels: 50, maxLines: 50, maxBoxes: 50 };
     this.out = { plots: [], hlines: [], fills: [], shapes: [], bg: [], barcolor: [], labels: [], lines: [], boxes: [], tables: [], trades: [] };
     this.drawSeq = 1;
@@ -168,7 +171,7 @@ export class PreviewRunner {
   id(node) { let v = this.ids.get(node); if (!v) { v = this.nextId++; this.ids.set(node, v); } return v; }
   key(node) { return this.ctx + "|" + this.id(node); }
   st(node, init) { const k = this.key(node); let s = this.state.get(k); if (!s) { s = init(); this.state.set(k, s); } return s; }
-  tick() { if (++this.steps > MAX_STEPS || (this.steps % 20000 === 0 && Date.now() - this.t0 > MAX_MS)) throw new PineError("the script is too heavy to preview (stopped after " + MAX_MS / 1000 + " s)"); }
+  tick() { if (++this.steps > this.maxSteps || (this.steps % 20000 === 0 && Date.now() - this.t0 > this.maxMs)) throw new PineError("the script is too heavy to preview (stopped after " + this.maxMs / 1000 + " s)"); }
   miss(name) { this.unsupported.add(name); return NA; }
 
   run() {
@@ -375,6 +378,9 @@ export class PreviewRunner {
   ident(name, env, node) {
     const slot = env.lookup(name);
     if (slot) return slot.v;
+    // The parser reads a bare break / continue inside an if block as an identifier: treat it as the statement.
+    if (name === "break") throw BREAK;
+    if (name === "continue") throw CONTINUE;
     const D = this.D, i = this.i;
     switch (name) {
       case "open": return D.o[i]; case "high": return D.h[i]; case "low": return D.l[i]; case "close": return D.c[i]; case "volume": return D.v[i];

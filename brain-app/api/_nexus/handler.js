@@ -4,6 +4,7 @@
 // plain-text stream is returned so pages that have not refreshed yet keep working.
 // The Edge entry points (api/indicator.js, api/nexus.js) only declare the runtime and call handle().
 import { SYSTEM_PROMPT, KNOWLEDGE_REV } from "./knowledge.js";
+import { safeStringify } from "../_brain/safe-json.js";
 import { LESSONS } from "./lessons.js";
 import { runPipeline } from "./engine.js";
 import { checkPine, summarizeCheck } from "./lint.js";
@@ -86,7 +87,7 @@ async function callOnce({ key, model, messages, effort, onText, onThinking, sign
     stream: true,
   };
   if (adaptive) { body.thinking = { type: "adaptive" }; body.output_config = { effort: effort || EFFORT }; }
-  const res = await fetch(API, { method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }, body: JSON.stringify(body), signal });
+  const res = await fetch(API, { method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }, body: safeStringify(body), signal });
   if (!res.ok || !res.body) {
     let t = ""; try { t = await res.text(); } catch (e) {}
     throw new ModelError(classify(res.status, t), res.status, t.slice(0, 300));

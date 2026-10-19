@@ -6,6 +6,7 @@
 // It is educational analysis, not financial advice, and it never places trades.
 
 import { getCandles } from "./candles.js";
+import { safeStringify } from "./safe-json.js";
 
 const API = "https://api.anthropic.com/v1/messages";
 export const MARKET_MODEL = process.env.MARKET_MODEL || process.env.BRAIN_MODEL || "claude-sonnet-5-5";
@@ -114,7 +115,7 @@ Rules: every price, level and event must come from today's search results; if yo
 
 async function callModel(key, model, markets, signal, levels = "") {
   const body = { model, max_tokens: 6000, messages: [{ role: "user", content: PROMPT(markets, levels) }], tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }] };
-  const r = await fetch(API, { method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }, body: JSON.stringify(body), signal });
+  const r = await fetch(API, { method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }, body: safeStringify(body), signal });
   const t = await r.text();
   if (!r.ok) { const e = new Error("model " + r.status + ": " + t.slice(0, 200)); e.status = r.status; throw e; }
   const j = JSON.parse(t);

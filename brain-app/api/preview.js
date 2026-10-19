@@ -45,7 +45,7 @@ export default async function handler(req) {
   }
   const S = SYMBOLS[symbol];
   let result;
-  try { result = runPreview(b.code, candles, { tfSec, symbol: S }); }
+  try { result = runPreview(b.code, candles, { tfSec, symbol: S, maxMs: 7000, maxSteps: 1.6e7 }); } // big pro scripts need more than the default 2.5 s
   catch (e) { result = { ok: false, error: "preview failed: " + String(e && e.message || e).slice(0, 200) }; }
   console.log("PREVIEW", JSON.stringify({ symbol, tf, source, bars: candles.length, ok: result.ok, ms: result.ms, err: result.error ? String(result.error).slice(0, 120) : undefined, unsupported: result.unsupported }));
   return json({ ok: true, symbol, label: S.label, tf, source, sample, mintick: S.mintick, candles, result });

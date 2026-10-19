@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { checkPine, sanitizeCode, describeDiagnostics, summarizeCheck } from "../../brain-app/api/_nexus/lint.js";
 import { TEMPLATES } from "../../brain-app/api/_nexus/templates.js";
+import { safeStringify } from "../../brain-app/api/_brain/safe-json.js";
 
 let n = 0;
 const t = (name, fn) => { try { fn(); n++; } catch (e) { console.error("FAIL", name, "\n ", e.message); process.exitCode = 1; } };
@@ -245,5 +246,15 @@ t("legacy v4/v5 names get the exact v6 replacement in the finding", () => {
   assert.match(msg(H + 'plot(close, color = color.red, transp = 50)\n'), /color\.new\(/);
   assert.match(msg('//@version=6\nstrategy("s", overlay = true)\nc = ta.crossover(close, ta.sma(close, 10))\nstrategy.entry("L", strategy.long, when = c)\n'), /wrap the call in an if block/);
   assert.doesNotMatch(msg(H + 'x = myFunc(close)\nplot(x)\n'), /Pine v6: use/);
+});
+t("emoji cut in half never reaches the model API as a broken escape", () => {
+  // A finding quotes its source line (cut at 220 characters); an emoji at the cut used to leave a lone surrogate,
+  // and the model API rejected the whole request ("unexpected end of hex escape").
+  const line = '    label.new(bar_index, high, "' + "x".repeat(191) + '🟢 BUY")';
+  const c = checkPine('//@version=6\nindicator("E", overlay = true)\nif barstate.islast\n' + line + '\nplot(close)\n');
+  const d = describeDiagnostics(c);
+  assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(d), "no lone high surrogate in the repair prompt");
+  const body = safeStringify({ a: "ok " + "🟢".slice(0, 1) + " end", b: ["🟢"] });
+  assert.doesNotMatch(body, /\\ud83d"/i); assert.ok(JSON.parse(body).b[0] === "🟢");
 });
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

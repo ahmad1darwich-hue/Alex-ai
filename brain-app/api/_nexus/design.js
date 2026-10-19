@@ -71,7 +71,7 @@ export function designReview(input, { preview = true } = {}) {
   if (preview) {
     try {
       SAMPLE = SAMPLE || sampleCandles(900, 600, 2400);
-      const r = runPreview(String(input || ""), SAMPLE, { tfSec: 900, symbol: GOLD });
+      const r = runPreview(String(input || ""), SAMPLE, { tfSec: 900, symbol: GOLD, maxMs: 1500 });
       if (r && r.ok) {
         const markers = r.labels.length + r.shapes.length;
         Object.assign(stats, { labels: r.labels.length, shapes: r.shapes.length, boxes: r.boxes.length, lines: r.lines.length, bars: SAMPLE.length, markers });

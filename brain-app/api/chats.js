@@ -7,7 +7,7 @@ import { brainAuth, lockedReply } from "./_brain/lock.js";
 export const config = { runtime: "edge" };
 
 const META = "brain:ind:chats:meta", DATA = "brain:ind:chats:data";
-const MAX = 60, MAX_DATA = 400000;
+const MAX = 60, MAX_DATA = 900000; // a chat can hold several versions of a big script
 const mem = { meta: new Map(), data: new Map() };
 const validId = (id) => typeof id === "string" && /^[a-z0-9]{6,24}$/.test(id);
 
@@ -21,10 +21,12 @@ async function kv(cmds) {
     if (op === "HGETALL") { const o = []; for (const [k, v] of m) o.push(k, v); return o; }
     return null;
   });
+  // Never hang on the store (a stuck call used to hold the function for its full 300 s).
+  const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 10000);
   try {
-    const r = await fetch(url.replace(/\/$/, "") + "/pipeline", { method: "POST", headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify(cmds) });
+    const r = await fetch(url.replace(/\/$/, "") + "/pipeline", { method: "POST", headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify(cmds), signal: ctrl.signal });
     return r.ok ? (await r.json()).map((x) => (x && "result" in x ? x.result : null)) : null;
-  } catch (e) { return null; }
+  } catch (e) { return null; } finally { clearTimeout(timer); }
 }
 const parse = (s) => { try { return JSON.parse(s); } catch (e) { return null; } };
 async function list() {

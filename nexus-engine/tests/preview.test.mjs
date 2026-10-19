@@ -211,4 +211,11 @@ await t("/api/preview accepts big scripts (150k characters) and refuses only pas
   } finally { globalThis.fetch = real; }
 });
 
+await t("break / continue inside an if block stop or skip the loop (were read as unknown identifiers)", () => {
+  const code = "//@version=6\nindicator(\"b\", overlay = true)\nfloat x = 0.0\nfor i = 0 to 10\n    if i > 3\n        break\n    x += 1\nint k = 0\nfor j = 0 to 5\n    if j == 2\n        continue\n    k += 1\nplot(x)\nplot(k)\n";
+  const r = runPreview(code, sampleCandles(900, 30, 100), { tfSec: 900 });
+  assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+  assert.equal(r.plots[0].values.at(-1), 4); assert.equal(r.plots[1].values.at(-1), 5);
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

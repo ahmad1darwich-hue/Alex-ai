@@ -1,3 +1,4 @@
+import { safeStringify } from "./safe-json.js";
 // One non-streaming Messages API call with model fallbacks, shared by the WhatsApp bots.
 // Tries each model in order; moves on when a model is not available to the account (404 / not_found) or the
 // API is overloaded (529), so a retired or busy model never silences the bot. Returns { ok, status, text, model, error }.
@@ -16,7 +17,7 @@ export async function askModel({ key, models, system, user, maxTokens = 1200 }) 
       r = await fetch(API, {
         method: "POST",
         headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] }),
+        body: safeStringify({ model, max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] }),
       });
     } catch (e) {
       last = { ok: false, status: 0, text: "", model, error: String(e && e.message || e).slice(0, 200) };

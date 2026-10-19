@@ -1,3 +1,4 @@
+import { wellFormed } from "../_brain/safe-json.js";
 // Nexus code checks: the pine-tools parser/type-checker plus a few Nexus-specific rules.
 // Pure functions, no I/O - runs in the Edge runtime and in Node tests.
 import { lintPine } from "./pine-lint.mjs";
@@ -433,7 +434,7 @@ function nexusRules(code) {
     // strings are Unicode, and "▲ BUY" labels are part of the design system.
     if (nonAscii >= MAX_PER_RULE) continue;
     const ml = maskedLines[i];
-    const re = /[^\x00-\x7F]/g;
+    const re = /[^\x00-\x7F]/gu; // u: an emoji is one character, never half a surrogate pair
     let m;
     while ((m = re.exec(raw))) {
       const inString = m.index < ml.length && ml[m.index] === " ";
@@ -544,7 +545,7 @@ export function describeDiagnostics(check, maxItems = 14) {
   const lines = check.code.split("\n");
   const fmt = (d, kind) => {
     const src = (lines[d.line - 1] || "").trim();
-    return `- [${kind}] line ${d.line}: ${d.message}${src ? `\n    > ${src.slice(0, 220)}` : ""}`;
+    return `- [${kind}] line ${d.line}: ${d.message}${src ? `\n    > ${wellFormed(src.slice(0, 220))}` : ""}`;
   };
   const out = [];
   for (const e of check.errors.slice(0, maxItems)) out.push(fmt(e, "ERROR"));

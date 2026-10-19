@@ -4,6 +4,7 @@
 // Private: every request must carry the owner's key (see _brain/lock.js).
 import { brainAuth, lockedReply } from "./_brain/lock.js";
 import { checkFile } from "./_brain/filecheck.js";
+import { safeStringify } from "./_brain/safe-json.js";
 export const config = { runtime: "edge" };
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-5-5";
@@ -198,7 +199,7 @@ export default async function handler(req) {
     const b = { model, max_tokens: heavy ? 20000 : pro ? 12000 : 8000, system, messages, stream: true };
     if (tools) b.tools = tools;
     if (think && isAdaptive(model)) { b.thinking = { type: "adaptive" }; b.output_config = { effort: heavy || pro ? "high" : "medium" }; }
-    return JSON.stringify(b);
+    return safeStringify(b);
   }
   function call(model, tools, think) {
     return fetch(API, {
