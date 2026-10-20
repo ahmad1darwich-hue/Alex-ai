@@ -48,13 +48,37 @@ RULES:
 - THINK LIKE A SENIOR OPERATOR: for anything non-trivial, work out the goal, the facts you need, and the plan before you answer; check your own numbers; end with the concrete next step(s) Ahmad should take.
 - Facts that change (prices, laws, rules, rates, opening hours, news, model/app versions) come from a search done now, not from memory. Say the date of the information. Never invent a source, a URL or a number; if you could not confirm something, say so in one line.
 - You can read web pages (web_fetch tool) as well as search: open the best sources and read them instead of guessing from snippets.
-- If a LIVE DATA block is included below, it was fetched from the internet just now — use those real numbers and say "as of now". If asked for live data not provided, say you can fetch prices for gold/silver/BTC/ETH but not that item yet.`;
+- If a LIVE DATA block is included below, it was fetched from the internet just now — use those real numbers and say "as of now". If asked for live data not provided, say you can fetch prices for gold, silver, BTC, ETH, EUR/USD, AUD/USD, GBP/USD, USD/JPY, oil, Nasdaq, Dow, S&P 500 and DXY, or use web_search for anything else.`;
 
 async function timedFetch(url, opts, ms) {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms || 3000);
   try { return await fetch(url, Object.assign({ signal: c.signal }, opts || {})); }
   finally { clearTimeout(t); }
+}
+// Quotes Brain can fetch live besides gold / silver / crypto: what Ahmad trades and AUD conversions.
+export const LIVE_QUOTES = [
+  { re: /eur\s*\/?\s*usd|\beuro\b|يورو/i, y: "EURUSD=X", name: "EUR/USD", dp: 5 },
+  { re: /aud\s*\/?\s*usd|\baussie\b|australian dollar|الدولار الاسترالي|الدولار الأسترالي/i, y: "AUDUSD=X", name: "AUD/USD", dp: 5 },
+  { re: /gbp\s*\/?\s*usd|\bcable\b|sterling|باوند|الجنيه الاسترليني/i, y: "GBPUSD=X", name: "GBP/USD", dp: 5 },
+  { re: /usd\s*\/?\s*jpy|\byen\b|ين ياباني|الين/i, y: "JPY=X", name: "USD/JPY", dp: 3 },
+  { re: /\boil\b|crude|wti|usoil|نفط|بترول/i, y: "CL=F", name: "WTI crude oil (futures)", dp: 2 },
+  { re: /nasdaq|nas100|us100|\bnq\b|ناسداك/i, y: "NQ=F", name: "Nasdaq 100 (futures)", dp: 2 },
+  { re: /\bdow\b|us30|\bym\b|داو/i, y: "YM=F", name: "Dow Jones (futures)", dp: 0 },
+  { re: /s&p|spx|sp500|s and p|us500|اس اند بي/i, y: "ES=F", name: "S&P 500 (futures)", dp: 2 },
+  { re: /\bdxy\b|dollar index|مؤشر الدولار/i, y: "DX-Y.NYB", name: "US dollar index DXY", dp: 3 },
+];
+async function yahooQuote(sym) {
+  const r = await timedFetch("https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(sym) + "?interval=1d&range=5d", { headers: { "user-agent": "Mozilla/5.0", accept: "application/json" } }, 2500);
+  if (!r.ok) return null;
+  const j = await r.json(); const m = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+  if (!m || !isFinite(m.regularMarketPrice)) return null;
+  const prev = isFinite(m.chartPreviousClose) ? m.chartPreviousClose : isFinite(m.previousClose) ? m.previousClose : null;
+  return { price: Number(m.regularMarketPrice), prev: prev == null ? null : Number(prev) };
+}
+export function fmtQuote(v, dp) {
+  const ch = v.prev ? (v.price - v.prev) / v.prev * 100 : null;
+  return v.price.toFixed(dp) + (ch == null ? "" : " (" + (ch >= 0 ? "+" : "") + ch.toFixed(2) + "% vs previous close)");
 }
 async function liveData(text) {
   const q = (text || "").toLowerCase(), out = [];
@@ -76,6 +100,12 @@ async function liveData(text) {
         if (j.bitcoin) out.push("Bitcoin (BTC) = $" + j.bitcoin.usd.toLocaleString() + " USD");
         if (j.ethereum) out.push("Ethereum (ETH) = $" + j.ethereum.usd.toLocaleString() + " USD"); }
     } catch (e) {}
+  }
+  // Forex, oil and indices from Yahoo's public chart feed (futures / spot quotes; a broker's CFD price can differ a little).
+  const picks = LIVE_QUOTES.filter((x) => x.re.test(q));
+  if (picks.length) {
+    const got = await Promise.all(picks.slice(0, 4).map((x) => yahooQuote(x.y).then((v) => v && x.name + " = " + fmtQuote(v, x.dp)).catch(() => null)));
+    for (const g of got) if (g) out.push(g);
   }
   return out.length ? "\n\nLIVE DATA (fetched now, " + new Date().toUTCString() + "):\n- " + out.join("\n- ") : "";
 }

@@ -36,5 +36,6 @@ Phases (one per daily run, keep all tests green, add tests/preview.test.mjs):
 
 ## Template upgrades to the design system (one per run)
 Done: sessions, rsi_divergence, trend, sr (2026-10-18: strength zones, role flips, first-retest signals), smc (2026-10-19:
-displacement-scored OBs, breakers, FVG CE + IFVG, HTF bias + HTF FVGs, strong/weak swings, OB track record).
-Next: signals, scalper, mtf_dashboard, strategy.
+displacement-scored OBs, breakers, FVG CE + IFVG, HTF bias + HTF FVGs, strong/weak swings, OB track record), signals
+(2026-10-20: 5-check confluence + A/B grades, late-entry veto, clamped swing stop, BE after TP1, trail after TP2, R record).
+Next: scalper, mtf_dashboard, strategy.

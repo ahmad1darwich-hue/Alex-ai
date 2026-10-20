@@ -163,3 +163,27 @@ Where it went:
 - bench.js: new case fvg_inversion_breaker. tests/preview.test.mjs: SMC template checks (caps, text, dashed states, rows).
 - Market report: data trend per market (20-day average + slope, distance in ADR, position in the 5-day range) fed to the
   prompt so 🟢/🔴/🟡 follow data unless today's news clearly says otherwise.
+
+## 2026-10-20 · signal tools: confluence grading, late-entry veto, stops and trade management
+Sources: luxalgo.com library "Neural Confluence Engine" concept page (scoring designs: equal-weight votes, weighted scores,
+A+/B/C checklists, veto conditions), luxalgo library "Trailing Take Profit Trailing Stop Loss" page (trail anchors, ratchet,
+profit-lock at R milestones, close vs intrabar triggers), friendofthetrend.com buy/sell indicator page (swing-extreme stop +
+buffer, 3 ATR-style targets fixed at the signal, faded arrows while the bar is open, caution dots for weak signals),
+TradingView "v1 Swing Trade" script description (late-entry filter, close-confirmed breakouts, stop modes ATR / pivot).
+What traders want / complain about:
+- A bare cross prints too many arrows; wanted: a score from independent checks with a cut-off, grades (A / B) shown
+  differently, a "stand aside" when trend and momentum disagree, and veto conditions that beat any score.
+- Chasing: signals that fire after the move is already stretched lose; a late-entry veto (distance from the mean in ATR) is
+  a common ask. Also a cooldown and one position at a time.
+- Stops: structure (recent swing + buffer) is preferred over a fixed ATR, but must be clamped (tiny swings = noise stop,
+  huge swings = useless R). Targets fixed at the signal in R.
+- Management: break-even after TP1, trail only in the trade's favor (ratchet), the stop line visibly changing state; the
+  result depends on close vs intrabar checks - be conservative (stop first on a bar that hits both).
+- Proof: "win rate" of TP1 alone flatters; traders trust total / average R per trade.
+Where it went:
+- knowledge.js: new "SIGNAL ENGINE RULES" (confluence score + grades, vetoes, clamped structure stop, break-even + ratchet
+  trail, conservative order, R-based track record, exit marks for the last plan only).
+- templates/signals.pine rebuilt as "Nexus Signals - Confluence Entries & Trade Manager" on the design system (theme, auto
+  EMA lengths, 5-check confluence with A/B grades, late-entry veto + cooldown, swing/ATR stop clamped in ATR, TP1-TP3 with
+  scale-out thirds, BE after TP1, ATR trail after TP2, opposite exit, risk/reward boxes, R track record dashboard, alerts).
+- bench.js: new case signal_confluence_manager. tests/preview.test.mjs: signals template checks.

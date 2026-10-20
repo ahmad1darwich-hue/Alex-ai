@@ -96,6 +96,26 @@ export async function priceLevels(markets = MARKETS, fetchDaily = (sym) => getCa
   return ok.length ? "PRICE DATA from daily candles (futures / exchange feeds; a broker's CFD price can differ a little - say ~):\n" + ok.join("\n") : "";
 }
 
+// The US dollar (DXY) from daily closes: gold usually moves against it, so a clear dollar move is part of the reason.
+export async function dollarDriver(fetchCloses = yahooDailyCloses) {
+  try {
+    const c = (await fetchCloses("DX-Y.NYB")).filter((x) => isFinite(x));
+    if (c.length < 6) return "";
+    const last = c[c.length - 1], d1 = (last / c[c.length - 2] - 1) * 100, d5 = (last / c[c.length - 6] - 1) * 100;
+    const tone = d1 >= 0.3 ? "stronger dollar today = headwind for gold" : d1 <= -0.3 ? "weaker dollar today = tailwind for gold" : "dollar flat today = not a gold driver";
+    return `DOLLAR DRIVER: DXY ${last.toFixed(2)} (${d1 >= 0 ? "+" : ""}${d1.toFixed(2)}% on the day, ${d5 >= 0 ? "+" : ""}${d5.toFixed(2)}% over 5 days) - ${tone}. Mention the dollar in the gold reason only when it moved clearly (0.3% or more).`;
+  } catch (e) { return ""; }
+}
+async function yahooDailyCloses(sym) {
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), 5000);
+  try {
+    const r = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(sym) + "?interval=1d&range=1mo", { headers: { "user-agent": "Mozilla/5.0", accept: "application/json" }, signal: c.signal });
+    if (!r.ok) return [];
+    const j = await r.json(); const q = j && j.chart && j.chart.result && j.chart.result[0];
+    return ((q && q.indicators && q.indicators.quote && q.indicators.quote[0] && q.indicators.quote[0].close) || []).filter((x) => x != null);
+  } finally { clearTimeout(t); }
+}
+
 export const DISCLAIMER = "تحليل تعليمي مش نصيحة مالية. قرار الصفقة إلك.";
 
 const PROMPT = (markets, levels = "") => `You are Brain, the market analyst of Ahmad, a Sydney-based trader (gold first, also oil and US indices; Smart Money Concepts style). It is ${sydneyNow()} in Sydney.
@@ -149,7 +169,7 @@ export async function buildReport({ key, markets = MARKETS, signal } = {}) {
   let last = null;
   // Price data never holds the report up for long: 12 s at most, then the report goes ahead on search alone.
   let timer;
-  const levels = await Promise.race([priceLevels(markets), new Promise((r) => { timer = setTimeout(() => r(""), 12000); })]).catch(() => "");
+  const levels = await Promise.race([Promise.all([priceLevels(markets), dollarDriver()]).then((x) => x.filter(Boolean).join("\n")), new Promise((r) => { timer = setTimeout(() => r(""), 12000); })]).catch(() => "");
   clearTimeout(timer);
   for (const model of [MARKET_MODEL, ...FALLBACK.filter((m) => m !== MARKET_MODEL)]) {
     try {

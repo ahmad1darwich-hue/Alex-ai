@@ -219,6 +219,26 @@ await t("smc template: capped scored zones to the right edge, life cycle kinds, 
   assert.match(cells["1:8"].text, /^\d+ \/ \d+( • \d+%)?$/, "order block track record row");
 });
 
+await t("signals template: graded confluence signals, one managed trade plan, R track record dashboard", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "signals.pine"), "utf8");
+  for (const n of [1000, 600]) {
+    const r = runPreview(code, sampleCandles(900, n, 2400), { tfSec: 900, symbol: GOLD });
+    assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+    const sigs = r.labels.filter((l) => /^(▲ BUY|▼ SELL) • [AB]$/.test(l.text));
+    assert.ok(sigs.length > 0, "signals are drawn");
+    const other = r.labels.filter((l) => !/^(▲ BUY|▼ SELL) • [AB]$/.test(l.text));
+    assert.ok(other.every((l) => /^(Entry |SL |BE |TRAIL |TP[123] [\d.]+R |◆ TP[123]$|■ BE$|■ TRAIL$|✕ SL$|• EXIT$)/.test(l.text)), "only designed plan labels: " + other.map((l) => l.text).join(","));
+    assert.equal(r.labels.filter((l) => /^(SL|BE|TRAIL) \d/.test(l.text)).length, 1, "only the last signal keeps a trade plan");
+    assert.equal(r.boxes.length, 2, "risk and reward boxes of the last plan");
+    const cells = r.tables[0].cells;
+    assert.match(cells["1:1"].text, /^(LONG • [AB]|SHORT • [AB]|FLAT)$/, "position row");
+    assert.match(cells["1:2"].text, /^[0-5]\/5 (▲|▼)$/, "confluence row");
+    assert.match(cells["1:6"].text, /^(-|Initial|Break-even|Trailing)$/, "stop mode row");
+    assert.match(cells["1:7"].text, /^\d+( • \d+%)?$/, "trades / win row");
+    assert.match(cells["1:8"].text, /^(-|[+-][\d.]+ • avg -?[\d.]+)$/, "total R row");
+  }
+});
+
 await t("/api/preview accepts big scripts (150k characters) and refuses only past the limit", async () => {
   const real = globalThis.fetch;
   globalThis.fetch = async () => new Response("down", { status: 500 });

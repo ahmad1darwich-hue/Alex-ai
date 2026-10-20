@@ -13,6 +13,7 @@ globalThis.fetch = async (url, init) => {
   }
   if (u.startsWith("http://usws.com.au")) return new Response("", { status: 308, headers: { location: "https://usws.com.au/" } });
   if (u.startsWith("https://usws.com.au")) return new Response("<html></html>", { status: 200, headers: { "x-content-type-options": "nosniff", server: "Vercel" } });
+  if (u.includes("finance.yahoo.com")) { const sym = decodeURIComponent(u.split("/chart/")[1].split("?")[0]); const px = { "EURUSD=X": [1.085, 1.08], "CL=F": [71.2, 72.0] }[sym]; return px ? Response.json({ chart: { result: [{ meta: { regularMarketPrice: px[0], chartPreviousClose: px[1] } }] } }) : new Response("no", { status: 404 }); }
   return new Response("{}", { status: 200 });
 };
 const { default: agent } = await import("../../brain-app/api/agent.js");
@@ -101,6 +102,14 @@ await t("WhatsApp model helper: falls back on a retired or overloaded model, sto
     const bad = await askModel({ key: "k", models: ["a", "b"], system: "s", user: "u" });
     assert.equal(bad.ok, false); assert.equal(bad.status, 401); assert.deepEqual(seen, ["a"], "auth errors are not retried on other models");
   } finally { globalThis.fetch = saved; }
+});
+
+await t("live quotes: forex and oil are fetched for the question (Yahoo), with the change vs previous close", async () => {
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "شو سعر اليورو دولار والنفط هلق؟" }] })).text();
+  const sys = bodies[0].system;
+  assert.match(sys, /LIVE DATA \(fetched now/); assert.match(sys, /EUR\/USD = 1\.08500 \(\+0\.46% vs previous close\)/); assert.match(sys, /WTI crude oil \(futures\) = 71\.20 \(-1\.11%/);
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "write a quote for a deck in Europe" }] })).text();
+  assert.ok(!/LIVE DATA \(fetched now/.test(bodies[0].system), "no quote fetch for unrelated words");
 });
 
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

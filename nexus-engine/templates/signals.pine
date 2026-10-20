@@ -1,184 +1,315 @@
 //@version=6
-indicator("Nexus Signals - Buy/Sell with TP & SL", shorttitle = "NX Signals", overlay = true, max_lines_count = 500, max_labels_count = 500)
+indicator("Nexus Signals - Confluence Entries & Trade Manager", shorttitle = "NX Signals", overlay = true, max_lines_count = 200, max_labels_count = 300, max_boxes_count = 50)
 
 // ---------- Inputs ----------
-string GRP_S = "Signal"
-int    fastLenInput   = input.int(9, "Fast EMA", minval = 1, group = GRP_S)
-int    slowLenInput   = input.int(21, "Slow EMA", minval = 2, group = GRP_S)
-bool   useTrendInput  = input.bool(true, "Trend filter: trade only on the side of EMA", group = GRP_S, inline = "tr")
-int    trendLenInput  = input.int(200, "", minval = 2, group = GRP_S, inline = "tr")
-bool   useRsiInput    = input.bool(true, "Momentum filter: RSI above/below 50", group = GRP_S, inline = "rsi")
-int    rsiLenInput    = input.int(14, "", minval = 2, group = GRP_S, inline = "rsi")
+string GRP_S = "Signal engine"
+bool   autoInput      = input.bool(true, "Auto settings", group = GRP_S, tooltip = "Picks the EMA pair from the chart timeframe: 5m and below 9 / 21, intraday 12 / 26, 4h and above 21 / 55. Turn off to use the manual lengths below.")
+int    fastLenInput   = input.int(9, "Fast EMA (manual)", minval = 1, group = GRP_S)
+int    slowLenInput   = input.int(21, "Slow EMA (manual)", minval = 2, group = GRP_S)
+int    trendLenInput  = input.int(200, "Trend EMA", minval = 2, group = GRP_S)
+int    minScoreInput  = input.int(3, "Minimum confluence (of 5)", minval = 1, maxval = 5, group = GRP_S, tooltip = "Each cross is scored on 5 checks: trend side of the trend EMA, RSI side of 50, ADX strength, volume above average (counted as passed when the symbol has no volume) and higher-timeframe agreement. 4-5 = grade A, below = grade B.")
+bool   onlyAInput     = input.bool(false, "Grade A only", group = GRP_S)
+int    adxMinInput    = input.int(20, "ADX at least", minval = 1, group = GRP_S)
+float  volMultInput   = input.float(1.0, "Volume at least x average (20)", minval = 0.1, step = 0.1, group = GRP_S)
+bool   useHtfInput    = input.bool(true, "Higher-timeframe check", group = GRP_S, inline = "htf")
+string htfInput       = input.timeframe("240", "", group = GRP_S, inline = "htf", tooltip = "Close vs EMA 50 of the last CLOSED higher-timeframe bar, so it does not repaint.")
+float  lateInput      = input.float(2.0, "Late-entry veto (ATR from slow EMA)", minval = 0.5, step = 0.25, group = GRP_S, tooltip = "Skips a cross when price is already this far from the slow EMA - chasing a stretched move. Skipped signals are counted in the dashboard.")
+int    cooldownInput  = input.int(3, "Minimum bars between signals", minval = 0, group = GRP_S)
 
-string GRP_R = "Targets & stop"
-bool   showLevelsInput = input.bool(true, "Draw entry / SL / TP levels", group = GRP_R)
+string GRP_R = "Stop & targets"
+string stopModeInput  = input.string("Swing", "Stop", options = ["Swing", "ATR"], group = GRP_R, tooltip = "Swing: beyond the lowest low / highest high of the last bars plus a buffer. ATR: a fixed ATR distance. Both are kept between the min and max distance below.")
+int    swingLenInput  = input.int(10, "Swing lookback", minval = 2, group = GRP_R, inline = "sw")
+float  bufferInput    = input.float(0.3, "buffer (ATR)", minval = 0, step = 0.05, group = GRP_R, inline = "sw")
+float  slMultInput    = input.float(1.5, "ATR stop (x ATR)", minval = 0.1, step = 0.1, group = GRP_R)
+float  minStopInput   = input.float(0.5, "Stop distance min (ATR)", minval = 0.1, step = 0.1, group = GRP_R, inline = "mm")
+float  maxStopInput   = input.float(3.0, "max", minval = 0.2, step = 0.1, group = GRP_R, inline = "mm")
 int    atrLenInput    = input.int(14, "ATR length", minval = 1, group = GRP_R)
-float  slMultInput    = input.float(1.5, "Stop distance (x ATR)", minval = 0.1, step = 0.1, group = GRP_R)
-float  tp1RInput      = input.float(1.0, "TP1 (R)", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp", tooltip = "Targets as multiples of the stop distance (R).")
-float  tp2RInput      = input.float(2.0, "TP2 (R)", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp")
-float  tp3RInput      = input.float(3.0, "TP3 (R)", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp")
-bool   keepOldInput   = input.bool(false, "Keep levels of finished trades", group = GRP_R)
+float  tp1RInput      = input.float(1.0, "TP1 (R)", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp", tooltip = "Targets in multiples of the stop distance (R). The record assumes one third of the position is closed at each target.")
+float  tp2RInput      = input.float(2.0, "TP2", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp")
+float  tp3RInput      = input.float(3.0, "TP3", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp")
+bool   beInput        = input.bool(true, "Stop to break-even after TP1", group = GRP_R)
+bool   trailInput     = input.bool(true, "Trail the stop after TP2", group = GRP_R, inline = "tr")
+float  trailMultInput = input.float(2.0, "x ATR", minval = 0.5, step = 0.1, group = GRP_R, inline = "tr")
+bool   oppExitInput   = input.bool(true, "Exit on an opposite signal", group = GRP_R)
 
-string GRP_V = "Visuals"
-color  buyColorInput  = input.color(#089981, "Buy", group = GRP_V, inline = "c")
-color  sellColorInput = input.color(#F23645, "Sell", group = GRP_V, inline = "c")
-bool   showEmasInput  = input.bool(true, "Show EMAs", group = GRP_V)
-bool   showDashInput  = input.bool(true, "Show trade table", group = GRP_V)
+string GRP_L = "Layers"
+bool   showSigInput   = input.bool(true, "BUY / SELL labels", group = GRP_L, inline = "l1")
+bool   showPlanInput  = input.bool(true, "Trade plan (last signal)", group = GRP_L, inline = "l1")
+bool   showEmasInput  = input.bool(true, "EMA cloud", group = GRP_L, inline = "l2")
+bool   colorBarsInput = input.bool(false, "Color candles by position", group = GRP_L, inline = "l2")
+
+string GRP_D = "Dashboard"
+bool   showDashInput  = input.bool(true, "Show dashboard", group = GRP_D)
+string dashPosInput   = input.string("Top right", "Position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = GRP_D)
+
+string GRP_ST = "Style"
+string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_ST)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color accentC  = pick(#7C4DFF, #2962FF, #B2B5BE, #E0E3EB)
+color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
 
 // ---------- Calculations ----------
-float fastEma  = ta.ema(close, fastLenInput)
-float slowEma  = ta.ema(close, slowLenInput)
+int   tfSec    = timeframe.in_seconds()
+int   fastLen  = autoInput ? (tfSec <= 300 ? 9 : tfSec < 14400 ? 12 : 21) : fastLenInput
+int   slowLen  = autoInput ? (tfSec <= 300 ? 21 : tfSec < 14400 ? 26 : 55) : math.max(slowLenInput, fastLenInput + 1)
+float fastEma  = ta.ema(close, fastLen)
+float slowEma  = ta.ema(close, slowLen)
 float trendEma = ta.ema(close, trendLenInput)
-float rsi      = ta.rsi(close, rsiLenInput)
+float rsi      = ta.rsi(close, 14)
 float atr      = ta.atr(atrLenInput)
+[diPlus, diMinus, adx] = ta.dmi(14, 14)
+float swingLo  = ta.lowest(low, swingLenInput)
+float swingHi  = ta.highest(high, swingLenInput)
 bool  crossUp  = ta.crossover(fastEma, slowEma)
 bool  crossDn  = ta.crossunder(fastEma, slowEma)
 
-bool longOk  = (not useTrendInput or close > trendEma) and (not useRsiInput or rsi > 50)
-bool shortOk = (not useTrendInput or close < trendEma) and (not useRsiInput or rsi < 50)
+// Volume check is skipped (counted as passed) on symbols without volume, such as many forex and index feeds.
+bool  hasVol = ta.cum(nz(volume)) > 0
+float volAvg = ta.sma(nz(volume), 20)
+bool  volOk  = not hasVol or nz(volume) >= volAvg * volMultInput
 
-// Trade state (one open idea at a time).
-var int   pos   = 0      // 1 long, -1 short, 0 flat
-var float entry = na
-var float stop  = na
-var float tp1   = na
-var float tp2   = na
-var float tp3   = na
-var bool  hit1  = false
-var bool  hit2  = false
-var bool  hit3  = false
+// Higher-timeframe bias from the last closed HTF bar (offset + lookahead_on = no repainting).
+[htfClose, htfEma] = request.security(syminfo.tickerid, htfInput, [close[1], ta.ema(close, 50)[1]], lookahead = barmerge.lookahead_on)
 
-var line  entryLine = na
-var line  stopLine  = na
-var line  tp1Line   = na
-var line  tp2Line   = na
-var line  tp3Line   = na
-var label entryLbl  = na
-var label stopLbl   = na
-var label tp1Lbl    = na
-var label tp2Lbl    = na
-var label tp3Lbl    = na
+// Confluence score 0-5 for a direction.
+scoreOf(int d) =>
+    int s = 0
+    s += (d == 1 ? close > trendEma : close < trendEma) ? 1 : 0
+    s += (d == 1 ? rsi > 50 : rsi < 50) ? 1 : 0
+    s += adx >= adxMinInput ? 1 : 0
+    s += volOk ? 1 : 0
+    s += (not useHtfInput or (d == 1 ? htfClose > htfEma : htfClose < htfEma)) ? 1 : 0
+    s
 
-levelLine(float price, color c, string style) =>
-    line.new(bar_index, price, bar_index + 1, price, color = c, style = style, width = 1)
-levelLabel(float price, string txt, color c) =>
-    label.new(bar_index + 1, price, txt + " " + str.tostring(price, format.mintick), style = label.style_label_left, color = color.new(c, 100), textcolor = c, size = size.small)
+int scoreL = scoreOf(1)
+int scoreS = scoreOf(-1)
 
-bool buySignal  = false
-bool sellSignal = false
-bool tp1Hit = false
-bool tp2Hit = false
-bool tp3Hit = false
-bool stopHit = false
+// ---------- Trade state (one idea at a time) ----------
+var int    pos        = 0
+var float  entry      = na
+var float  stop       = na
+var float  risk       = na
+var float  tp1        = na
+var float  tp2        = na
+var float  tp3        = na
+var int    hitCount   = 0
+var float  realized   = 0.0
+var string stopMode   = "Initial"
+var string grade      = ""
+var int    lastSigBar = na
+var int    trades     = 0
+var int    wins       = 0
+var float  totalR     = 0.0
+var int    lateSkips  = 0
+var line   stopLn     = na
+var label  stopLb     = na
+var array<line>  planLines  = array.new<line>()
+var array<label> planLabels = array.new<label>()
+var array<box>   planBoxes  = array.new<box>()
 
-if barstate.isconfirmed
-    // 1) Manage the open trade first (the entry bar itself is never tested).
-    if pos != 0
-        bool isLong = pos == 1
-        if (isLong and low <= stop) or (not isLong and high >= stop)
-            stopHit := true
-            pos := 0
-            stopLine.set_style(line.style_solid)
-            stopLbl.set_text("SL hit " + str.tostring(stop, format.mintick))
-        else
-            if not hit1 and (isLong ? high >= tp1 : low <= tp1)
-                hit1 := true
-                tp1Hit := true
-                tp1Line.set_style(line.style_solid)
-                tp1Lbl.set_text("TP1 hit " + str.tostring(tp1, format.mintick))
-            if not hit2 and (isLong ? high >= tp2 : low <= tp2)
-                hit2 := true
-                tp2Hit := true
-                tp2Line.set_style(line.style_solid)
-                tp2Lbl.set_text("TP2 hit " + str.tostring(tp2, format.mintick))
-            if not hit3 and (isLong ? high >= tp3 : low <= tp3)
-                hit3 := true
-                tp3Hit := true
-                tp3Line.set_style(line.style_solid)
-                tp3Lbl.set_text("TP3 hit " + str.tostring(tp3, format.mintick))
-                pos := 0
+bool buySig = false
+bool sellSig = false
+bool sigA = false
+bool tp1Ev = false
+bool tp2Ev = false
+bool tp3Ev = false
+bool slEv = false
+bool beEv = false
 
-    // 2) New signals: only when not already positioned in that direction.
-    buySignal  := crossUp and longOk and pos != 1 and not na(atr)
-    sellSignal := crossDn and shortOk and pos != -1 and not na(atr)
+mark(float price, string txt, color c, bool below) =>
+    label.new(bar_index, price, txt, style = below ? label.style_label_up : label.style_label_down, color = color.new(c, 100), textcolor = c, size = size.tiny)
 
-    if buySignal or sellSignal
-        int   dir  = buySignal ? 1 : -1
-        float risk = atr * slMultInput
-        pos   := dir
-        entry := close
-        stop  := close - dir * risk
-        tp1   := close + dir * risk * tp1RInput
-        tp2   := close + dir * risk * tp2RInput
-        tp3   := close + dir * risk * tp3RInput
-        hit1  := false
-        hit2  := false
-        hit3  := false
-        if showLevelsInput
-            if not keepOldInput
-                entryLine.delete()
-                stopLine.delete()
-                tp1Line.delete()
-                tp2Line.delete()
-                tp3Line.delete()
-                entryLbl.delete()
-                stopLbl.delete()
-                tp1Lbl.delete()
-                tp2Lbl.delete()
-                tp3Lbl.delete()
-            color tpColor = buySignal ? buyColorInput : sellColorInput
-            color slColor = buySignal ? sellColorInput : buyColorInput
-            entryLine := levelLine(entry, color.gray, line.style_solid)
-            stopLine  := levelLine(stop, slColor, line.style_dashed)
-            tp1Line   := levelLine(tp1, tpColor, line.style_dashed)
-            tp2Line   := levelLine(tp2, tpColor, line.style_dashed)
-            tp3Line   := levelLine(tp3, tpColor, line.style_dashed)
-            entryLbl  := levelLabel(entry, "Entry", color.gray)
-            stopLbl   := levelLabel(stop, "SL", slColor)
-            tp1Lbl    := levelLabel(tp1, "TP1", tpColor)
-            tp2Lbl    := levelLabel(tp2, "TP2", tpColor)
-            tp3Lbl    := levelLabel(tp3, "TP3", tpColor)
+// 1) Candidate signal on a confirmed bar: cross + confluence + grade + cooldown + late-entry veto.
+int cand = 0
+if barstate.isconfirmed and not na(atr)
+    int d = crossUp ? 1 : crossDn ? -1 : 0
+    if d != 0 and d != pos
+        int  sc   = d == 1 ? scoreL : scoreS
+        bool a    = sc >= 4
+        bool cool = na(lastSigBar) or bar_index - lastSigBar >= cooldownInput
+        if sc >= minScoreInput and (a or not onlyAInput) and cool
+            if math.abs(close - slowEma) > lateInput * atr
+                lateSkips += 1
+            else
+                cand := d
 
-// Extend the levels of the open trade to the current bar; finished trades stay frozen.
-if pos != 0 and showLevelsInput and not na(entryLine)
-    entryLine.set_x2(bar_index + 1)
-    stopLine.set_x2(bar_index + 1)
-    tp1Line.set_x2(bar_index + 1)
-    tp2Line.set_x2(bar_index + 1)
-    tp3Line.set_x2(bar_index + 1)
-    entryLbl.set_x(bar_index + 1)
-    stopLbl.set_x(bar_index + 1)
-    tp1Lbl.set_x(bar_index + 1)
-    tp2Lbl.set_x(bar_index + 1)
-    tp3Lbl.set_x(bar_index + 1)
+// 2) Manage the open trade (the entry bar itself is never tested; stop is checked before targets).
+if barstate.isconfirmed and pos != 0 and bar_index > lastSigBar
+    bool   isL     = pos == 1
+    color  tc      = isL ? bullC : bearC
+    float  exitR   = na
+    string exitTxt = ""
+    float  exitPx  = na
+    if (isL and low <= stop) or (not isL and high >= stop)
+        exitR   := realized + (3 - hitCount) / 3.0 * pos * (stop - entry) / risk
+        exitTxt := stopMode == "Initial" ? "✕ SL" : stopMode == "Break-even" ? "■ BE" : "■ TRAIL"
+        exitPx  := stop
+        slEv    := true
+    else
+        if hitCount == 0 and (isL ? high >= tp1 : low <= tp1)
+            hitCount := 1
+            realized += tp1RInput / 3
+            tp1Ev    := true
+            if showPlanInput
+                planLabels.push(mark(tp1, "◆ TP1", tc, not isL))
+        if hitCount == 1 and (isL ? high >= tp2 : low <= tp2)
+            hitCount := 2
+            realized += tp2RInput / 3
+            tp2Ev    := true
+            if showPlanInput
+                planLabels.push(mark(tp2, "◆ TP2", tc, not isL))
+        if hitCount == 2 and (isL ? high >= tp3 : low <= tp3)
+            hitCount := 3
+            realized += tp3RInput / 3
+            tp3Ev    := true
+            exitR    := realized
+            exitTxt  := "◆ TP3"
+            exitPx   := tp3
+        else if cand == -pos and oppExitInput
+            exitR   := realized + (3 - hitCount) / 3.0 * pos * (close - entry) / risk
+            exitTxt := "• EXIT"
+            exitPx  := close
+    if na(exitR)
+        // Protect the open trade: break-even after TP1, ATR trail (ratchet only) after TP2.
+        if hitCount >= 1 and beInput and stopMode == "Initial" and (isL ? entry > stop : entry < stop)
+            stop     := entry
+            stopMode := "Break-even"
+            beEv     := true
+        if hitCount >= 2 and trailInput
+            float t  = close - pos * trailMultInput * atr
+            float ns = isL ? math.max(stop, t) : math.min(stop, t)
+            if ns != stop
+                stop     := ns
+                stopMode := "Trailing"
+        if showPlanInput and not na(stopLn)
+            stopLn.set_y1(stop)
+            stopLn.set_y2(stop)
+            stopLb.set_y(stop)
+            stopLb.set_text((stopMode == "Initial" ? "SL " : stopMode == "Break-even" ? "BE " : "TRAIL ") + str.tostring(stop, format.mintick))
+    else
+        trades += 1
+        wins   += exitR > 0 ? 1 : 0
+        totalR += exitR
+        pos    := 0
+        if showPlanInput
+            planLabels.push(mark(exitPx, exitTxt, exitTxt == "✕ SL" ? neutralC : tc, not isL))
+            for l in planLines
+                l.set_x2(bar_index)
+            for b in planBoxes
+                b.set_right(bar_index)
+            for lb in planLabels
+                if lb.get_x() > bar_index
+                    lb.set_x(bar_index)
+
+// 3) Open the new trade when flat.
+if cand != 0 and pos == 0
+    int   d       = cand
+    int   sc      = d == 1 ? scoreL : scoreS
+    float rawRisk = stopModeInput == "Swing" ? (d == 1 ? close - (swingLo - bufferInput * atr) : swingHi + bufferInput * atr - close) : slMultInput * atr
+    float r       = math.min(math.max(rawRisk, minStopInput * atr), math.max(maxStopInput, minStopInput) * atr)
+    pos        := d
+    entry      := close
+    risk       := r
+    stop       := close - d * r
+    tp1        := close + d * r * tp1RInput
+    tp2        := close + d * r * tp2RInput
+    tp3        := close + d * r * tp3RInput
+    hitCount   := 0
+    realized   := 0.0
+    stopMode   := "Initial"
+    grade      := sc >= 4 ? "A" : "B"
+    lastSigBar := bar_index
+    buySig     := d == 1
+    sellSig    := d == -1
+    sigA       := sc >= 4
+    color c = d == 1 ? bullC : bearC
+    if showSigInput
+        label.new(bar_index, d == 1 ? low - atr * 0.4 : high + atr * 0.4, (d == 1 ? "▲ BUY • " : "▼ SELL • ") + grade, style = d == 1 ? label.style_label_up : label.style_label_down, color = sigA ? c : color.new(c, 40), textcolor = color.white, size = size.small, tooltip = "Confluence " + str.tostring(sc) + "/5 • entry " + str.tostring(entry, format.mintick) + " • stop " + str.tostring(stop, format.mintick) + " • TP1 " + str.tostring(tp1, format.mintick))
+    if showPlanInput
+        for l in planLines
+            l.delete()
+        for lb in planLabels
+            lb.delete()
+        for b in planBoxes
+            b.delete()
+        planLines.clear()
+        planLabels.clear()
+        planBoxes.clear()
+        int x2 = bar_index + 10
+        planBoxes.push(box.new(bar_index, math.max(entry, stop), x2, math.min(entry, stop), border_color = color.new(bearC, 75), bgcolor = color.new(bearC, 88)))
+        planBoxes.push(box.new(bar_index, math.max(entry, tp3), x2, math.min(entry, tp3), border_color = color.new(bullC, 75), bgcolor = color.new(bullC, 90)))
+        planLines.push(line.new(bar_index, entry, x2, entry, color = color.new(textC, 20), width = 1))
+        stopLn := line.new(bar_index, stop, x2, stop, color = bearC, width = 2)
+        planLines.push(stopLn)
+        planLines.push(line.new(bar_index, tp1, x2, tp1, color = color.new(bullC, 40), style = line.style_dashed))
+        planLines.push(line.new(bar_index, tp2, x2, tp2, color = color.new(bullC, 30), style = line.style_dashed))
+        planLines.push(line.new(bar_index, tp3, x2, tp3, color = color.new(bullC, 20), style = line.style_dashed))
+        planLabels.push(label.new(x2, entry, "Entry " + str.tostring(entry, format.mintick), style = label.style_label_left, color = color.new(textC, 100), textcolor = textC, size = size.tiny))
+        stopLb := label.new(x2, stop, "SL " + str.tostring(stop, format.mintick), style = label.style_label_left, color = color.new(bearC, 100), textcolor = bearC, size = size.tiny)
+        planLabels.push(stopLb)
+        planLabels.push(label.new(x2, tp1, "TP1 " + str.tostring(tp1RInput, "#.##") + "R " + str.tostring(tp1, format.mintick), style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
+        planLabels.push(label.new(x2, tp2, "TP2 " + str.tostring(tp2RInput, "#.##") + "R " + str.tostring(tp2, format.mintick), style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
+        planLabels.push(label.new(x2, tp3, "TP3 " + str.tostring(tp3RInput, "#.##") + "R " + str.tostring(tp3, format.mintick), style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
+
+// The open plan follows price; a finished plan stays frozen where it ended.
+if pos != 0 and showPlanInput and bar_index > lastSigBar
+    for l in planLines
+        l.set_x2(bar_index + 10)
+    for b in planBoxes
+        b.set_right(bar_index + 10)
+    for lb in planLabels
+        if lb.get_x() > bar_index
+            lb.set_x(bar_index + 10)
 
 // ---------- Visuals ----------
-plot(showEmasInput ? fastEma : na, "Fast EMA", color = color.new(buyColorInput, 30))
-plot(showEmasInput ? slowEma : na, "Slow EMA", color = color.new(sellColorInput, 30))
-plot(showEmasInput and useTrendInput ? trendEma : na, "Trend EMA", color = color.new(color.gray, 20), linewidth = 2)
-plotshape(buySignal, "Buy", shape.labelup, location.belowbar, color = buyColorInput, text = "BUY", textcolor = color.white, size = size.small)
-plotshape(sellSignal, "Sell", shape.labeldown, location.abovebar, color = sellColorInput, text = "SELL", textcolor = color.white, size = size.small)
+color cloudC = fastEma >= slowEma ? bullC : bearC
+pFast = plot(showEmasInput ? fastEma : na, "Fast EMA", color = color.new(cloudC, 20), linewidth = 1)
+plot(showEmasInput ? slowEma : na, "Slow EMA glow", color = color.new(cloudC, 85), linewidth = 7, display = display.pane)
+pSlow = plot(showEmasInput ? slowEma : na, "Slow EMA", color = cloudC, linewidth = 2)
+fill(pFast, pSlow, color = color.from_gradient(math.abs(fastEma - slowEma) / math.max(atr, syminfo.mintick), 0, 1.5, color.new(cloudC, 92), color.new(cloudC, 75)), title = "EMA cloud")
+plot(showEmasInput ? trendEma : na, "Trend EMA", color = color.new(neutralC, 30), linewidth = 1)
+barcolor(colorBarsInput and pos != 0 ? color.new(pos == 1 ? bullC : bearC, 20) : na, title = "Candle color")
 
-var table dash = table.new(position.top_right, 2, 4, border_width = 1, border_color = color.new(color.gray, 70))
+// ---------- Dashboard ----------
+dashPos = dashPosInput == "Top right" ? position.top_right : dashPosInput == "Bottom right" ? position.bottom_right : dashPosInput == "Top left" ? position.top_left : position.bottom_left
+var table dash = table.new(dashPos, 2, 10, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+
+row(int r, string k, string v, color vc) =>
+    dash.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, r, v, text_color = vc, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+
 if showDashInput and barstate.islast
-    color posColor = pos == 1 ? buyColorInput : pos == -1 ? sellColorInput : color.gray
-    float riskNow = math.abs(entry - stop)
-    float rNow = pos != 0 and riskNow > 0 ? pos * (close - entry) / riskNow : na
-    table.cell(dash, 0, 0, "Position", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
-    table.cell(dash, 1, 0, pos == 1 ? "LONG" : pos == -1 ? "SHORT" : "FLAT", text_color = color.white, text_size = size.small, bgcolor = color.new(posColor, 30))
-    table.cell(dash, 0, 1, "Entry", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
-    table.cell(dash, 1, 1, pos != 0 ? str.tostring(entry, format.mintick) : "-", text_color = color.white, text_size = size.small, bgcolor = color.new(color.gray, 80))
-    table.cell(dash, 0, 2, "Open result", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
-    table.cell(dash, 1, 2, na(rNow) ? "-" : str.tostring(rNow, "#.##") + " R", text_color = color.white, text_size = size.small, bgcolor = color.new(color.gray, 80))
-    table.cell(dash, 0, 3, "Targets hit", text_color = color.gray, text_size = size.small, bgcolor = color.new(color.gray, 90))
-    table.cell(dash, 1, 3, pos != 0 ? (hit2 ? "TP1 TP2" : hit1 ? "TP1" : "none") : "-", text_color = color.white, text_size = size.small, bgcolor = color.new(color.gray, 80))
+    color posC  = pos == 1 ? bullC : pos == -1 ? bearC : textC
+    float openR = pos != 0 and risk > 0 ? realized + (3 - hitCount) / 3.0 * pos * (close - entry) / risk : na
+    int   best  = math.max(scoreL, scoreS)
+    float avgR  = trades > 0 ? totalR / trades : na
+    dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    dash.cell(1, 0, "Signals", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    row(1, "Position", pos == 1 ? "LONG • " + grade : pos == -1 ? "SHORT • " + grade : "FLAT", posC)
+    row(2, "Confluence", str.tostring(best) + "/5 " + (scoreL >= scoreS ? "▲" : "▼"), color.from_gradient(best, 1, 5, textC, scoreL >= scoreS ? bullC : bearC))
+    row(3, "Entry / stop", pos != 0 ? str.tostring(entry, format.mintick) + " / " + str.tostring(stop, format.mintick) : "-", posC)
+    row(4, "Open result", na(openR) ? "-" : (openR >= 0 ? "+" : "") + str.tostring(openR, "#.##") + " R", na(openR) ? textC : openR >= 0 ? bullC : bearC)
+    row(5, "Targets hit", pos == 0 ? "-" : hitCount == 0 ? "none" : hitCount == 1 ? "TP1" : hitCount == 2 ? "TP1 • TP2" : "TP1 • TP2 • TP3", hitCount > 0 ? bullC : textC)
+    row(6, "Stop mode", pos == 0 ? "-" : stopMode, stopMode == "Initial" ? textC : accentC)
+    row(7, "Trades / win", str.tostring(trades) + (trades > 0 ? " • " + str.tostring(wins * 100.0 / trades, "#") + "%" : ""), trades > 0 ? color.from_gradient(wins * 100.0 / trades, 35, 65, bearC, bullC) : textC)
+    row(8, "Total R", trades > 0 ? (totalR >= 0 ? "+" : "") + str.tostring(totalR, "#.#") + " • avg " + str.tostring(avgR, "#.##") : "-", trades > 0 ? (totalR >= 0 ? bullC : bearC) : textC)
+    row(9, "Late skipped", str.tostring(lateSkips), accentC)
 
 // ---------- Alerts ----------
-alertcondition(buySignal,  "Buy signal",  "Nexus Signals: BUY {{ticker}} {{interval}} at {{close}}")
-alertcondition(sellSignal, "Sell signal", "Nexus Signals: SELL {{ticker}} {{interval}} at {{close}}")
-alertcondition(tp1Hit,  "TP1 hit", "Nexus Signals: TP1 hit on {{ticker}} {{interval}}")
-alertcondition(tp2Hit,  "TP2 hit", "Nexus Signals: TP2 hit on {{ticker}} {{interval}}")
-alertcondition(tp3Hit,  "TP3 hit", "Nexus Signals: TP3 hit on {{ticker}} {{interval}}")
-alertcondition(stopHit, "Stop hit", "Nexus Signals: stop hit on {{ticker}} {{interval}}")
-if buySignal or sellSignal
-    alert((buySignal ? "BUY " : "SELL ") + syminfo.ticker + " " + timeframe.period + " | entry " + str.tostring(entry, format.mintick) + " | SL " + str.tostring(stop, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick) + " | TP2 " + str.tostring(tp2, format.mintick) + " | TP3 " + str.tostring(tp3, format.mintick), alert.freq_once_per_bar_close)
+alertcondition(buySig, "BUY signal", "Nexus Signals: BUY {{ticker}} {{interval}} at {{close}}")
+alertcondition(sellSig, "SELL signal", "Nexus Signals: SELL {{ticker}} {{interval}} at {{close}}")
+alertcondition(sigA, "Grade A signal", "Nexus Signals: grade A signal on {{ticker}} {{interval}} at {{close}}")
+alertcondition(tp1Ev, "TP1 hit", "Nexus Signals: TP1 hit on {{ticker}} {{interval}}")
+alertcondition(tp2Ev, "TP2 hit", "Nexus Signals: TP2 hit on {{ticker}} {{interval}}")
+alertcondition(tp3Ev, "TP3 hit", "Nexus Signals: TP3 hit on {{ticker}} {{interval}}")
+alertcondition(slEv, "Stop hit", "Nexus Signals: stop hit on {{ticker}} {{interval}}")
+alertcondition(beEv, "Stop moved to break-even", "Nexus Signals: stop moved to entry on {{ticker}} {{interval}}")
+if buySig or sellSig
+    alert((buySig ? "BUY " : "SELL ") + syminfo.ticker + " " + timeframe.period + " • grade " + grade + " | entry " + str.tostring(entry, format.mintick) + " | SL " + str.tostring(stop, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick) + " | TP2 " + str.tostring(tp2, format.mintick) + " | TP3 " + str.tostring(tp3, format.mintick), alert.freq_once_per_bar_close)

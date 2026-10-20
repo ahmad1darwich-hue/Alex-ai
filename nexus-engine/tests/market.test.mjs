@@ -72,4 +72,12 @@ await t("price levels from daily candles feed the prompt (support / resistance f
   assert.equal(levelsFromDaily(dn).trend, "down", "falling closes = down trend"); assert.doesNotMatch(txt, /NOPE/);
   assert.equal(await priceLevels(["NOPE"], async () => { throw new Error("down"); }), "", "no data = no block");
 });
+await t("dollar driver (DXY) from daily closes: tone for gold, empty without data", async () => {
+  const { dollarDriver } = await import("../../brain-app/api/_brain/market.js");
+  const up = await dollarDriver(async () => [100, 100.2, 100.1, 100.3, 100.4, 100.0, 100.5]);
+  assert.match(up, /^DOLLAR DRIVER: DXY 100\.50 \(\+0\.50% on the day, \+0\.30% over 5 days\) - stronger dollar today = headwind for gold/);
+  assert.match(await dollarDriver(async () => [99, 99, 99, 99, 99, 99.1, 99.05]), /dollar flat today/);
+  assert.equal(await dollarDriver(async () => [1, 2]), "");
+  assert.equal(await dollarDriver(async () => { throw new Error("down"); }), "");
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
