@@ -80,4 +80,17 @@ await t("dollar driver (DXY) from daily closes: tone for gold, empty without dat
   assert.equal(await dollarDriver(async () => [1, 2]), "");
   assert.equal(await dollarDriver(async () => { throw new Error("down"); }), "");
 });
+
+await t("weekend: closed-market mornings become a week-ahead outlook with the Sydney reopen time", async () => {
+  const { marketStatus, weekendNote } = await import("../../brain-app/api/_brain/market.js");
+  assert.equal(marketStatus(Date.parse("2026-10-21T20:00:00Z")).open, true, "Thursday morning Sydney: open");
+  assert.equal(marketStatus(Date.parse("2026-10-23T20:00:00Z")).open, true, "Saturday 07:00 Sydney = Friday 16:00 NY: still open");
+  const sun = marketStatus(Date.parse("2026-10-24T20:00:00Z"));
+  assert.equal(sun.open, false); assert.equal(sun.reopen, "الاثنين 09:00", "reopens Sunday 18:00 NY = Monday 09:00 Sydney (AEDT)");
+  const mon = marketStatus(Date.parse("2026-10-25T20:00:00Z"));
+  assert.equal(mon.open, false, "Monday 07:00 Sydney = Sunday 16:00 NY: closed");
+  assert.equal(marketStatus(Date.parse("2026-07-19T20:00:00Z")).reopen, "الاثنين 08:00", "July: AEST + EDT");
+  assert.match(weekendNote(Date.parse("2026-10-24T20:00:00Z")), /CLOSED[\s\S]*🔒 السوق مسكّر — بيفتح الاثنين 09:00/);
+  assert.equal(weekendNote(Date.parse("2026-10-21T20:00:00Z")), "");
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

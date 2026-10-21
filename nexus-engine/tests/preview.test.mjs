@@ -239,6 +239,34 @@ await t("signals template: graded confluence signals, one managed trade plan, R 
   }
 });
 
+await t("scalper template: chop-shielded PB / REV scalps, one managed plan, regime + kill zone + R dashboard", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "scalper.pine"), "utf8");
+  let total = 0;
+  for (const [tf, n] of [[60, 1500], [300, 1000], [900, 600]]) {
+    const r = runPreview(code, sampleCandles(tf, n, 2400), { tfSec: tf, symbol: GOLD });
+    assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+    const sigRe = /^(▲|▼) (PB|REV) • [AB]$/;
+    const sigs = r.labels.filter((l) => sigRe.test(l.text));
+    total += sigs.length;
+    const other = r.labels.filter((l) => !sigRe.test(l.text));
+    assert.ok(other.every((l) => /^(Entry |SL |BE |TP[12] [\d.]+R |◆ TP[12]$|■ BE$|■ TIME$|✕ SL$|• EXIT$)/.test(l.text)), "only designed plan labels: " + other.map((l) => l.text).join(","));
+    if (sigs.length) {
+      assert.equal(r.labels.filter((l) => /^(SL|BE) \d/.test(l.text)).length, 1, "only the last signal keeps a trade plan");
+      assert.equal(r.boxes.length, 2, "risk and reward boxes of the last plan");
+    }
+    const cells = r.tables[0].cells;
+    assert.equal(cells["1:0"].text, "Scalper");
+    assert.match(cells["1:1"].text, /^(Trend (▲|▼)|Chop|Quiet) • \d\.\d\d$/, "regime row");
+    assert.match(cells["1:2"].text, /^(Above|Below) [+-]\d+\.\d sd$/, "VWAP distance row");
+    assert.match(cells["1:4"].text, /^(London ●|New York ●|Off)$/, "kill zone row");
+    assert.match(cells["1:5"].text, /^(LONG (PB|REV) • [AB]|SHORT (PB|REV) • [AB]|FLAT)$/, "position row");
+    assert.match(cells["1:7"].text, /^\d+( • \d+%)?$/, "trades / win row");
+    assert.match(cells["1:9"].text, /^\d+$/, "shielded row");
+    assert.ok(r.plots.some((p) => p.title === "VWAP"), "session VWAP drawn");
+  }
+  assert.ok(total > 0, "scalps are drawn on sample candles");
+});
+
 await t("/api/preview accepts big scripts (150k characters) and refuses only past the limit", async () => {
   const real = globalThis.fetch;
   globalThis.fetch = async () => new Response("down", { status: 500 });

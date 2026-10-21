@@ -40,6 +40,34 @@ export function sessionClock(ms = Date.now()) {
   return `Sydney is UTC${syd >= 0 ? "+" : ""}${syd} today. Conversions to Sydney time: 08:30 New York = ${at(8, 30, ny)}, 10:00 New York = ${at(10, 0, ny)}, 14:00 New York (FOMC) = ${at(14, 0, ny)}, 07:00 London = ${at(7, 0, ldn)}, 09:30 London = ${at(9, 30, ldn)}, 08:50 Tokyo = ${at(8, 50, tk)}. A US/UK event in the evening there is often the NEXT calendar day in Sydney.`;
 }
 
+// Weekend awareness: gold, oil and US index futures trade from Sunday 18:00 to Friday 17:00 New York time. On a
+// closed-market morning (Sydney Sunday / Monday before the open) the report becomes a week-ahead outlook instead of
+// inventing an "overnight move". Returns { open, reopen } where reopen is the Sydney time of the next open.
+export function marketStatus(ms = Date.now()) {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hourCycle: "h23", weekday: "short", hour: "2-digit" }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+    const d = p.weekday, h = +p.hour % 24;
+    const closed = (d === "Fri" && h >= 17) || d === "Sat" || (d === "Sun" && h < 18);
+    if (!closed) return { open: true, reopen: "" };
+    // Walk forward hour by hour (at most 3 days) to the Sunday 18:00 New York open, then print it in Sydney time.
+    let t = Math.floor(ms / 3600000) * 3600000;
+    for (let i = 0; i < 80; i++) {
+      t += 3600000;
+      const q = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hourCycle: "h23", weekday: "short", hour: "2-digit" }).formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+      if (q.weekday === "Sun" && +q.hour % 24 === 18) break;
+    }
+    const r = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+    const AR = { Sun: "الأحد", Mon: "الاثنين", Tue: "الثلاثاء", Wed: "الأربعاء", Thu: "الخميس", Fri: "الجمعة", Sat: "السبت" };
+    const reopen = (AR[r.weekday] || r.weekday) + " " + String(+r.hour % 24).padStart(2, "0") + ":" + r.minute;
+    return { open: false, reopen };
+  } catch (e) { return { open: true, reopen: "" }; }
+}
+export function weekendNote(ms = Date.now()) {
+  const st = marketStatus(ms);
+  if (st.open) return "";
+  return `MARKETS ARE CLOSED NOW (weekend). They reopen ${st.reopen} Sydney time. So: do NOT describe an overnight move; prices are Friday's close. Make "🌍 الملخص" a short recap of last week + the main theme for the coming week, rename the news section to "🗓️ أهم أخبار الأسبوع (بتوقيت سيدني)" and list the coming week's high-impact events as <day + Sydney time> – <event> – عالذهب: ..., and start the report with the line "🔒 السوق مسكّر — بيفتح ${st.reopen} (سيدني)".`;
+}
+
 // Gold's active windows (New York kill zones: London 02:00-05:00 NY, New York 07:00-10:00 NY) in Sydney time,
 // computed here (DST-aware) instead of by the model, so the times are always right.
 export function killZoneLine(ms = Date.now()) {
@@ -123,6 +151,7 @@ const PROMPT = (markets, levels = "") => `You are Brain, the market analyst of A
 Use web_search NOW to get today's real information (do not rely on memory): the latest price and overnight move of each market below, the market-moving news of the last 24 hours, and today's HIGH-impact economic calendar events (mostly USD: CPI, NFP, FOMC/Fed speakers, PCE, GDP, jobless claims, ISM; plus OPEC/EIA oil inventories for oil) with their Sydney times.
 
 ${sessionClock()}
+${weekendNote()}
 
 Markets: ${markets.join(", ")}.
 ${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason. If a search price is fresher, prefer it and keep levels consistent with it. The data trend is a fact, not a forecast: go against it (🟢 in a down trend, 🔴 in an up trend) only when today's news clearly says so, otherwise follow it or use 🟡; near the top of the 5-day range (>85%) or the bottom (<15%) mention the stretch in the reason.\n" : ""}

@@ -187,3 +187,27 @@ Where it went:
   EMA lengths, 5-check confluence with A/B grades, late-entry veto + cooldown, swing/ATR stop clamped in ATR, TP1-TP3 with
   scale-out thirds, BE after TP1, ATR trail after TP2, opposite exit, risk/reward boxes, R track record dashboard, alerts).
 - bench.js: new case signal_confluence_manager. tests/preview.test.mjs: signals template checks.
+
+## 2026-10-21 · scalping tools: session VWAP bands, chop shield, kill zones and scalp management
+Sources: TradingView "VWAP CCI Reversal (Scalp Edition)" description (daily VWAP + 1/2/3 sigma bands, 2-3 sigma as the signal
+zone, recent oscillator extreme + reversal candle + volume, ATR stop / TP1 / TP2, fading levels, "avoid trend days hugging a
+band"), TradingView "Tool: Chop and Trade Zones v2" description (distance from a mean as a no-trade zone, a 0/1/2/3 "allowed
+direction" output), "NO REPAINT 1m Easy Scalping Sys" description + release notes (regime engine with confidence, ARMED ->
+signal two-stage, closed-bar HTF, trading-ban windows; repainting candles got the script banned), "RSI Scalping Gold XAUUSD"
+family (EMA9/SMA20/SMA200 + VWAP, relative volume with thresholds per timeframe, looser volume in London / NY kill zones),
+sahi.com scalping-combinations article (pick ONE combo by day type: trend = VWAP + 9/21 EMA + volume, range = bands + RSI 7;
+default RSI 14 too slow on 1m; 2-3 indicators max).
+What traders want / complain about:
+- Scalping signals die in chop: the top ask is a regime / no-trade filter that blocks entries rather than more arrows;
+  trend-pullback and band-reversion are opposite tools and must not fire in the same regime.
+- Quiet markets (Asian lull, lunch) do not pay the spread -> block entries when ATR is far below normal.
+- Gold scalpers care about the spread: stops need a cushion; time stops ("the idea did not work") are common for scalps.
+- Volume checks must not break on forex / CFD feeds without volume; kill zones must follow daylight saving (city timezones).
+- Repainting candle colors / signals destroy trust; everything on confirmed bars.
+Where it went:
+- knowledge.js: new "SCALPER ENGINE RULES" (session VWAP map + sigma bands, chop shield with efficiency peak over the pullback
+  window, PB only in Trend / REV only in Chop / nothing in Quiet, short RSI, RVOL + kill zones + grades, spread cushion, half at
+  TP1 + stop to entry, time stop, R record).
+- templates/scalper.pine rebuilt as "Nexus Scalper - VWAP Pullback Engine & Chop Shield" on the design system.
+- bench.js: new case scalper_vwap_chop_shield. tests/preview.test.mjs: scalper template checks on 1m / 5m / 15m.
+- Market report: weekend awareness (closed-market mornings become a week-ahead outlook with the Sydney reopen time).

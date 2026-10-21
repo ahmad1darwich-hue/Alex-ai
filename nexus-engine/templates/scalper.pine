@@ -1,89 +1,368 @@
 //@version=6
-indicator("Nexus Scalper - Momentum Entries", shorttitle = "NX Scalper", overlay = true, max_lines_count = 100, max_labels_count = 100)
+indicator("Nexus Scalper - VWAP Pullback Engine & Chop Shield", shorttitle = "NX Scalper", overlay = true, max_lines_count = 100, max_labels_count = 300, max_boxes_count = 20)
 
 // ---------- Inputs ----------
-string GRP_S = "Signal"
-int    fastLenInput   = input.int(21, "Fast EMA", minval = 2, group = GRP_S)
-int    slowLenInput   = input.int(50, "Slow EMA", minval = 3, group = GRP_S, tooltip = "Trend is up when the fast EMA is above the slow EMA and price is above both.")
-int    rsiLenInput    = input.int(7, "RSI length", minval = 2, group = GRP_S)
-float  pullbackInput  = input.float(45.0, "Pullback level (RSI)", minval = 20, maxval = 50, step = 1, group = GRP_S, tooltip = "In an uptrend RSI must first dip below this level, then cross back above 50. Mirrored for downtrends.")
-int    cooldownInput  = input.int(5, "Minimum bars between signals", minval = 0, group = GRP_S)
+string GRP_S = "Entry engine"
+string modeInput      = input.string("Pullback + Reversion", "Setups", options = ["Pullback", "Reversion", "Pullback + Reversion"], group = GRP_S, tooltip = "Pullback (PB): in a trending session, price dips into the fast EMA while RSI resets, then a strong candle closes back over the EMA with RSI past 50. Reversion (REV): only when the chop shield says the market is ranging, price stretches past the VWAP band and closes back inside.")
+bool   autoInput      = input.bool(true, "Auto settings", group = GRP_S, tooltip = "Picks lengths from the chart timeframe: 3m and below EMA 9 / 21 + RSI 5, up to 15m EMA 13 / 34 + RSI 7, above EMA 21 / 55 + RSI 9. Turn off to use the manual lengths below.")
+int    fastLenInput   = input.int(9, "Fast EMA (manual)", minval = 1, group = GRP_S, inline = "m")
+int    slowLenInput   = input.int(21, "Slow EMA", minval = 2, group = GRP_S, inline = "m")
+int    rsiLenInput    = input.int(5, "RSI (manual)", minval = 2, group = GRP_S)
+float  pullRsiInput   = input.float(45.0, "Pullback: RSI dipped below", minval = 10, maxval = 50, step = 1, group = GRP_S, inline = "pb", tooltip = "Mirrored for shorts (above 100 minus this). The dip must happen within the last N bars.")
+int    pullBarsInput  = input.int(8, "within bars", minval = 2, group = GRP_S, inline = "pb")
+float  bandInput      = input.float(2.0, "Reversion band (sigma)", minval = 0.5, step = 0.25, group = GRP_S)
+int    cooldownInput  = input.int(3, "Minimum bars between signals", minval = 0, group = GRP_S)
+bool   onlyAInput     = input.bool(false, "Grade A only", group = GRP_S, tooltip = "Grade A = at least 2 of 3 extra checks: strong relative volume (passed when the symbol has no volume), inside a kill zone, and a clean move (efficiency well above the chop level for PB, RSI extreme for REV).")
+
+string GRP_C = "Chop shield"
+int    erLenInput     = input.int(20, "Efficiency length", minval = 5, group = GRP_C)
+float  erMinInput     = input.float(0.25, "Chop below (efficiency)", minval = 0.05, maxval = 0.9, step = 0.05, group = GRP_C, tooltip = "Efficiency = net move / sum of bar moves. When it stayed below this through the whole pullback window the market is called Chop: pullback entries are blocked, reversion entries are allowed.")
+float  quietInput     = input.float(0.7, "Quiet below (ATR vs its average)", minval = 0.1, maxval = 1.5, step = 0.05, group = GRP_C, tooltip = "When ATR is below this share of its 100-bar average the market is Quiet: every entry is blocked (moves are too small to pay the spread).")
 
 string GRP_F = "Filters"
-bool   useVolInput    = input.bool(true, "Volume above average (skipped when the symbol has no volume)", group = GRP_F)
-int    volLenInput    = input.int(20, "Volume average length", minval = 2, group = GRP_F)
-bool   useAtrInput    = input.bool(true, "Skip quiet markets (ATR below its average)", group = GRP_F)
-bool   useSessInput   = input.bool(false, "Trade only inside session", group = GRP_F, inline = "ss")
-string sessInput      = input.session("0700-1700", "", group = GRP_F, inline = "ss")
-string tzInput        = input.string("Europe/London", "Session timezone", options = ["Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney", "Asia/Dubai", "UTC"], group = GRP_F)
+float  rvolInput      = input.float(0.8, "Relative volume at least", minval = 0, step = 0.1, group = GRP_F, tooltip = "Volume vs its 20-bar average. Skipped (counted as passed) when the symbol has no volume, as on many forex / CFD feeds.")
+bool   useSessInput   = input.bool(false, "Trade only inside kill zones", group = GRP_F)
+string ses1Input      = input.session("0700-1000", "London kill zone", group = GRP_F)
+string ses2Input      = input.session("1230-1530", "New York kill zone", group = GRP_F)
+string tzInput        = input.string("Europe/London", "Kill zone timezone", options = ["Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney", "Asia/Dubai", "UTC"], group = GRP_F, tooltip = "A city timezone follows daylight saving by itself.")
 
-string GRP_R = "Quick levels"
-bool   showLevelsInput = input.bool(true, "Draw stop & target for the latest signal", group = GRP_R)
-float  slAtrInput     = input.float(1.0, "Stop (x ATR)", minval = 0.1, step = 0.1, group = GRP_R)
-float  tpAtrInput     = input.float(1.5, "Target (x ATR)", minval = 0.1, step = 0.1, group = GRP_R)
+string GRP_R = "Stop & targets"
+int    swingLenInput  = input.int(6, "Stop beyond swing of last bars", minval = 2, group = GRP_R, inline = "sw")
+float  bufferInput    = input.float(0.2, "buffer (ATR)", minval = 0, step = 0.05, group = GRP_R, inline = "sw")
+int    spreadInput    = input.int(0, "Spread cushion (ticks)", minval = 0, group = GRP_R, tooltip = "Added to every stop so a normal spread does not take you out. Gold scalpers often use 20-40 ticks.")
+float  minStopInput   = input.float(0.4, "Stop distance min (ATR)", minval = 0.1, step = 0.1, group = GRP_R, inline = "mm")
+float  maxStopInput   = input.float(2.0, "max", minval = 0.2, step = 0.1, group = GRP_R, inline = "mm")
+float  tp1RInput      = input.float(1.0, "TP1 (R)", minval = 0.1, step = 0.25, group = GRP_R, inline = "tp", tooltip = "The record closes half at TP1 and moves the stop to entry, the rest at TP2. Reversion trades aim TP2 at the VWAP when it is further than TP1.")
+float  tp2RInput      = input.float(2.0, "TP2", minval = 0.2, step = 0.25, group = GRP_R, inline = "tp")
+int    timeStopInput  = input.int(20, "Time stop (bars, 0 = off)", minval = 0, group = GRP_R, tooltip = "A scalp that has not reached TP1 after this many bars is closed at the bar close: the idea did not work.")
+bool   oppExitInput   = input.bool(true, "Exit on an opposite signal", group = GRP_R)
 
-string GRP_V = "Visuals"
-color  buyColorInput  = input.color(#089981, "Buy", group = GRP_V, inline = "c")
-color  sellColorInput = input.color(#F23645, "Sell", group = GRP_V, inline = "c")
-bool   showEmasInput  = input.bool(true, "Show EMAs", group = GRP_V)
+string GRP_L = "Layers"
+bool   showSigInput   = input.bool(true, "Signal labels", group = GRP_L, inline = "l1")
+bool   showPlanInput  = input.bool(true, "Trade plan (last signal)", group = GRP_L, inline = "l1")
+bool   showVwapInput  = input.bool(true, "Session VWAP", group = GRP_L, inline = "l2")
+bool   showBandsInput = input.bool(true, "Sigma bands", group = GRP_L, inline = "l2")
+bool   showEmaInput   = input.bool(true, "Fast EMA", group = GRP_L, inline = "l3")
+bool   shadeChopInput = input.bool(true, "Shade chop / quiet", group = GRP_L, inline = "l3")
+bool   colorBarsInput = input.bool(false, "Dim candles in chop", group = GRP_L)
 
-// ---------- Calculations (all series functions run on every bar) ----------
-float fastEma = ta.ema(close, fastLenInput)
-float slowEma = ta.ema(close, slowLenInput)
-float rsi     = ta.rsi(close, rsiLenInput)
+string GRP_D = "Dashboard"
+bool   showDashInput  = input.bool(true, "Show dashboard", group = GRP_D)
+string dashPosInput   = input.string("Top right", "Position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = GRP_D)
+
+string GRP_ST = "Style"
+string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_ST)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color accentC  = pick(#7C4DFF, #2962FF, #B2B5BE, #E0E3EB)
+color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
+
+// ---------- Calculations (series functions run on every bar) ----------
+int   tfSec   = timeframe.in_seconds()
+int   fastLen = autoInput ? (tfSec <= 180 ? 9 : tfSec <= 900 ? 13 : 21) : fastLenInput
+int   slowLen = autoInput ? (tfSec <= 180 ? 21 : tfSec <= 900 ? 34 : 55) : math.max(slowLenInput, fastLenInput + 1)
+int   rsiLen  = autoInput ? (tfSec <= 180 ? 5 : tfSec <= 900 ? 7 : 9) : rsiLenInput
+float fastEma = ta.ema(close, fastLen)
+float slowEma = ta.ema(close, slowLen)
+float rsi     = ta.rsi(close, rsiLen)
 float atr     = ta.atr(14)
-float atrAvg  = ta.sma(atr, 50)
-float volAvg  = ta.sma(volume, volLenInput)
-bool  rsiUp   = ta.crossover(rsi, 50)
-bool  rsiDn   = ta.crossunder(rsi, 50)
-int   barsSinceLow  = ta.barssince(rsi < pullbackInput)
-int   barsSinceHigh = ta.barssince(rsi > 100 - pullbackInput)
+float atrAvg  = ta.sma(atr, 100)
+float swingLo = ta.lowest(low, swingLenInput)
+float swingHi = ta.highest(high, swingLenInput)
 
-bool trendUp = fastEma > slowEma and close > fastEma
-bool trendDn = fastEma < slowEma and close < fastEma
+// Session VWAP with sigma bands, reset every day. Without volume it becomes a time-weighted average.
+bool  hasVol = ta.cum(nz(volume)) > 0
+float w      = hasVol ? nz(volume) : 1.0
+bool  newDay = timeframe.change("D")
+var float sPV  = 0.0
+var float sV   = 0.0
+var float sPV2 = 0.0
+if newDay
+    sPV  := 0.0
+    sV   := 0.0
+    sPV2 := 0.0
+sPV  += hlc3 * w
+sV   += w
+sPV2 += hlc3 * hlc3 * w
+float vwap   = sV > 0 ? sPV / sV : hlc3
+float sd     = sV > 0 ? math.sqrt(math.max(0.0, sPV2 / sV - vwap * vwap)) : 0.0
+float upBand = vwap + bandInput * sd
+float dnBand = vwap - bandInput * sd
+float zDist  = sd > 0 ? (close - vwap) / sd : 0.0
 
-// Volume is optional data: forex/CFD feeds may have none. Treat missing volume as "filter passed".
-bool hasVolume = not na(volume) and volume > 0 and not na(volAvg) and volAvg > 0
-bool volOk   = not useVolInput or not hasVolume or volume > volAvg
-bool atrOk   = not useAtrInput or na(atrAvg) or atr >= atrAvg * 0.8
-bool sessOk  = not useSessInput or not na(time(timeframe.period, sessInput, tzInput))
-bool bodyOk  = math.abs(close - open) >= (high - low) * 0.5
+// Chop shield: efficiency ratio + quiet-market check.
+float pathLen = math.sum(math.abs(close - close[1]), erLenInput)
+float er      = pathLen > 0 ? math.abs(close - close[erLenInput]) / pathLen : 0.0
+// The pullback itself is allowed to be noisy: the trend counts when it was efficient at any point of the pullback window.
+float erPeak  = ta.highest(er, pullBarsInput)
+bool  quiet   = not na(atrAvg) and atr < atrAvg * quietInput
+bool  chop    = erPeak < erMinInput
+string regime = quiet ? "Quiet" : chop ? "Chop" : "Trend"
 
-// Pullback happened recently (within 10 bars), then momentum resumes with the trend.
-bool rawBuy  = trendUp and rsiUp and not na(barsSinceLow)  and barsSinceLow  <= 10 and close > open and bodyOk and volOk and atrOk and sessOk
-bool rawSell = trendDn and rsiDn and not na(barsSinceHigh) and barsSinceHigh <= 10 and close < open and bodyOk and volOk and atrOk and sessOk
+// Relative volume and kill zones.
+float volAvg = ta.sma(nz(volume), 20)
+float rvol   = hasVol and volAvg > 0 ? nz(volume) / volAvg : na
+bool  volOk  = not hasVol or rvol >= rvolInput
+bool  inKz1  = not na(time(timeframe.period, ses1Input, tzInput))
+bool  inKz2  = not na(time(timeframe.period, ses2Input, tzInput))
+bool  inKz   = inKz1 or inKz2
+bool  sessOk = not useSessInput or inKz
 
-var int lastSignalBar = na
-var line stopLine = na
-var line targetLine = na
-var label stopLbl = na
-var label targetLbl = na
-bool buySignal  = false
-bool sellSignal = false
+// Candle quality and RSI history.
+float rng      = high - low
+bool  strongUp = close > open and rng > 0 and (close - open) >= rng * 0.5
+bool  strongDn = close < open and rng > 0 and (open - close) >= rng * 0.5
+int   bsDip    = ta.barssince(rsi < pullRsiInput)
+int   bsPop    = ta.barssince(rsi > 100 - pullRsiInput)
+float loPull   = ta.lowest(low, pullBarsInput)
+float hiPull   = ta.highest(high, pullBarsInput)
+bool  rsiUp50  = ta.crossover(rsi, 50)
+bool  rsiDn50  = ta.crossunder(rsi, 50)
+bool  emaUp    = ta.crossover(close, fastEma)
+bool  emaDn    = ta.crossunder(close, fastEma)
+float rsiMin3  = ta.lowest(rsi, 3)
+float rsiMax3  = ta.highest(rsi, 3)
+float loBand3  = ta.lowest(low - dnBand, 3)
+float hiBand3  = ta.highest(high - upBand, 3)
 
-if barstate.isconfirmed and (rawBuy or rawSell) and (na(lastSignalBar) or bar_index - lastSignalBar > cooldownInput)
-    buySignal  := rawBuy
-    sellSignal := rawSell and not rawBuy
-    lastSignalBar := bar_index
-    if showLevelsInput and not na(atr)
-        int   dir    = buySignal ? 1 : -1
-        float stop   = close - dir * atr * slAtrInput
-        float target = close + dir * atr * tpAtrInput
-        stopLine.delete()
-        targetLine.delete()
-        stopLbl.delete()
-        targetLbl.delete()
-        stopLine   := line.new(bar_index, stop, bar_index + 8, stop, color = sellColorInput, style = line.style_dashed)
-        targetLine := line.new(bar_index, target, bar_index + 8, target, color = buyColorInput, style = line.style_dashed)
-        stopLbl    := label.new(bar_index + 8, stop, "SL " + str.tostring(stop, format.mintick), style = label.style_label_left, color = color.new(sellColorInput, 100), textcolor = sellColorInput, size = size.tiny)
-        targetLbl  := label.new(bar_index + 8, target, "TP " + str.tostring(target, format.mintick), style = label.style_label_left, color = color.new(buyColorInput, 100), textcolor = buyColorInput, size = size.tiny)
+bool usePB  = modeInput != "Reversion"
+bool useREV = modeInput != "Pullback"
+
+// Pullback setups: trend side of VWAP and EMAs, RSI reset, price dipped into the fast EMA, strong resume candle.
+bool pbLongRaw  = usePB and fastEma > slowEma and close > vwap and not na(bsDip) and bsDip <= pullBarsInput and loPull <= fastEma and close > fastEma and strongUp and rsi > 50 and (rsiUp50 or emaUp)
+bool pbShortRaw = usePB and fastEma < slowEma and close < vwap and not na(bsPop) and bsPop <= pullBarsInput and hiPull >= fastEma and close < fastEma and strongDn and rsi < 50 and (rsiDn50 or emaDn)
+// Reversion setups: stretched past the band within the last 3 bars, now closing back inside with a strong candle.
+bool revLongRaw  = useREV and loBand3 <= 0 and close > dnBand and close < vwap and strongUp
+bool revShortRaw = useREV and hiBand3 >= 0 and close < upBand and close > vwap and strongDn
+
+// Grade checks (3 extras): strong volume, kill zone, clean move.
+gradeOf(bool isRev, int d) =>
+    int g = 0
+    g += (not hasVol or rvol >= math.max(rvolInput, 1.0) * 1.3) ? 1 : 0
+    g += inKz ? 1 : 0
+    g += isRev ? ((d == 1 ? rsiMin3 < 25 : rsiMax3 > 75) ? 1 : 0) : (erPeak >= erMinInput * 1.6 ? 1 : 0)
+    g
+
+// ---------- Trade state (one scalp at a time) ----------
+var int    pos         = 0
+var bool   isRevTrade  = false
+var float  entry       = na
+var float  stop        = na
+var float  risk        = na
+var float  tp1         = na
+var float  tp2         = na
+var bool   tp1Hit      = false
+var int    entryBar    = na
+var int    lastSigBar  = na
+var string tag         = ""
+var int    trades      = 0
+var int    wins        = 0
+var float  totalR      = 0.0
+var int    shielded    = 0
+var line   stopLn      = na
+var label  stopLb      = na
+var array<line>  planLines  = array.new<line>()
+var array<label> planLabels = array.new<label>()
+var array<box>   planBoxes  = array.new<box>()
+
+bool buySig = false
+bool sellSig = false
+bool sigA = false
+bool tp1Ev = false
+bool tp2Ev = false
+bool slEv = false
+bool timeEv = false
+
+mark(float price, string txt, color c, bool below) =>
+    label.new(bar_index, price, txt, style = below ? label.style_label_up : label.style_label_down, color = color.new(c, 100), textcolor = c, size = size.tiny)
+
+// 1) Candidate on a confirmed bar: the chop shield decides which setup may fire.
+int  cand    = 0
+bool candRev = false
+if barstate.isconfirmed and not na(atr)
+    bool pbOk  = regime == "Trend"
+    bool revOk = regime == "Chop"
+    if (pbLongRaw or pbShortRaw) and not pbOk
+        shielded += 1
+    if (revLongRaw or revShortRaw) and quiet
+        shielded += 1
+    int  d   = pbOk and pbLongRaw ? 1 : pbOk and pbShortRaw ? -1 : revOk and revLongRaw ? 1 : revOk and revShortRaw ? -1 : 0
+    bool rv  = d != 0 and not (pbOk and (pbLongRaw or pbShortRaw))
+    bool cool = na(lastSigBar) or bar_index - lastSigBar >= cooldownInput
+    if d != 0 and d != pos and volOk and sessOk and cool
+        bool a = gradeOf(rv, d) >= 2
+        if a or not onlyAInput
+            cand    := d
+            candRev := rv
+
+// 2) Manage the open scalp (entry bar never tested; stop checked before targets).
+if barstate.isconfirmed and pos != 0 and bar_index > entryBar
+    bool   isL     = pos == 1
+    color  tc      = isL ? bullC : bearC
+    float  exitR   = na
+    string exitTxt = ""
+    float  exitPx  = na
+    float  half    = tp1Hit ? 0.5 : 1.0
+    float  booked  = tp1Hit ? tp1RInput * 0.5 : 0.0
+    if (isL and low <= stop) or (not isL and high >= stop)
+        exitR   := booked + half * pos * (stop - entry) / risk
+        exitTxt := tp1Hit ? "■ BE" : "✕ SL"
+        exitPx  := stop
+        slEv    := not tp1Hit
+    else
+        if not tp1Hit and (isL ? high >= tp1 : low <= tp1)
+            tp1Hit := true
+            tp1Ev  := true
+            stop   := entry
+            booked := tp1RInput * 0.5
+            half   := 0.5
+            if showPlanInput
+                planLabels.push(mark(tp1, "◆ TP1", tc, not isL))
+                stopLn.set_y1(stop)
+                stopLn.set_y2(stop)
+                stopLb.set_y(stop)
+                stopLb.set_text("BE " + str.tostring(stop, format.mintick))
+        if isL ? high >= tp2 : low <= tp2
+            exitR   := booked + half * pos * (tp2 - entry) / risk
+            exitTxt := "◆ TP2"
+            exitPx  := tp2
+            tp2Ev   := true
+        else if not tp1Hit and timeStopInput > 0 and bar_index - entryBar >= timeStopInput
+            exitR   := pos * (close - entry) / risk
+            exitTxt := "■ TIME"
+            exitPx  := close
+            timeEv  := true
+        else if cand == -pos and oppExitInput
+            exitR   := booked + half * pos * (close - entry) / risk
+            exitTxt := "• EXIT"
+            exitPx  := close
+    if not na(exitR)
+        trades += 1
+        wins   += exitR > 0 ? 1 : 0
+        totalR += exitR
+        pos    := 0
+        if showPlanInput
+            planLabels.push(mark(exitPx, exitTxt, exitTxt == "✕ SL" ? neutralC : tc, not isL))
+            for l in planLines
+                l.set_x2(bar_index)
+            for b in planBoxes
+                b.set_right(bar_index)
+            for lb in planLabels
+                if lb.get_x() > bar_index
+                    lb.set_x(bar_index)
+
+// 3) Open the new scalp when flat.
+if cand != 0 and pos == 0
+    int   d       = cand
+    float cushion = spreadInput * syminfo.mintick
+    float rawRisk = (d == 1 ? close - (swingLo - bufferInput * atr) : swingHi + bufferInput * atr - close) + cushion
+    float r       = math.min(math.max(rawRisk, minStopInput * atr), math.max(maxStopInput, minStopInput) * atr + cushion)
+    bool  a       = gradeOf(candRev, d) >= 2
+    pos        := d
+    isRevTrade := candRev
+    entry      := close
+    risk       := r
+    stop       := close - d * r
+    tp1        := close + d * r * tp1RInput
+    tp2        := candRev and d * (vwap - close) > r * tp1RInput ? vwap : close + d * r * tp2RInput
+    tp1Hit     := false
+    entryBar   := bar_index
+    lastSigBar := bar_index
+    tag        := (candRev ? "REV" : "PB") + " • " + (a ? "A" : "B")
+    buySig     := d == 1
+    sellSig    := d == -1
+    sigA       := a
+    color c = d == 1 ? bullC : bearC
+    if showSigInput
+        label.new(bar_index, d == 1 ? low - atr * 0.4 : high + atr * 0.4, (d == 1 ? "▲ " : "▼ ") + tag, style = d == 1 ? label.style_label_up : label.style_label_down, color = a ? c : color.new(c, 40), textcolor = color.white, size = size.small, tooltip = (candRev ? "VWAP band reversion" : "Trend pullback") + " • " + regime + " • efficiency " + str.tostring(erPeak, "#.##") + " • entry " + str.tostring(entry, format.mintick) + " • stop " + str.tostring(stop, format.mintick) + " • TP1 " + str.tostring(tp1, format.mintick) + " • TP2 " + str.tostring(tp2, format.mintick))
+    if showPlanInput
+        for l in planLines
+            l.delete()
+        for lb in planLabels
+            lb.delete()
+        for b in planBoxes
+            b.delete()
+        planLines.clear()
+        planLabels.clear()
+        planBoxes.clear()
+        int x2 = bar_index + 12
+        planBoxes.push(box.new(bar_index, math.max(entry, stop), x2, math.min(entry, stop), border_color = color.new(bearC, 75), bgcolor = color.new(bearC, 88)))
+        planBoxes.push(box.new(bar_index, math.max(entry, tp2), x2, math.min(entry, tp2), border_color = color.new(bullC, 75), bgcolor = color.new(bullC, 90)))
+        planLines.push(line.new(bar_index, entry, x2, entry, color = color.new(textC, 20), width = 1))
+        stopLn := line.new(bar_index, stop, x2, stop, color = bearC, width = 2)
+        planLines.push(stopLn)
+        planLines.push(line.new(bar_index, tp1, x2, tp1, color = color.new(bullC, 40), style = line.style_dashed))
+        planLines.push(line.new(bar_index, tp2, x2, tp2, color = color.new(bullC, 20), style = line.style_dashed))
+        planLabels.push(label.new(x2, entry, "Entry " + str.tostring(entry, format.mintick), style = label.style_label_left, color = color.new(textC, 100), textcolor = textC, size = size.tiny))
+        stopLb := label.new(x2, stop, "SL " + str.tostring(stop, format.mintick), style = label.style_label_left, color = color.new(bearC, 100), textcolor = bearC, size = size.tiny)
+        planLabels.push(stopLb)
+        planLabels.push(label.new(x2, tp1, "TP1 " + str.tostring(tp1RInput, "#.##") + "R " + str.tostring(tp1, format.mintick), style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
+        planLabels.push(label.new(x2, tp2, "TP2 " + str.tostring(math.abs(tp2 - entry) / r, "#.##") + "R " + str.tostring(tp2, format.mintick), style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
+
+// The open plan follows price; a finished plan stays frozen where it ended.
+if pos != 0 and showPlanInput and bar_index > entryBar
+    for l in planLines
+        l.set_x2(bar_index + 12)
+    for b in planBoxes
+        b.set_right(bar_index + 12)
+    for lb in planLabels
+        if lb.get_x() > bar_index
+            lb.set_x(bar_index + 12)
 
 // ---------- Visuals ----------
-plot(showEmasInput ? fastEma : na, "Fast EMA", color = color.new(trendUp ? buyColorInput : trendDn ? sellColorInput : color.gray, 20))
-plot(showEmasInput ? slowEma : na, "Slow EMA", color = color.new(color.gray, 30), linewidth = 2)
-plotshape(buySignal, "Buy", shape.triangleup, location.belowbar, color = buyColorInput, text = "BUY", textcolor = buyColorInput, size = size.tiny)
-plotshape(sellSignal, "Sell", shape.triangledown, location.abovebar, color = sellColorInput, text = "SELL", textcolor = sellColorInput, size = size.tiny)
+color vwC   = close >= vwap ? bullC : bearC
+float vwapP = showVwapInput and not newDay ? vwap : na
+plot(vwapP, "VWAP glow", color = color.new(vwC, 85), linewidth = 7, style = plot.style_linebr, display = display.pane)
+plot(vwapP, "VWAP", color = vwC, linewidth = 2, style = plot.style_linebr)
+pU1 = plot(showBandsInput and not newDay ? vwap + sd : na, "Upper 1 sigma", color = color.new(bearC, 75), style = plot.style_linebr)
+pU2 = plot(showBandsInput and not newDay ? upBand : na, "Upper band", color = color.new(bearC, 45), style = plot.style_linebr)
+pL1 = plot(showBandsInput and not newDay ? vwap - sd : na, "Lower 1 sigma", color = color.new(bullC, 75), style = plot.style_linebr)
+pL2 = plot(showBandsInput and not newDay ? dnBand : na, "Lower band", color = color.new(bullC, 45), style = plot.style_linebr)
+fill(pU1, pU2, color = color.new(bearC, 91), title = "Upper stretch zone")
+fill(pL1, pL2, color = color.new(bullC, 91), title = "Lower stretch zone")
+color emaC = fastEma >= slowEma ? bullC : bearC
+plot(showEmaInput ? fastEma : na, "Fast EMA", color = color.new(emaC, regime == "Trend" ? 10 : 60), linewidth = 1)
+bgcolor(shadeChopInput and regime != "Trend" ? color.new(neutralC, regime == "Quiet" ? 90 : 94) : na, title = "Chop / quiet shade")
+barcolor(colorBarsInput and regime != "Trend" ? color.new(neutralC, 40) : na, title = "Dim candles")
+
+// ---------- Dashboard ----------
+dashPos = dashPosInput == "Top right" ? position.top_right : dashPosInput == "Bottom right" ? position.bottom_right : dashPosInput == "Top left" ? position.top_left : position.bottom_left
+var table dash = table.new(dashPos, 2, 10, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+
+row(int r, string k, string v, color vc) =>
+    dash.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, r, v, text_color = vc, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+
+if showDashInput and barstate.islast
+    color posC  = pos == 1 ? bullC : pos == -1 ? bearC : textC
+    float openR = pos != 0 and risk > 0 ? (tp1Hit ? tp1RInput * 0.5 + 0.5 * pos * (close - entry) / risk : pos * (close - entry) / risk) : na
+    float avgR  = trades > 0 ? totalR / trades : na
+    color regC  = regime == "Trend" ? (fastEma >= slowEma ? bullC : bearC) : neutralC
+    dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    dash.cell(1, 0, "Scalper", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    row(1, "Regime", regime + (regime == "Trend" ? (fastEma >= slowEma ? " ▲" : " ▼") : "") + " • " + str.tostring(erPeak, "0.00"), regC)
+    row(2, "VWAP", (close >= vwap ? "Above " : "Below ") + (zDist >= 0 ? "+" : "") + str.tostring(zDist, "0.0") + " sd", color.from_gradient(zDist, -bandInput, bandInput, bullC, bearC))
+    row(3, "Rel. volume", na(rvol) ? "n/a" : str.tostring(rvol, "0.0") + "x", na(rvol) ? textC : rvol >= rvolInput ? accentC : textC)
+    row(4, "Kill zone", inKz1 ? "London ●" : inKz2 ? "New York ●" : "Off", inKz ? accentC : textC)
+    row(5, "Position", pos == 1 ? "LONG " + tag : pos == -1 ? "SHORT " + tag : "FLAT", posC)
+    row(6, "Open result", na(openR) ? "-" : (openR >= 0 ? "+" : "") + str.tostring(openR, "#.##") + " R" + (tp1Hit ? " • BE" : ""), na(openR) ? textC : openR >= 0 ? bullC : bearC)
+    row(7, "Trades / win", str.tostring(trades) + (trades > 0 ? " • " + str.tostring(wins * 100.0 / trades, "#") + "%" : ""), trades > 0 ? color.from_gradient(wins * 100.0 / trades, 35, 65, bearC, bullC) : textC)
+    row(8, "Total R", trades > 0 ? (totalR >= 0 ? "+" : "") + str.tostring(totalR, "#.#") + " • avg " + str.tostring(avgR, "#.##") : "-", trades > 0 ? (totalR >= 0 ? bullC : bearC) : textC)
+    row(9, "Shielded", str.tostring(shielded), accentC)
 
 // ---------- Alerts ----------
-alertcondition(buySignal,  "Scalp buy",  "Nexus Scalper: BUY {{ticker}} {{interval}} at {{close}}")
-alertcondition(sellSignal, "Scalp sell", "Nexus Scalper: SELL {{ticker}} {{interval}} at {{close}}")
+alertcondition(buySig, "Scalp buy", "Nexus Scalper: BUY {{ticker}} {{interval}} at {{close}}")
+alertcondition(sellSig, "Scalp sell", "Nexus Scalper: SELL {{ticker}} {{interval}} at {{close}}")
+alertcondition(sigA, "Grade A scalp", "Nexus Scalper: grade A scalp on {{ticker}} {{interval}} at {{close}}")
+alertcondition(tp1Ev, "TP1 hit (stop to entry)", "Nexus Scalper: TP1 hit on {{ticker}} {{interval}}, stop moved to entry")
+alertcondition(tp2Ev, "TP2 hit", "Nexus Scalper: TP2 hit on {{ticker}} {{interval}}")
+alertcondition(slEv, "Stop hit", "Nexus Scalper: stop hit on {{ticker}} {{interval}}")
+alertcondition(timeEv, "Time stop", "Nexus Scalper: time stop closed the scalp on {{ticker}} {{interval}}")
+if buySig or sellSig
+    alert((buySig ? "BUY " : "SELL ") + syminfo.ticker + " " + timeframe.period + " • " + tag + " | entry " + str.tostring(entry, format.mintick) + " | SL " + str.tostring(stop, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick) + " | TP2 " + str.tostring(tp2, format.mintick), alert.freq_once_per_bar_close)
