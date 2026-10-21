@@ -29,6 +29,8 @@
     var lower = this.r.ok && !this.r.overlay && ((this.r.plots || []).some(function (p) { return !p.hidden && !p.forceOverlay; }) || (this.r.hlines || []).length);
     this.lower = !!lower;
     this.spacing = 7; this.end = this.n - 1 + 6; this.hover = -1;
+    // Drawing tools (chart studio): points are kept as { t: time ms, p: price } so they survive a symbol / timeframe reload.
+    this.tool = null; this.drawings = Array.isArray(this.o.drawings) ? this.o.drawings : []; this.pending = null;
     this.bind(); this.resize(); this.tables();
   }
   Chart.prototype.bind = function () {
@@ -36,21 +38,25 @@
     this._ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(function () { self.resize(); }) : null;
     if (this._ro) this._ro.observe(this.box); else window.addEventListener('resize', function () { self.resize(); });
     cv.addEventListener('wheel', function (e) { e.preventDefault(); var f = e.deltaY > 0 ? 0.9 : 1.1; self.zoom(f, e.offsetX); }, { passive: false });
-    cv.addEventListener('mousedown', function (e) { drag = { x: e.clientX, end: self.end }; });
-    window.addEventListener('mouseup', function () { drag = null; });
+    cv.addEventListener('mousedown', function (e) { if (self.tool) { self.penDown(e.offsetX, e.offsetY); return; } drag = { x: e.clientX, end: self.end }; });
+    window.addEventListener('mouseup', function () { drag = null; if (self.pending) self.penUp(); });
+    cv.addEventListener('mousemove', function (e) { if (self.pending) self.penMove(e.offsetX, e.offsetY); });
     window.addEventListener('mousemove', function (e) { if (!drag) return; self.end = drag.end - (e.clientX - drag.x) / self.spacing; self.clamp(); self.draw(); });
     cv.addEventListener('mousemove', function (e) { self.hover = self.barAt(e.offsetX); self.hy = e.offsetY; self.draw(); });
     cv.addEventListener('mouseleave', function () { self.hover = -1; self.draw(); });
     cv.addEventListener('dblclick', function () { self.spacing = 7; self.end = self.n - 1 + 6; self.draw(); });
+    var tpos = function (e) { var r = cv.getBoundingClientRect(), t0 = e.touches[0] || e.changedTouches[0]; return [t0.clientX - r.left, t0.clientY - r.top]; };
     cv.addEventListener('touchstart', function (e) {
+      if (self.tool && e.touches.length === 1) { var q = tpos(e); self.penDown(q[0], q[1]); return; }
       if (e.touches.length === 1) drag = { x: e.touches[0].clientX, end: self.end };
       else if (e.touches.length === 2) { drag = null; pinch = { d: Math.abs(e.touches[0].clientX - e.touches[1].clientX) || 1, s: self.spacing }; }
     }, { passive: true });
     cv.addEventListener('touchmove', function (e) {
+      if (self.pending) { e.preventDefault(); var q = tpos(e); self.penMove(q[0], q[1]); return; }
       if (drag && e.touches.length === 1) { e.preventDefault(); self.end = drag.end - (e.touches[0].clientX - drag.x) / self.spacing; self.clamp(); self.draw(); }
       else if (pinch && e.touches.length === 2) { e.preventDefault(); var d = Math.abs(e.touches[0].clientX - e.touches[1].clientX) || 1; self.spacing = Math.max(2, Math.min(40, pinch.s * d / pinch.d)); self.clamp(); self.draw(); }
     }, { passive: false });
-    cv.addEventListener('touchend', function () { drag = null; pinch = null; });
+    cv.addEventListener('touchend', function () { drag = null; pinch = null; if (self.pending) self.penUp(); });
   };
   Chart.prototype.destroy = function () { if (this._ro) this._ro.disconnect(); this.box.innerHTML = ''; };
   Chart.prototype.zoom = function (f, x) { var b = this.barAt(x); this.spacing = Math.max(2, Math.min(40, this.spacing * f)); var nb = this.barAt(x); this.end += b - nb; this.clamp(); this.draw(); };
@@ -126,6 +132,7 @@
       (r.trades || []).forEach(function (t) { if (t.bar >= a && t.bar <= b) self.trade(t); });
       (r.labels || []).forEach(function (l) { self.label(l, l.fo ? A : P); });
     }
+    this.drawUser(A);
     ctx.restore();
     this.axes(A, true); if (B) this.axes(B, false);
     this.timeAxis(a, b);
@@ -344,6 +351,86 @@
       self.tbl.appendChild(el);
     });
   };
+
+  /* ---------- drawing tools ---------- */
+  var DRAW = { trend: '#b49cff', hline: '#f5c542', zone: '#7c4dff', buy: '#00e5a0', sell: '#ff3d71', text: '#e8edf4' };
+  var ONE_POINT = { hline: 1, buy: 1, sell: 1, text: 1 };
+  Chart.prototype.timeAt = function (i) {
+    var C = this.d.candles, n = this.n, ms = (this.tfSec || 60) * 1000;
+    if (i <= 0) return C[0].t + i * ms;
+    if (i >= n - 1) return C[n - 1].t + (i - (n - 1)) * ms;
+    var k = Math.floor(i), f = i - k; return C[k].t + f * (C[k + 1].t - C[k].t);
+  };
+  Chart.prototype.barOfTime = function (t) {
+    var C = this.d.candles, n = this.n, ms = (this.tfSec || 60) * 1000;
+    if (t <= C[0].t) return (t - C[0].t) / ms;
+    if (t >= C[n - 1].t) return n - 1 + (t - C[n - 1].t) / ms;
+    var lo = 0, hi = n - 1; while (hi - lo > 1) { var m = (lo + hi) >> 1; if (C[m].t <= t) lo = m; else hi = m; }
+    return lo + (t - C[lo].t) / Math.max(1, C[hi].t - C[lo].t);
+  };
+  Chart.prototype.pointAt = function (x, y) {
+    var i = Math.round(this.end - (this.W - this.spacing / 2 - x) / this.spacing), A = this.paneA;
+    return { t: Math.round(this.timeAt(i)), p: A.v(Math.max(A.top, Math.min(A.top + A.h, y))) };
+  };
+  Chart.prototype.setTool = function (tool) { this.tool = tool || null; this.pending = null; this.cv.style.cursor = tool ? 'copy' : ''; this.draw(); };
+  Chart.prototype.penDown = function (x, y) {
+    if (x > this.W) return;
+    var pt = this.pointAt(x, y), tool = this.tool;
+    if (ONE_POINT[tool]) {
+      var dr = { type: tool, a: pt };
+      if (tool === 'text') { var txt = this.o.askText ? this.o.askText() : window.prompt('Note'); if (!txt || !String(txt).trim()) return; dr.text = String(txt).trim().slice(0, 80); }
+      this.drawings.push(dr); this.changed(); return;
+    }
+    this.pending = { type: tool, a: pt, b: pt }; this.draw();
+  };
+  Chart.prototype.penMove = function (x, y) { if (!this.pending) return; this.pending.b = this.pointAt(Math.min(x, this.W), y); this.draw(); };
+  Chart.prototype.penUp = function () {
+    var d = this.pending; this.pending = null; if (!d) return;
+    var A = this.paneA, dx = Math.abs(this.xOf(this.barOfTime(d.b.t)) - this.xOf(this.barOfTime(d.a.t))), dy = Math.abs(A.y(d.b.p) - A.y(d.a.p));
+    if (dx < 4 && dy < 4) { this.draw(); return; } // a tap, not a drag
+    this.drawings.push(d); this.changed();
+  };
+  Chart.prototype.changed = function () { this.draw(); if (this.o.onDraw) this.o.onDraw(this.drawings); };
+  Chart.prototype.undo = function () { this.drawings.pop(); this.changed(); };
+  Chart.prototype.clearDrawings = function () { this.drawings.length = 0; this.changed(); };
+  Chart.prototype.drawUser = function (A) {
+    var ctx = this.ctx, self = this, list = this.drawings.slice(); if (this.pending) list.push(this.pending);
+    list.forEach(function (d) {
+      var c = DRAW[d.type] || '#fff', x1 = self.xOf(self.barOfTime(d.a.t)), y1 = A.y(d.a.p);
+      ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = c; ctx.fillStyle = c; ctx.setLineDash([]);
+      if (d.type === 'trend' && d.b) {
+        var x2 = self.xOf(self.barOfTime(d.b.t)), y2 = A.y(d.b.p);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        [[x1, y1], [x2, y2]].forEach(function (q) { ctx.beginPath(); ctx.arc(q[0], q[1], 3, 0, 6.3); ctx.fill(); });
+      } else if (d.type === 'zone' && d.b) {
+        var xa = Math.min(x1, self.xOf(self.barOfTime(d.b.t))), xb = Math.max(x1, self.xOf(self.barOfTime(d.b.t))), ya = Math.min(y1, A.y(d.b.p)), yb = Math.max(y1, A.y(d.b.p));
+        ctx.globalAlpha = 0.18; ctx.fillRect(xa, ya, xb - xa, yb - ya); ctx.globalAlpha = 1; ctx.lineWidth = 1; ctx.strokeRect(xa + 0.5, ya + 0.5, xb - xa, yb - ya);
+      } else if (d.type === 'hline') {
+        ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(0, Math.round(y1) + 0.5); ctx.lineTo(self.W, Math.round(y1) + 0.5); ctx.stroke(); ctx.setLineDash([]);
+        ctx.font = '600 10px Inter,system-ui,sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(d.a.p, self.d.mintick), self.W - 4, y1 - 2);
+      } else if (d.type === 'buy' || d.type === 'sell') {
+        var up = d.type === 'buy', s = 7;
+        ctx.beginPath(); ctx.moveTo(x1, y1 + (up ? -s : s)); ctx.lineTo(x1 - s, y1 + (up ? s : -s)); ctx.lineTo(x1 + s, y1 + (up ? s : -s)); ctx.closePath(); ctx.fill();
+        ctx.font = '700 10px Inter,system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = up ? 'top' : 'bottom'; ctx.fillText(up ? 'BUY' : 'SELL', x1, y1 + (up ? s + 3 : -s - 3));
+      } else if (d.type === 'text') {
+        ctx.font = '600 11px Inter,system-ui,sans-serif'; var w = ctx.measureText(d.text || '').width + 10;
+        ctx.globalAlpha = 0.85; ctx.fillStyle = '#2a3446'; ctx.fillRect(x1, y1 - 9, w, 18); ctx.globalAlpha = 1; ctx.fillStyle = c; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(d.text || '', x1 + 5, y1);
+      }
+      ctx.restore();
+    });
+  };
+  // Plain-text list of the drawings with prices and times (sent to the bot together with the chart picture).
+  Chart.prototype.describe = function () {
+    var self = this, mt = this.d.mintick, when = function (t) { return tfLabel(t, self.tfSec, true); };
+    return this.drawings.map(function (d) {
+      if (d.type === 'trend') return 'trend line from ' + fmt(d.a.p, mt) + ' (' + when(d.a.t) + ') to ' + fmt(d.b.p, mt) + ' (' + when(d.b.t) + ')';
+      if (d.type === 'zone') return 'zone ' + fmt(Math.min(d.a.p, d.b.p), mt) + ' - ' + fmt(Math.max(d.a.p, d.b.p), mt) + ' from ' + when(Math.min(d.a.t, d.b.t)) + ' to ' + when(Math.max(d.a.t, d.b.t));
+      if (d.type === 'hline') return 'horizontal level ' + fmt(d.a.p, mt);
+      if (d.type === 'buy' || d.type === 'sell') return d.type.toUpperCase() + ' mark at ' + fmt(d.a.p, mt) + ' (' + when(d.a.t) + ')';
+      return 'note "' + d.text + '" at ' + fmt(d.a.p, mt) + ' (' + when(d.a.t) + ')';
+    });
+  };
+  Chart.prototype.snapshot = function () { this.hover = -1; if (this._raf) { try { (window.cancelAnimationFrame || clearTimeout)(this._raf); } catch (e) {} this._raf = 0; } this.paint(); return this.cv.toDataURL('image/jpeg', 0.85); };
 
   window.NexusChart = { create: function (box, data, opts) { return new Chart(box, data, opts); } };
 })();

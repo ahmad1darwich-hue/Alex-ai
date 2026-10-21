@@ -21,6 +21,7 @@
 <div class="dsec"><div class="t" data-i18n="dw_tools">أدوات</div>
 <button type="button" data-tool="chats"><span class="em" aria-hidden="true">💬</span> <span data-i18n="dw_chats">محادثاتي</span></button>
 <button type="button" data-tool="prefs"><span class="em" aria-hidden="true">📌</span> <span data-i18n="dw_prefs">تفضيلاتي (اللي بيتذكّرها)</span></button>
+<button type="button" data-tool="studio"><span class="em" aria-hidden="true">🎨</span> <span data-i18n="dw_studio">استوديو الشارت: اعرض وارسم</span></button>
 <button type="button" data-tool="lib"><span class="em" aria-hidden="true">📚</span> <span data-i18n="dw_lib">مؤشراتي المحفوظة</span></button>
 <button type="button" data-tool="idea"><span class="em" aria-hidden="true">💡</span> <span data-i18n="dw_idea">حوّل فكرتي لمؤشر</span></button>
 <button type="button" data-tool="check"><span class="em" aria-hidden="true">🛠️</span> <span data-i18n="dw_check">افحص وصلّح كودي</span></button>
@@ -84,6 +85,21 @@
 <textarea id="checkIn" spellcheck="false" data-i18n-aria="chk_title" aria-label="افحص وصلّح كودي" placeholder="//@version=6&#10;indicator(&quot;My script&quot;)&#10;..."></textarea>
 </div>
 <div class="mfoot"><button class="btn2" type="button" data-close="1" data-i18n="cancel">إلغاء</button><button class="btn2 pri" type="button" id="checkGo" data-i18n="chk_go">افحص الكود</button></div>
+</div>
+</div>
+
+<div class="modal" id="studioModal" role="dialog" aria-modal="true" aria-labelledby="stTitle">
+<div class="mcard wide">
+<div class="mhead"><b id="stTitle" data-i18n="st_title">🎨 استوديو الشارت</b><button class="btn2 close" type="button" data-close="1" data-i18n-title="t_close" data-i18n-aria="t_close" title="إغلاق" aria-label="إغلاق">✕</button></div>
+<div class="mbody st-body">
+<p class="mlead" data-i18n="st_p">اعرض أي مؤشر جاهز على الشارت قبل ما تستعمله، أو ارسم فكرتك (خطوط، مستويات، مناطق، إشارات) والبوت بيبنيلك المؤشر منها.</p>
+<div class="st-row"><select id="stSym" class="pv-sel" data-i18n-aria="pv_sym" aria-label="الرمز"></select><div id="stTfs" class="pv-tfs"></div><select id="stInd" class="pv-sel st-ind" data-i18n-aria="st_ind" aria-label="المؤشر"></select></div>
+<div class="st-tools" id="stTools" role="toolbar" data-i18n-aria="st_tools" aria-label="أدوات الرسم"></div>
+<div class="st-stage" id="stStage"></div>
+<div class="pv-note" id="stNote"></div>
+<textarea id="stAsk" rows="2" data-i18n-ph="st_ask_ph" data-i18n-aria="st_ask_ph" aria-label="شو بدك المؤشر يعمل؟" placeholder="شو بدك المؤشر يعمل؟ (اختياري)"></textarea>
+</div>
+<div class="mfoot"><button class="btn2" type="button" id="stUse" data-i18n="st_use">استعمل هالمؤشر</button><button class="btn2 pri" type="button" id="stBuild" data-i18n="st_build">ابنِ مؤشر من رسمتي</button></div>
 </div>
 </div>
 

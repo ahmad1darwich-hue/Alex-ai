@@ -334,6 +334,18 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 .pv-note .err{color:#ff8a8a}
 @media (min-width:1100px){.pv-chart{height:460px}}
 @media (max-width:640px){.pv-chart{height:320px}.pv-tbl{font-size:9.5px}.pv-tbl td{padding:2px 5px}.pv-title{width:100%}}
+.mcard.wide{width:min(980px,100%)}
+.st-body{display:flex;flex-direction:column;gap:8px}
+.st-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.st-ind{flex:1;min-width:180px}
+.st-tools{display:flex;gap:4px;flex-wrap:wrap;direction:ltr}
+.st-tool{background:var(--panel);border:1px solid var(--line2);color:var(--txt);border-radius:8px;padding:5px 9px;font:600 12px var(--sans,inherit);cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+.st-tool.on{background:var(--acc);color:#04121a;border-color:var(--acc)}
+.st-tool .g{font-size:13px;line-height:1}
+.st-stage{flex:none;position:relative;min-height:340px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0b0f15;display:flex;align-items:center;justify-content:center}
+.st-stage .pv-chart{height:56dvh;min-height:300px}
+#stAsk{flex:none;width:100%;min-height:0;height:58px;resize:vertical;background:var(--panel);color:var(--txt);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px}
+@media (max-width:640px){.st-stage .pv-chart{height:46dvh}.st-tool .l{display:none}}
 
 </style>
 </head>
@@ -437,6 +449,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 <div class="dsec"><div class="t" data-i18n="dw_tools">أدوات</div>
 <button type="button" data-tool="chats"><span class="em" aria-hidden="true">💬</span> <span data-i18n="dw_chats">محادثاتي</span></button>
 <button type="button" data-tool="prefs"><span class="em" aria-hidden="true">📌</span> <span data-i18n="dw_prefs">تفضيلاتي (اللي بيتذكّرها)</span></button>
+<button type="button" data-tool="studio"><span class="em" aria-hidden="true">🎨</span> <span data-i18n="dw_studio">استوديو الشارت: اعرض وارسم</span></button>
 <button type="button" data-tool="lib"><span class="em" aria-hidden="true">📚</span> <span data-i18n="dw_lib">مؤشراتي المحفوظة</span></button>
 <button type="button" data-tool="idea"><span class="em" aria-hidden="true">💡</span> <span data-i18n="dw_idea">حوّل فكرتي لمؤشر</span></button>
 <button type="button" data-tool="check"><span class="em" aria-hidden="true">🛠️</span> <span data-i18n="dw_check">افحص وصلّح كودي</span></button>
@@ -500,6 +513,21 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 <textarea id="checkIn" spellcheck="false" data-i18n-aria="chk_title" aria-label="افحص وصلّح كودي" placeholder="//@version=6&#10;indicator(&quot;My script&quot;)&#10;..."></textarea>
 </div>
 <div class="mfoot"><button class="btn2" type="button" data-close="1" data-i18n="cancel">إلغاء</button><button class="btn2 pri" type="button" id="checkGo" data-i18n="chk_go">افحص الكود</button></div>
+</div>
+</div>
+
+<div class="modal" id="studioModal" role="dialog" aria-modal="true" aria-labelledby="stTitle">
+<div class="mcard wide">
+<div class="mhead"><b id="stTitle" data-i18n="st_title">🎨 استوديو الشارت</b><button class="btn2 close" type="button" data-close="1" data-i18n-title="t_close" data-i18n-aria="t_close" title="إغلاق" aria-label="إغلاق">✕</button></div>
+<div class="mbody st-body">
+<p class="mlead" data-i18n="st_p">اعرض أي مؤشر جاهز على الشارت قبل ما تستعمله، أو ارسم فكرتك (خطوط، مستويات، مناطق، إشارات) والبوت بيبنيلك المؤشر منها.</p>
+<div class="st-row"><select id="stSym" class="pv-sel" data-i18n-aria="pv_sym" aria-label="الرمز"></select><div id="stTfs" class="pv-tfs"></div><select id="stInd" class="pv-sel st-ind" data-i18n-aria="st_ind" aria-label="المؤشر"></select></div>
+<div class="st-tools" id="stTools" role="toolbar" data-i18n-aria="st_tools" aria-label="أدوات الرسم"></div>
+<div class="st-stage" id="stStage"></div>
+<div class="pv-note" id="stNote"></div>
+<textarea id="stAsk" rows="2" data-i18n-ph="st_ask_ph" data-i18n-aria="st_ask_ph" aria-label="شو بدك المؤشر يعمل؟" placeholder="شو بدك المؤشر يعمل؟ (اختياري)"></textarea>
+</div>
+<div class="mfoot"><button class="btn2" type="button" id="stUse" data-i18n="st_use">استعمل هالمؤشر</button><button class="btn2 pri" type="button" id="stBuild" data-i18n="st_build">ابنِ مؤشر من رسمتي</button></div>
 </div>
 </div>
 
@@ -698,7 +726,24 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     lib_title: ['مؤشراتي المحفوظة', 'My saved indicators'],
     lib_p: ['كل مؤشر بيبنيه البوت بينحفظ هون تلقائياً (على كل أجهزتك). افتح أي واحد وكمّل تعديل عليه.', 'Every indicator the bot builds is saved here automatically (on all your devices). Open any one to keep editing it.'],
     lib_search: ['دوّر بالاسم…', 'Search by name…'],
+    dw_studio: ['استوديو الشارت: اعرض وارسم', 'Chart studio: show & draw'],
+    st_title: ['🎨 استوديو الشارت', '🎨 Chart studio'],
+    st_p: ['اعرض أي مؤشر جاهز على الشارت قبل ما تستعمله، أو ارسم فكرتك (خطوط، مستويات، مناطق، إشارات) والبوت بيبنيلك المؤشر منها.', 'Show any ready indicator on the chart before you use it, or draw your idea (lines, levels, zones, signals) and the bot builds the indicator from it.'],
+    st_ind: ['المؤشر على الشارت', 'Indicator on the chart'], st_tools: ['أدوات الرسم', 'Drawing tools'],
+    st_none: ['— بدون مؤشر (شارت فاضي للرسم) —', '— No indicator (blank chart to draw on) —'], st_cur: ['السكربت الحالي: {x}', 'Current script: {x}'],
+    st_t_move: ['تحريك', 'Move'], st_t_trend: ['خط ترند', 'Trend line'], st_t_hline: ['مستوى', 'Level'], st_t_zone: ['منطقة', 'Zone'], st_t_buy: ['شراء', 'Buy'], st_t_sell: ['بيع', 'Sell'], st_t_text: ['ملاحظة', 'Note'],
+    st_undo: ['تراجع', 'Undo'], st_clear: ['امسح', 'Clear'], st_text_ask: ['اكتب الملاحظة:', 'Note text:'],
+    st_ask_ph: ['شو بدك المؤشر يعمل؟ (اختياري)', 'What should the indicator do? (optional)'],
+    st_use: ['استعمل هالمؤشر', 'Use this indicator'], st_build: ['ابنِ مؤشر من رسمتي', 'Build an indicator from my drawing'],
+    st_need: ['ارسم شي على الشارت أو اكتب شو بدك أول.', 'Draw something on the chart or write what you want first.'],
+    st_hint: ['اختار أداة وارسم بالسحب (خط، منطقة) أو بكبسة (مستوى، شراء، بيع، ملاحظة) · ✋ للتحريك والتكبير', 'Pick a tool and drag (line, zone) or tap (level, buy, sell, note) · ✋ to move and zoom'],
+    st_default_ask: ['ابنيلي مؤشر بيكشف ويرسم هالشي لحاله على الشارت، متل ما رسمته.', 'Build an indicator that detects and draws this automatically on the chart, the way I drew it.'],
+    st_drawn: ['اللي رسمته على الشارت ({sym} · {tf}):', 'What I drew on the chart ({sym} · {tf}):'],
+    st_on_ind: ['(رسمت فوق مؤشر: {x})', '(drawn on top of: {x})'],
+    st_rule: ['الصورة المرفقة هي الشارت مع رسمتي: استعملها مع القائمة كمواصفات، والمؤشر لازم يلاقي هالأشياء لحاله على أي شارت (مش أسعار ثابتة).', 'The attached picture is the chart with my drawing: use it and the list as the spec; the indicator must find these things by itself on any chart (not fixed prices).'],
     lib_empty: ['ما في مؤشرات محفوظة لسا. ابني مؤشر وبينحفظ هون لحاله.', 'No saved indicators yet. Build one and it is saved here automatically.'],
+    lib_found: ['{n} من {all} مؤشر', '{n} of {all} indicators'], lib_found_req: ['{n} من {all} (لقيتها بنص الطلب)', '{n} of {all} (found in the request text)'],
+    lib_none: ['ما في مؤشر اسمه «{x}».', 'No indicator named "{x}".'],
     lib_loading: ['عم حمّل المكتبة…', 'Loading the library…'],
     lib_err: ['ما قدرت وصل للمكتبة. جرّب بعد شوي.', 'Could not reach the library. Try again in a moment.'],
     lib_locked: ['المكتبة بتحتاج تفعيل هالجهاز برابط Brain (#key=...).', 'The library needs this device to be activated with your Brain link (#key=...).'],
@@ -1136,6 +1181,105 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     box._load = load;
     showBtn();
     return box;
+  }
+
+  /* ---------- chart studio (Brain Indicators): show any indicator on the chart before using it, or draw an idea ---------- */
+  var ST = { chart: null, drawings: [], tool: null, ind: '', code: {}, seq: 0, ready: false };
+  var ST_BLANK = '//@version=6\nindicator("Chart", overlay = true)\nplot(close, "Close", display = display.none)\n';
+  var ST_TOOLS = [['', '✋', 'st_t_move'], ['trend', '╱', 'st_t_trend'], ['hline', '―', 'st_t_hline'], ['zone', '▭', 'st_t_zone'], ['buy', '▲', 'st_t_buy'], ['sell', '▼', 'st_t_sell'], ['text', 'T', 'st_t_text']];
+  function studioInit() {
+    if (ST.ready) return; ST.ready = true;
+    var pref = pvPrefs(), sym = $('stSym'), tfs = $('stTfs'), tools = $('stTools');
+    ST.sym = pref.symbol; ST.tf = pref.tf;
+    PV_SYMS.forEach(function (x) { var o = el('option', '', x[1]); o.value = x[0]; if (x[0] === ST.sym) o.selected = true; sym.appendChild(o); });
+    PV_TFS.forEach(function (x) { var b = el('button', 'pv-tf' + (x[0] === ST.tf ? ' on' : ''), x[1]); b.type = 'button'; b.setAttribute('data-tf', x[0]); tfs.appendChild(b); });
+    sym.onchange = function () { ST.sym = sym.value; studioLoad(); };
+    tfs.onclick = function (e) { var b = e.target.closest('button'); if (!b) return; ST.tf = b.getAttribute('data-tf'); tfs.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); studioLoad(); };
+    ST_TOOLS.forEach(function (x) {
+      var b = el('button', 'st-tool' + (x[0] === '' ? ' on' : '')); b.type = 'button'; b.setAttribute('data-st', x[0]);
+      b.innerHTML = '<span class="g" aria-hidden="true">' + esc(x[1]) + '</span><span class="l">' + esc(t(x[2])) + '</span>'; b.title = t(x[2]); b.setAttribute('aria-label', t(x[2]));
+      b.onclick = function () { ST.tool = x[0] || null; tools.querySelectorAll('[data-st]').forEach(function (y) { y.classList.toggle('on', y === b); }); if (ST.chart) ST.chart.setTool(ST.tool); };
+      tools.appendChild(b);
+    });
+    var bu = el('button', 'st-tool', '↶ ' + t('st_undo')); bu.type = 'button'; bu.onclick = function () { if (ST.chart) ST.chart.undo(); else ST.drawings.pop(); };
+    var bc = el('button', 'st-tool', '🗑 ' + t('st_clear')); bc.type = 'button'; bc.onclick = function () { if (ST.chart) ST.chart.clearDrawings(); else ST.drawings.length = 0; };
+    tools.appendChild(bu); tools.appendChild(bc);
+    $('stInd').onchange = function () { ST.ind = $('stInd').value; studioLoad(); };
+    $('stUse').onclick = function () { var id = ST.ind; if (!id || id === 'cur') return; closeModals(); useTemplate(id); };
+    $('stBuild').onclick = studioBuild;
+  }
+  function studioIndOptions() {
+    var s = $('stInd'), keep = ST.ind; s.innerHTML = '';
+    var add = function (v, label) { var o = el('option', '', label); o.value = v; s.appendChild(o); };
+    add('', t('st_none'));
+    if (S.cur && S.cur.code) add('cur', t('st_cur', { x: S.cur.file || 'script' }));
+    TPL.forEach(function (tp) { add(tp.id, tp.title[L ? 'en' : 'ar']); });
+    if (keep && [].some.call(s.options, function (o) { return o.value === keep; })) s.value = keep; else { ST.ind = ''; s.value = ''; }
+  }
+  function openStudio(ind) {
+    if (!PREVIEW || !window.NexusChart) { toast(t('lib_err'), 3000); return; }
+    openModal('studioModal'); studioInit();
+    if (ind) ST.ind = ind;
+    studioIndOptions(); studioLoad();
+  }
+  function studioCode(cb) {
+    var id = ST.ind;
+    if (!id) return cb(ST_BLANK);
+    if (id === 'cur') return cb(S.cur && S.cur.code ? S.cur.code : ST_BLANK);
+    if (ST.code[id]) return cb(ST.code[id]);
+    fetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ v: 2, mode: 'template', templateId: id, lang: L ? 'en' : 'ar' }) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.code) throw new Error((j && j.message) || 'template'); ST.code[id] = j.code; cb(j.code); })
+      .catch(function (e) { cb(null, e); });
+  }
+  function studioLoad() {
+    var stage = $('stStage'), note = $('stNote'), my = ++ST.seq;
+    $('stUse').style.display = ST.ind && ST.ind !== 'cur' ? '' : 'none';
+    try { localStorage.setItem('nx_pv', JSON.stringify({ symbol: ST.sym, tf: ST.tf })); } catch (e) {}
+    if (ST.chart) { try { ST.chart.destroy(); } catch (e) {} ST.chart = null; }
+    stage.innerHTML = ''; stage.appendChild(el('div', 'pv-wait', t('pv_loading'))); note.textContent = '';
+    studioCode(function (code, err) {
+      if (my !== ST.seq) return;
+      if (!code) { stage.innerHTML = ''; note.innerHTML = '<span class="err">' + esc(t('pv_fail') + String(err && err.message || err)) + '</span>'; return; }
+      fetch(PREVIEW, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: code, symbol: ST.sym, tf: ST.tf }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (my !== ST.seq) return;
+          if (!d || !d.ok || !Array.isArray(d.candles)) throw new Error((d && d.message) || 'error');
+          PV_TFS.forEach(function (x) { if (x[0] === d.tf) d.tfName = x[1]; });
+          var holder = el('div', 'pv-chart'); stage.innerHTML = ''; stage.appendChild(holder);
+          ST.chart = window.NexusChart.create(holder, d, { drawings: ST.drawings, askText: function () { return window.prompt(t('st_text_ask')); } });
+          ST.chart.setTool(ST.tool);
+          var res = d.result || {}, bits = [];
+          if (d.sample) bits.push('<span class="err">' + esc(t('pv_sample')) + '</span>');
+          if (ST.ind && !res.ok && res.error) bits.push('<span class="err">' + esc(t('pv_err') + res.error) + '</span>');
+          if (ST.ind && res.unsupported && res.unsupported.length) bits.push(esc(t('pv_unsup') + res.unsupported.join(', ')));
+          bits.push(esc(t('st_hint')));
+          note.innerHTML = bits.join('<br>');
+        })
+        .catch(function (e) { if (my !== ST.seq) return; stage.innerHTML = ''; note.innerHTML = '<span class="err">' + esc(t('pv_fail') + String(e && e.message || e)) + '</span>'; });
+    });
+  }
+  // Chart picture for the bot: the canvas scaled down to 1280 px wide, as JPEG.
+  function studioShot() {
+    var src = ST.chart.snapshot(), cv = ST.chart.cv, w = Math.min(1280, cv.width), h = Math.round(cv.height * w / cv.width);
+    if (w === cv.width) return src.split(',')[1];
+    var c2 = document.createElement('canvas'); c2.width = w; c2.height = h; c2.getContext('2d').drawImage(cv, 0, 0, w, h);
+    return c2.toDataURL('image/jpeg', 0.85).split(',')[1];
+  }
+  function studioBuild() {
+    if (busy) { toast(t('wait_busy')); return; }
+    if (!ST.chart) { toast(t('pv_loading')); return; }
+    var ask = String($('stAsk').value || '').trim(), lines = ST.chart.describe();
+    if (!ask && !lines.length) { toast(t('st_need'), 3200); return; }
+    var symName = ST.sym, tfName = ST.tf;
+    PV_SYMS.forEach(function (x) { if (x[0] === ST.sym) symName = x[1]; }); PV_TFS.forEach(function (x) { if (x[0] === ST.tf) tfName = x[1]; });
+    var text = (ask || t('st_default_ask')) + (lines.length ? '\n\n' + t('st_drawn', { sym: symName, tf: tfName }) + '\n- ' + lines.join('\n- ') : '') +
+      (ST.ind && ST.ind !== 'cur' ? '\n' + t('st_on_ind', { x: tplTitle(ST.ind) }) : '') + '\n' + t('st_rule');
+    var b64 = null; try { b64 = studioShot(); } catch (e) {}
+    var atts = b64 ? [{ kind: 'image', media_type: 'image/jpeg', data: b64, name: 'chart.jpg', preview: 'data:image/jpeg;base64,' + b64 }] : [];
+    if (ST.ind !== 'cur' && S.cur) { S.cur = null; save(); refreshCurrent(); }
+    closeModals(); $('stAsk').value = '';
+    send(text, atts);
   }
 
   function renderAll() {
@@ -1588,11 +1732,29 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     libCall('GET').then(function (j) { libItems = Array.isArray(j.items) ? j.items : []; renderLibrary(); })
       .catch(function (e) { list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), e.locked ? 'lib_locked' : 'lib_err')); });
   }
+  // Search by name: Arabic letter forms unified (أ إ آ = ا, ة = ه, ى = ي, no tashkeel), every word must match the
+  // name / title / file (the shared "Nexus" prefix and ".pine" are ignored, or every script would match). Only when no
+  // name matches, the words are looked up in the original request text.
+  function libNorm(v) {
+    return String(v == null ? '' : v).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g, '').replace(/[\u0623\u0625\u0622\u0671]/g, '\u0627').replace(/\u0629/g, '\u0647').replace(/\u0649/g, '\u064A')
+      .replace(/\.pine\b/g, ' ').replace(/[_\-–—·•|/\\()[\]{}"',.:;!?]+/g, ' ').replace(/\bnexus\b|\bnx\b/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function libFilter(all, raw) {
+    var words = libNorm(raw).split(' ').filter(Boolean);
+    if (!words.length) return all.slice();
+    var hit = function (hay) { hay = ' ' + libNorm(hay) + ' '; return words.every(function (w) { return hay.indexOf(w) >= 0; }); };
+    var byName = all.filter(function (it) { return hit((it.name || '') + ' ' + (it.title || '') + ' ' + (it.file || '')); });
+    if (byName.length) return byName;
+    var byReq = all.filter(function (it) { return hit(it.request || ''); });
+    byReq.byRequest = true;
+    return byReq;
+  }
   function renderLibrary() {
-    var list = $('libList'), q = String($('libQ').value || '').trim().toLowerCase();
+    var list = $('libList'), raw = String($('libQ').value || '');
     list.innerHTML = '';
-    var items = libItems.filter(function (it) { return !q || (String(it.name) + ' ' + it.file + ' ' + (it.request || '')).toLowerCase().indexOf(q) >= 0; });
-    if (!items.length) { list.appendChild(tx(el('div', 'libnote'), 'lib_empty')); return; }
+    var items = libFilter(libItems, raw);
+    if (!libItems.length) { list.appendChild(tx(el('div', 'libnote'), 'lib_empty')); return; }
+    if (libNorm(raw)) list.appendChild(el('div', 'libnote', items.length ? t(items.byRequest ? 'lib_found_req' : 'lib_found', { n: items.length, all: libItems.length }) : t('lib_none', { x: raw.trim() })));
     items.forEach(function (it) {
       var row = el('div', 'librow'), head = el('div', 'libhead'), nm = el('b', '', String(it.name || it.file)), meta = el('div', 'libmeta');
       nm.dir = dirOf(it.name);
@@ -1742,6 +1904,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     if (name === 'how') return openModal('howModal');
     if (name === 'check') return openModal('checkModal');
     if (name === 'lib') return openLibrary();
+    if (name === 'studio') return openStudio();
     if (name === 'chats') return openChats();
     if (name === 'prefs') return openPrefs();
     // The prepared request is added once a file was really chosen (a cancelled picker changes nothing).
@@ -1921,6 +2084,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 
   window.NexusApp = { launch: launch, home: home, toggleLang: toggleLang, useTemplate: function (id) { launch(); useTemplate(id); }, demo: function () { launch(); useTemplate('smc'); } };
 
+  if (!PREVIEW) { var sb = document.querySelector('[data-tool="studio"]'); if (sb) sb.remove(); }
   if (!LIB) { ['lib', 'prefs'].forEach(function (k) { var lb = document.querySelector('[data-tool="' + k + '"]'); if (lb) lb.remove(); }); }
   load();
   if (SYNC && syncKey) {
