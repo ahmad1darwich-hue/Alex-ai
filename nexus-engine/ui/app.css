@@ -212,12 +212,20 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 .libq{width:100%;background:var(--panel);border:1px solid var(--line2);border-radius:10px;color:var(--txt);font:inherit;font-size:14px;padding:9px 12px;outline:none;margin-bottom:12px}
 .libq:focus{border-color:var(--acc)}
 .liblist{display:flex;flex-direction:column;gap:10px}
-.librow{border:1px solid var(--line2);border-radius:12px;background:var(--panel);padding:10px 12px}
+.librow{border:1px solid var(--line2);border-radius:12px;background:var(--panel);padding:4px}
+.librow:hover{border-color:var(--acc)}
+.libtop{display:flex;align-items:stretch;gap:4px}
+.libmain{flex:1;min-width:0;background:none;border:0;color:inherit;font:inherit;text-align:start;padding:8px 10px;border-radius:9px;cursor:pointer}
+.libmain:hover,.libmain:focus-visible{background:rgba(255,255,255,.04)}
+.libmore{background:none;border:0;color:var(--mut);font-size:20px;line-height:1;padding:0 10px;border-radius:9px;cursor:pointer}
+.libmore:hover,.libmore[aria-expanded="true"]{color:var(--txt);background:rgba(255,255,255,.05)}
+.libcount{padding:2px 4px 6px;font-size:12.5px}
 .libhead{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .libhead b{font-size:14.5px;overflow-wrap:anywhere}
-.libmeta{color:var(--mut);font-size:12px;margin-top:3px;direction:ltr;text-align:start}
+.libmeta{color:var(--mut);font-size:12px;margin-top:3px;unicode-bidi:plaintext;text-align:start}
 .libreq{color:var(--mut);font-size:12.5px;margin-top:6px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.libacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.libacts{display:flex;flex-wrap:wrap;gap:6px;padding:4px 10px 8px}
+.libacts[hidden]{display:none}
 .libnote{color:var(--mut);font-size:13.5px;padding:14px 4px;text-align:center}
 @media(pointer:coarse){.libq{font-size:16px}}
 
