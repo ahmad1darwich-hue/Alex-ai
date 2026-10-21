@@ -289,6 +289,8 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
 .st-stage .pv-chart{height:56dvh;min-height:300px}
 #stAsk{flex:none;width:100%;min-height:0;height:58px;resize:vertical;background:var(--panel);color:var(--txt);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px}
 @media (max-width:640px){.st-stage .pv-chart{height:46dvh}.st-tool .l{display:none}}
+.actbox{display:flex;flex-direction:column;gap:6px}
+.actrow{display:flex;gap:8px;align-items:center}.actrow .libq{margin:0;flex:1;direction:ltr}
 
 </style>
 </head>
@@ -1054,6 +1056,9 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     lib_err: ['ما قدرت وصل للمكتبة. جرّب بعد شوي.', 'Could not reach the library. Try again in a moment.'],
     lib_locked: ['المكتبة بتحتاج تفعيل هالجهاز برابط Brain (#key=...).', 'The library needs this device to be activated with your Brain link (#key=...).'],
     lib_open: ['افتح للتعديل', 'Open to edit'],
+    act_p: ['هالجهاز مش مفعّل لسا. الصق رابط Brain تبعك (اللي فيه #key=) أو المفتاح لحاله، واكبس فعّل. مرّة وحدة بس على كل جهاز.', 'This device is not activated yet. Paste your Brain link (the one with #key=) or the key itself and press Activate. Once per device.'],
+    act_ph: ['الصق رابط Brain أو المفتاح', 'Paste your Brain link or key'], act_go: ['فعّل', 'Activate'],
+    act_ok: ['✅ تفعّل هالجهاز', '✅ This device is activated'], act_bad: ['المفتاح أو الرابط مش صحيح.', 'That key or link is not valid.'],
     lib_del: ['حذف', 'Delete'], lib_del_sure: ['أكيد؟ اضغط كمان مرّة', 'Sure? Press again'],
     lib_ren: ['إعادة تسمية', 'Rename'], lib_ren_ask: ['الاسم الجديد:', 'New name:'],
     lib_prev: ['رجّع النسخة السابقة', 'Restore previous version'],
@@ -2045,9 +2050,9 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     openModal('libModal');
     var list = $('libList'), q = $('libQ'); q.value = '';
     list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), 'lib_loading'));
-    if (!syncKey) { list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), 'lib_locked')); return; }
+    if (!syncKey) { list.innerHTML = ''; list.appendChild(activateBox(openLibrary)); return; }
     libCall('GET').then(function (j) { libItems = Array.isArray(j.items) ? j.items : []; renderLibrary(); })
-      .catch(function (e) { list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), e.locked ? 'lib_locked' : 'lib_err')); });
+      .catch(function (e) { list.innerHTML = ''; list.appendChild(e.locked ? activateBox(openLibrary) : tx(el('div', 'libnote'), 'lib_err')); });
   }
   // Search by name: Arabic letter forms unified (أ إ آ = ا, ة = ه, ى = ي, no tashkeel), every word must match the
   // name / title / file (the shared "Nexus" prefix and ".pine" are ignored, or every script would match). Only when no
@@ -2065,6 +2070,26 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     var byReq = all.filter(function (it) { return hit(it.request || ''); });
     byReq.byRequest = true;
     return byReq;
+  }
+  // Activates this device right inside the page: paste the Brain link (…#key=…) or the key itself. The key is checked
+  // against the library before it is kept (localStorage of this site, sent only as a header).
+  function activateBox(onDone) {
+    var box = el('div', 'actbox'), p = tx(el('div', 'libnote'), 'act_p'), row = el('div', 'actrow'), inp = el('input', 'libq'), go = tx(el('button', 'btn2 pri'), 'act_go');
+    inp.type = 'password'; inp.autocomplete = 'off'; inp.placeholder = t('act_ph'); inp.setAttribute('aria-label', t('act_ph')); go.type = 'button';
+    row.appendChild(inp); row.appendChild(go); box.appendChild(p); box.appendChild(row);
+    function keyOf(v) { v = String(v || '').trim(); var m = /^([A-Za-z0-9_-]{24,200})$/.exec(v) || /[#&?]key=([A-Za-z0-9_-]{24,200})(?![A-Za-z0-9_-])/.exec(v); return m ? m[1] : ''; }
+    go.onclick = function () {
+      var k = keyOf(inp.value);
+      if (!k) { toast(t('act_bad'), 3500); inp.focus(); return; }
+      var old = syncKey; syncKey = k; go.disabled = true;
+      libCall('GET').then(function () {
+        try { localStorage.setItem('brain_key', k); } catch (e) {}
+        toast(t('act_ok'), 2600); if (onDone) onDone();
+      }).catch(function (e) { syncKey = old; go.disabled = false; toast(t(e && e.locked ? 'act_bad' : 'lib_err'), 3500); });
+    };
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go.click(); } });
+    setTimeout(function () { try { inp.focus(); } catch (e) {} }, 50);
+    return box;
   }
   function renderLibrary() {
     var list = $('libList'), raw = String($('libQ').value || '');
