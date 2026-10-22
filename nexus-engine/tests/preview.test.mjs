@@ -267,6 +267,29 @@ await t("scalper template: chop-shielded PB / REV scalps, one managed plan, regi
   assert.ok(total > 0, "scalps are drawn on sample candles");
 });
 
+await t("mtf template: auto ladder, closed-bar matrix rows, weighted score + verdict, designed labels only", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "mtf_dashboard.pine"), "utf8");
+  const ladders = { 60: ["1m", "5m", "15m", "1H", "4H"], 900: ["15m", "1H", "4H", "1D", "1W"], 3600: ["1H", "4H", "1D", "1W", "1M"] };
+  for (const [tf, n] of [[60, 1500], [900, 900], [3600, 800]]) {
+    const r = runPreview(code, sampleCandles(tf, n, 2400), { tfSec: tf, symbol: GOLD });
+    assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+    assert.ok(r.labels.every((l) => /^(▲|▼) ALIGNED [1-5]\/[1-5]$|^◇ fading$/.test(l.text)), "only designed labels: " + r.labels.map((l) => l.text).join(","));
+    assert.ok(r.labels.filter((l) => /ALIGNED/.test(l.text)).every((l) => +l.text.split("/")[1] >= 3), "no verdict from fewer than 3 rows with data");
+    const c = r.tables[0].cells;
+    assert.equal(c["0:0"].text, "NEXUS • MTF");
+    assert.deepEqual([2, 3, 4, 5, 6].map((k) => c["0:" + k].text), ladders[tf], "auto ladder for " + tf);
+    for (const k of [2, 3, 4, 5, 6]) {
+      assert.match(c["1:" + k].text, /^(▲ Up|▼ Down|● Flat|\.\.\.|below chart)$/, "trend cell");
+      assert.match(c["2:" + k].text, /^(●●●|●●○|●○○|-)$/, "power cell");
+      assert.match(c["4:" + k].text, /^(BOS ▲|BOS ▼|-)$/, "structure cell");
+    }
+    assert.match(c["0:7"].text, /^[+-]\d+%$/, "score");
+    assert.match(c["1:7"].text, /^[■□]{10}$/, "gauge");
+    assert.match(c["0:8"].text, /^(Aligned up|Aligned down|Up • fading|Down • fading|Mixed)$/, "verdict");
+    assert.ok(r.plots.some((p) => p.title === "Fast EMA") && r.plots.some((p) => p.title === "Top-row high"), "ribbon + top-row levels drawn");
+  }
+});
+
 await t("/api/preview accepts big scripts (150k characters) and refuses only past the limit", async () => {
   const real = globalThis.fetch;
   globalThis.fetch = async () => new Response("down", { status: 500 });

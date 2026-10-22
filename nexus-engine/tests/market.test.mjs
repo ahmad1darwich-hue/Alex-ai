@@ -72,6 +72,16 @@ await t("price levels from daily candles feed the prompt (support / resistance f
   assert.equal(levelsFromDaily(dn).trend, "down", "falling closes = down trend"); assert.doesNotMatch(txt, /NOPE/);
   assert.equal(await priceLevels(["NOPE"], async () => { throw new Error("down"); }), "", "no data = no block");
 });
+await t("weekly trend + daily/weekly alignment from the same daily candles", async () => {
+  const { weeklyTrend, alignment, priceLevels } = await import("../../brain-app/api/_brain/market.js");
+  const up = []; for (let i = 0; i < 120; i++) { const d = new Date(Date.UTC(2026, 5, 1 + i, 21)); if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue; const c = 2000 + i * 4; up.push({ t: d.getTime(), o: c - 2, h: c + 5, l: c - 5, c }); }
+  const W = weeklyTrend(up); assert.equal(W.wtrend, "up"); assert.ok(W.wsma10 < up.at(-1).c);
+  assert.equal(weeklyTrend(up.slice(-30)), null, "under 13 weeks = no weekly trend");
+  assert.equal(weeklyTrend(up.map((x, i) => ({ ...x, c: 3000 - i * 4, h: 3005 - i * 4, l: 2995 - i * 4 }))).wtrend, "down");
+  assert.equal(alignment("up", "up"), "aligned up"); assert.equal(alignment("down", "up"), "mixed"); assert.equal(alignment("range", "range"), "mixed"); assert.equal(alignment("up", undefined), "");
+  const txt = await priceLevels(["XAUUSD (Gold)"], async () => ({ candles: up, source: "yahoo" }));
+  assert.match(txt, /weekly trend up \(10-week average [\d.]+\); daily \+ weekly aligned up \[yahoo\]/);
+});
 await t("dollar driver (DXY) from daily closes: tone for gold, empty without data", async () => {
   const { dollarDriver } = await import("../../brain-app/api/_brain/market.js");
   const up = await dollarDriver(async () => [100, 100.2, 100.1, 100.3, 100.4, 100.0, 100.5]);

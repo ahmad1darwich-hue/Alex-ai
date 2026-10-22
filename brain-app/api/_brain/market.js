@@ -110,14 +110,34 @@ export function trendFromDaily(c, adr) {
   const wk = c.slice(-5), hi = Math.max(...wk.map((x) => x.h)), lo = Math.min(...wk.map((x) => x.l));
   return { sma20: sma, trend: up ? "up" : down ? "down" : "range", smaDist: adr > 0 ? (last.c - sma) / adr : 0, rangePos: hi > lo ? Math.round(((last.c - lo) / (hi - lo)) * 100) : 50 };
 }
-export async function priceLevels(markets = MARKETS, fetchDaily = (sym) => getCandles(sym, 86400, 40)) {
+// Weekly trend from the same daily candles (weeks start on Monday): close vs the 10-week average and its 3-week slope.
+// With the daily trend it gives a two-timeframe alignment tag, the same idea as the MTF matrix in the indicator bot.
+export function weeklyTrend(c) {
+  const weeks = [];
+  for (const x of (c || [])) {
+    if (!x || !isFinite(x.c)) continue;
+    const day = Math.floor(x.t / 86400000), wk = Math.floor((day + 3) / 7);
+    const w = weeks[weeks.length - 1];
+    if (w && w.k === wk) { w.c = x.c; w.h = Math.max(w.h, x.h); w.l = Math.min(w.l, x.l); } else weeks.push({ k: wk, c: x.c, h: x.h, l: x.l });
+  }
+  if (weeks.length < 13) return null;
+  const avg = (a) => a.reduce((s, x) => s + x.c, 0) / a.length;
+  const sma = avg(weeks.slice(-10)), prev = avg(weeks.slice(-13, -3)), last = weeks[weeks.length - 1].c;
+  return { wsma10: sma, wtrend: last > sma && sma >= prev ? "up" : last < sma && sma <= prev ? "down" : "range" };
+}
+export function alignment(daily, weekly) {
+  if (!weekly) return "";
+  return daily === weekly && daily !== "range" ? "aligned " + daily : "mixed";
+}
+export async function priceLevels(markets = MARKETS, fetchDaily = (sym) => getCandles(sym, 86400, 140)) {
   const lines = await Promise.all(markets.map(async (m) => {
     const sym = String(m).split(/[\s(]/)[0].toUpperCase();
     try {
       const { candles, source } = await fetchDaily(sym);
       const L = levelsFromDaily(candles);
       if (!L) return "";
-      return `${sym}: last daily candle ${L.date} close ${fmt(L.close)} (${L.chg >= 0 ? "+" : ""}${L.chg.toFixed(2)}%), high ${fmt(L.high)}, low ${fmt(L.low)}; previous day high ${fmt(L.prevHigh)} / low ${fmt(L.prevLow)}; 5-day high ${fmt(L.wkHigh)} / low ${fmt(L.wkLow)}; classic pivot ${fmt(L.pivot)}; average daily range (14) ${fmt(L.adr)}; data trend ${L.trend} (close ${L.smaDist >= 0 ? "+" : ""}${L.smaDist.toFixed(1)} ADR from the 20-day average ${fmt(L.sma20)}); position in the 5-day range ${L.rangePos}% [${source}]`;
+      const W = weeklyTrend(candles);
+      return `${sym}: last daily candle ${L.date} close ${fmt(L.close)} (${L.chg >= 0 ? "+" : ""}${L.chg.toFixed(2)}%), high ${fmt(L.high)}, low ${fmt(L.low)}; previous day high ${fmt(L.prevHigh)} / low ${fmt(L.prevLow)}; 5-day high ${fmt(L.wkHigh)} / low ${fmt(L.wkLow)}; classic pivot ${fmt(L.pivot)}; average daily range (14) ${fmt(L.adr)}; data trend ${L.trend} (close ${L.smaDist >= 0 ? "+" : ""}${L.smaDist.toFixed(1)} ADR from the 20-day average ${fmt(L.sma20)}); position in the 5-day range ${L.rangePos}%${W ? `; weekly trend ${W.wtrend} (10-week average ${fmt(W.wsma10)}); daily + weekly ${alignment(L.trend, W.wtrend)}` : ""} [${source}]`;
     } catch (e) { return ""; }
   }));
   const ok = lines.filter(Boolean);
@@ -154,7 +174,7 @@ ${sessionClock()}
 ${weekendNote()}
 
 Markets: ${markets.join(", ")}.
-${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason. If a search price is fresher, prefer it and keep levels consistent with it. The data trend is a fact, not a forecast: go against it (🟢 in a down trend, 🔴 in an up trend) only when today's news clearly says so, otherwise follow it or use 🟡; near the top of the 5-day range (>85%) or the bottom (<15%) mention the stretch in the reason.\n" : ""}
+${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason. If a search price is fresher, prefer it and keep levels consistent with it. The data trend is a fact, not a forecast: go against it (🟢 in a down trend, 🔴 in an up trend) only when today's news clearly says so, otherwise follow it or use 🟡; near the top of the 5-day range (>85%) or the bottom (<15%) mention the stretch in the reason. When daily + weekly are aligned up / down that direction is the main bias and dips / rallies against it are pullbacks; when they are mixed say the bigger trend disagrees (one short phrase) and prefer 🟡 unless the news is clear.\n" : ""}
 Ahmad wants it SHORT: no long explanations. Write in Levantine Arabic (tickers and numbers in English). Plain text for a chat app: no markdown headings, no tables, no ** bold. Exactly this layout:
 
 📊 الذهب والنفط والمؤشرات · <date>

@@ -1,62 +1,211 @@
 //@version=6
-indicator("Nexus MTF Trend Dashboard", shorttitle = "Nexus MTF", overlay = true)
+indicator("Nexus MTF - Trend Matrix & Alignment Engine", shorttitle = "NX MTF", overlay = true, max_labels_count = 200)
 
 // ---------- Inputs ----------
-string GRP_T = "Timeframes"
-string tf1Input = input.timeframe("15", "Timeframe 1", group = GRP_T)
-string tf2Input = input.timeframe("60", "Timeframe 2", group = GRP_T)
-string tf3Input = input.timeframe("240", "Timeframe 3", group = GRP_T)
-string tf4Input = input.timeframe("1D", "Timeframe 4", group = GRP_T)
-string GRP_R = "Trend rule"
-int    fastLenInput = input.int(21, "Fast EMA", minval = 1, group = GRP_R)
-int    slowLenInput = input.int(50, "Slow EMA", minval = 2, group = GRP_R, tooltip = "Bullish when the fast EMA is above the slow EMA and price closed above the fast EMA. Bearish when mirrored. Otherwise neutral.")
-string GRP_V = "Table"
-string posInput  = input.string("Top right", "Position", options = ["Top right", "Top left", "Bottom right", "Bottom left", "Middle right"], group = GRP_V)
-string sizeInput = input.string("Small", "Text size", options = ["Tiny", "Small", "Normal"], group = GRP_V)
-color  upColorInput = input.color(#089981, "Bullish", group = GRP_V, inline = "c")
-color  dnColorInput = input.color(#F23645, "Bearish", group = GRP_V, inline = "c")
+string GRP_T = "Timeframe ladder"
+bool   autoInput = input.bool(true, "Auto ladder from the chart", group = GRP_T, tooltip = "Row 1 is the chart timeframe, rows 2-5 are the next steps up, each about 3-6x the one before (1m chart: 5m, 15m, 1H, 4H; 15m chart: 1H, 4H, D, W; 1H chart: 4H, D, W, M). Turn off to use the manual timeframes below.")
+string tf2Input  = input.timeframe("60", "Manual TF 2", group = GRP_T, inline = "a")
+string tf3Input  = input.timeframe("240", "TF 3", group = GRP_T, inline = "a")
+string tf4Input  = input.timeframe("1D", "Manual TF 4", group = GRP_T, inline = "b")
+string tf5Input  = input.timeframe("1W", "TF 5", group = GRP_T, inline = "b")
+bool   weightInput = input.bool(true, "Higher timeframes weigh more", group = GRP_T, tooltip = "Weights 1, 1, 2, 2, 3 from the chart up, so the daily / weekly trend decides more than the 5-minute one. Off = every row counts the same.")
 
-// Trend score on the requested timeframe: 1 bullish, -1 bearish, 0 neutral.
-trendScore() =>
+string GRP_R = "Trend rule (every row)"
+int    fastLenInput = input.int(21, "Fast EMA", minval = 1, group = GRP_R, inline = "e")
+int    slowLenInput = input.int(55, "Slow EMA", minval = 2, group = GRP_R, inline = "e", tooltip = "Up when the fast EMA is above the slow EMA and the bar closed above the fast EMA, down when mirrored, otherwise Flat.")
+int    erLenInput   = input.int(14, "Efficiency length", minval = 5, group = GRP_R, tooltip = "Efficiency = net move / sum of bar moves over these bars (0-1). Above the strong level the trend is clean, below the weak level it is noise.")
+float  erStrongInput = input.float(0.40, "Strong above", minval = 0.1, maxval = 0.95, step = 0.05, group = GRP_R, inline = "s")
+float  erWeakInput   = input.float(0.20, "weak below", minval = 0.02, maxval = 0.9, step = 0.05, group = GRP_R, inline = "s")
+int    rsiLenInput  = input.int(14, "RSI", minval = 2, group = GRP_R)
+int    bosLenInput  = input.int(20, "Structure: break of the last N bars", minval = 5, group = GRP_R, tooltip = "Structure turns up when a bar closes above the highest high of the previous N bars and down when it closes below the lowest low. It holds until the opposite break.")
+
+string GRP_A = "Alignment"
+float  alignInput  = input.float(60, "Aligned at score (%)", minval = 20, maxval = 100, step = 5, group = GRP_A, tooltip = "Score = weighted sum of the row trends (-100% all down .. +100% all up). Flat rows count 0 and weak rows count half.")
+float  fadeInput   = input.float(35, "Fading: score dropped by (points)", minval = 10, maxval = 100, step = 5, group = GRP_A, tooltip = "An aligned score that falls this far from its best value inside the alignment is flagged as Fading - an early sign that the move is tiring. Tighten stops, do not add.")
+int    minRowsInput  = input.int(3, "Minimum rows with data", minval = 1, maxval = 5, group = GRP_A, tooltip = "No verdict until at least this many rows have enough closed candles of their timeframe (new symbols and short histories).")
+int    cooldownInput = input.int(10, "Minimum bars between alignment labels", minval = 0, group = GRP_A)
+
+string GRP_L = "Layers"
+bool   showRibbonInput = input.bool(true, "Chart-timeframe ribbon", group = GRP_L, inline = "l1")
+bool   showLabelsInput = input.bool(true, "Alignment labels", group = GRP_L, inline = "l1")
+bool   showHtfInput    = input.bool(true, "Top-row candle high / low", group = GRP_L, inline = "l2", tooltip = "The high and low of the last CLOSED candle of the highest timeframe in the ladder: the levels that decide that row.")
+bool   tintInput       = input.bool(true, "Tint when aligned", group = GRP_L, inline = "l2")
+bool   colorBarsInput  = input.bool(false, "Color candles by alignment", group = GRP_L)
+
+string GRP_D = "Dashboard"
+string layoutInput = input.string("Full", "Layout", options = ["Full", "Compact"], group = GRP_D, tooltip = "Compact keeps only the trend column and the verdict - for phones and small screens.")
+string dashPosInput = input.string("Top right", "Position", options = ["Top right", "Bottom right", "Top left", "Bottom left", "Middle right"], group = GRP_D)
+string sizeInput    = input.string("Small", "Text size", options = ["Tiny", "Small", "Normal"], group = GRP_D)
+
+string GRP_ST = "Style"
+string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_ST)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color accentC  = pick(#7C4DFF, #2962FF, #B2B5BE, #E0E3EB)
+color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
+color panelC   = color.new(#131722, 10)
+
+// ---------- Timeframe ladder ----------
+int    chartSec = timeframe.in_seconds()
+string tf1 = timeframe.period
+string tf2 = not autoInput ? tf2Input : chartSec <= 60 ? "5" : chartSec <= 300 ? "15" : chartSec <= 900 ? "60" : chartSec <= 3600 ? "240" : chartSec <= 14400 ? "1D" : chartSec <= 86400 ? "1W" : "1M"
+string tf3 = not autoInput ? tf3Input : chartSec <= 60 ? "15" : chartSec <= 300 ? "60" : chartSec <= 900 ? "240" : chartSec <= 3600 ? "1D" : chartSec <= 14400 ? "1W" : chartSec <= 86400 ? "1M" : "3M"
+string tf4 = not autoInput ? tf4Input : chartSec <= 60 ? "60" : chartSec <= 300 ? "240" : chartSec <= 900 ? "1D" : chartSec <= 3600 ? "1W" : chartSec <= 14400 ? "1M" : chartSec <= 86400 ? "3M" : "6M"
+string tf5 = not autoInput ? tf5Input : chartSec <= 60 ? "240" : chartSec <= 300 ? "1D" : chartSec <= 900 ? "1W" : chartSec <= 3600 ? "1M" : chartSec <= 14400 ? "3M" : "12M"
+
+// ---------- One row: trend, strength, momentum, structure (values of the last CLOSED bar) ----------
+rowState() =>
     float fast = ta.ema(close, fastLenInput)
-    float slow = ta.ema(close, slowLenInput)
-    fast > slow and close > fast ? 1 : fast < slow and close < fast ? -1 : 0
+    float slow = ta.ema(close, math.max(slowLenInput, fastLenInput + 1))
+    bool  warm = bar_index >= math.max(slowLenInput, erLenInput)
+    int   dir  = not warm ? na : fast > slow and close > fast ? 1 : fast < slow and close < fast ? -1 : 0
+    float path = math.sum(math.abs(close - close[1]), erLenInput)
+    float er   = not warm ? na : path > 0 ? math.abs(close - close[erLenInput]) / path : 0.0
+    float rsi  = ta.rsi(close, rsiLenInput)
+    float hiN  = ta.highest(high, bosLenInput)[1]
+    float loN  = ta.lowest(low, bosLenInput)[1]
+    var int structure = 0
+    structure := close > hiN ? 1 : close < loN ? -1 : structure
+    [dir[1], er[1], rsi[1], structure[1], high[1], low[1]]
 
-// Non-repainting requests: each returns the value of the last CLOSED bar of that timeframe.
-int t1 = request.security(syminfo.tickerid, tf1Input, trendScore()[1], lookahead = barmerge.lookahead_on)
-int t2 = request.security(syminfo.tickerid, tf2Input, trendScore()[1], lookahead = barmerge.lookahead_on)
-int t3 = request.security(syminfo.tickerid, tf3Input, trendScore()[1], lookahead = barmerge.lookahead_on)
-int t4 = request.security(syminfo.tickerid, tf4Input, trendScore()[1], lookahead = barmerge.lookahead_on)
-int total = t1 + t2 + t3 + t4
-int bias  = total >= 2 ? 1 : total <= -2 ? -1 : 0
+// Non-repainting: the expression is offset by one bar inside and lookahead is on, so each row only changes when its candle closes.
+[d1, e1, r1, s1, h1, l1] = request.security(syminfo.tickerid, tf1, rowState(), lookahead = barmerge.lookahead_on)
+[d2, e2, r2, s2, h2, l2] = request.security(syminfo.tickerid, tf2, rowState(), lookahead = barmerge.lookahead_on)
+[d3, e3, r3, s3, h3, l3] = request.security(syminfo.tickerid, tf3, rowState(), lookahead = barmerge.lookahead_on)
+[d4, e4, r4, s4, h4, l4] = request.security(syminfo.tickerid, tf4, rowState(), lookahead = barmerge.lookahead_on)
+[d5, e5, r5, s5, h5, l5] = request.security(syminfo.tickerid, tf5, rowState(), lookahead = barmerge.lookahead_on)
 
-trendText(int t) =>
-    t == 1 ? "Bullish" : t == -1 ? "Bearish" : "Neutral"
-trendColor(int t) =>
-    t == 1 ? upColorInput : t == -1 ? dnColorInput : color.gray
+// A row below the chart timeframe cannot be read honestly from chart bars: it is skipped (weight 0).
+valid(string tf) =>
+    timeframe.in_seconds(tf) >= chartSec
 
+// Rows still warming up (not enough closed candles of that timeframe) carry no weight either.
+weight(string tf, int d, float w) =>
+    valid(tf) and not na(d) ? w : 0.0
+
+// Weak rows count half, strong and normal rows count fully.
+vote(int d, float e) =>
+    float q = na(e) ? 0.5 : e < erWeakInput ? 0.5 : 1.0
+    nz(d) * q
+
+float w1 = weight(tf1, d1, 1.0)
+float w2 = weight(tf2, d2, 1.0)
+float w3 = weight(tf3, d3, (weightInput ? 2.0 : 1.0))
+float w4 = weight(tf4, d4, (weightInput ? 2.0 : 1.0))
+float w5 = weight(tf5, d5, (weightInput ? 3.0 : 1.0))
+float wSum  = w1 + w2 + w3 + w4 + w5
+float score = wSum > 0 ? 100.0 * (w1 * vote(d1, e1) + w2 * vote(d2, e2) + w3 * vote(d3, e3) + w4 * vote(d4, e4) + w5 * vote(d5, e5)) / wSum : 0.0
+int   upCount = (d1 == 1 ? 1 : 0) + (d2 == 1 ? 1 : 0) + (d3 == 1 ? 1 : 0) + (d4 == 1 ? 1 : 0) + (d5 == 1 ? 1 : 0)
+int   live    = (w1 > 0 ? 1 : 0) + (w2 > 0 ? 1 : 0) + (w3 > 0 ? 1 : 0) + (w4 > 0 ? 1 : 0) + (w5 > 0 ? 1 : 0)
+int   dnCount = (d1 == -1 ? 1 : 0) + (d2 == -1 ? 1 : 0) + (d3 == -1 ? 1 : 0) + (d4 == -1 ? 1 : 0) + (d5 == -1 ? 1 : 0)
+
+// ---------- Verdict, fading and streak ----------
+int state = live < minRowsInput ? 0 : score >= alignInput ? 1 : score <= -alignInput ? -1 : 0
+var float best = 0.0
+var int   since = 0
+bool changed = state != nz(state[1])
+best  := changed ? score : state == 1 ? math.max(best, score) : state == -1 ? math.min(best, score) : 0.0
+since := changed ? 0 : since + 1
+bool fading = state != 0 and math.abs(best - score) >= fadeInput
+string verdict = state == 1 ? (fading ? "Up • fading" : "Aligned up") : state == -1 ? (fading ? "Down • fading" : "Aligned down") : "Mixed"
+color  verdictC = state == 1 ? (fading ? color.new(bullC, 45) : bullC) : state == -1 ? (fading ? color.new(bearC, 45) : bearC) : neutralC
+
+// ---------- Alignment labels (confirmed bars, cooldown) ----------
+var int lastLabelBar = -100000
+bool alignUp = barstate.isconfirmed and state == 1 and nz(state[1]) != 1 and bar_index - lastLabelBar > cooldownInput
+bool alignDn = barstate.isconfirmed and state == -1 and nz(state[1]) != -1 and bar_index - lastLabelBar > cooldownInput
+bool fadeEv  = barstate.isconfirmed and fading and not fading[1]
+float atr = ta.atr(14)
+if alignUp or alignDn
+    lastLabelBar := bar_index
+    if showLabelsInput
+        string tip = "Score " + str.tostring(score, "#") + "% • " + str.tostring(alignUp ? upCount : dnCount) + " of " + str.tostring(live) + " rows " + (alignUp ? "up" : "down") + "\nClosed-bar values: this label will not move or disappear."
+        label.new(bar_index, alignUp ? low - atr * 0.6 : high + atr * 0.6, (alignUp ? "▲ ALIGNED " : "▼ ALIGNED ") + str.tostring(alignUp ? upCount : dnCount) + "/" + str.tostring(live), style = alignUp ? label.style_label_up : label.style_label_down, color = color.new(alignUp ? bullC : bearC, 15), textcolor = color.white, size = size.small, tooltip = tip)
+if fadeEv and showLabelsInput
+    label.new(bar_index, state == 1 ? high + atr * 0.4 : low - atr * 0.4, "◇ fading", style = label.style_none, textcolor = color.new(state == 1 ? bullC : bearC, 20), size = size.tiny, tooltip = "The alignment score fell " + str.tostring(math.abs(best - score), "#") + " points from its best. Tighten stops, do not add.")
+
+// ---------- Chart layers ----------
+float fastC = ta.ema(close, fastLenInput)
+float slowC = ta.ema(close, math.max(slowLenInput, fastLenInput + 1))
+color ribC  = state == 1 ? bullC : state == -1 ? bearC : neutralC
+plot(showRibbonInput ? fastC : na, "Fast EMA glow", color = color.new(ribC, 85), linewidth = 6, display = display.pane)
+pFast = plot(showRibbonInput ? fastC : na, "Fast EMA", color = color.new(ribC, state == 0 ? 55 : 0), linewidth = 2)
+pSlow = plot(showRibbonInput ? slowC : na, "Slow EMA", color = color.new(ribC, state == 0 ? 75 : 40), linewidth = 1)
+fill(pFast, pSlow, color = color.new(ribC, state == 0 ? 92 : fading ? 88 : 80), title = "Ribbon fill")
+float chH5 = ta.change(h5)
+float chL5 = ta.change(l5)
+bool newTop = chH5 != 0 or chL5 != 0
+plot(showHtfInput and not newTop ? h5 : na, "Top-row high", color = color.new(bearC, 35), style = plot.style_linebr, linewidth = 1)
+plot(showHtfInput and not newTop ? l5 : na, "Top-row low", color = color.new(bullC, 35), style = plot.style_linebr, linewidth = 1)
+bgcolor(tintInput and state != 0 and not fading ? color.new(state == 1 ? bullC : bearC, 95) : na, title = "Aligned tint")
+barcolor(colorBarsInput ? (state == 0 ? color.new(neutralC, 30) : state == 1 ? bullC : bearC) : na, title = "Alignment candles")
+
+// ---------- Dashboard ----------
 string txtSize = sizeInput == "Tiny" ? size.tiny : sizeInput == "Small" ? size.small : size.normal
-string tblPos  = switch posInput
+string dashPos = switch dashPosInput
     "Top left"     => position.top_left
     "Bottom right" => position.bottom_right
     "Bottom left"  => position.bottom_left
     "Middle right" => position.middle_right
     => position.top_right
+bool compact = layoutInput == "Compact"
+var table dash = table.new(dashPos, 5, 9, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
 
-// Create once, fill on the last bar only.
-var table dash = table.new(tblPos, 2, 5, border_width = 1, border_color = color.new(color.gray, 70))
-row(int r, string name, int t) =>
-    table.cell(dash, 0, r, name, text_color = color.gray, text_size = txtSize, bgcolor = color.new(color.gray, 90))
-    table.cell(dash, 1, r, trendText(t), text_color = color.white, text_size = txtSize, bgcolor = color.new(trendColor(t), 30))
+tfName(string tf) =>
+    int s = timeframe.in_seconds(tf)
+    s >= 2592000 ? str.tostring(s / 2592000) + "M" : s >= 604800 ? str.tostring(s / 604800) + "W" : s >= 86400 ? str.tostring(s / 86400) + "D" : s >= 3600 ? str.tostring(s / 3600) + "H" : str.tostring(s / 60) + "m"
+
+cellAt(int c, int r, string txt, color tc, color bg) =>
+    dash.cell(c, r, txt, text_color = tc, bgcolor = bg, text_size = txtSize, text_font_family = font.family_monospace)
+
+matrixRow(int r, string tf, int d, float e, float rsi, int st) =>
+    bool ok = valid(tf)
+    color dc = not ok or na(d) ? textC : d == 1 ? bullC : d == -1 ? bearC : neutralC
+    string dt = not ok ? "below chart" : na(d) ? "..." : d == 1 ? "▲ Up" : d == -1 ? "▼ Down" : "● Flat"
+    cellAt(0, r, tfName(tf), color.white, panelC)
+    cellAt(1, r, dt, dc, ok and not na(d) and d != 0 ? color.new(dc, 82) : panelC)
+    if not compact
+        string et = not ok or na(e) ? "-" : (e >= erStrongInput ? "●●●" : e >= erWeakInput ? "●●○" : "●○○")
+        cellAt(2, r, et, not ok or na(e) ? textC : e >= erStrongInput ? accentC : e >= erWeakInput ? textC : neutralC, panelC)
+        cellAt(3, r, not ok or na(rsi) ? "-" : str.tostring(rsi, "#"), not ok or na(rsi) ? textC : color.from_gradient(rsi, 30, 70, bearC, bullC), panelC)
+        cellAt(4, r, not ok or na(st) ? "-" : st == 1 ? "BOS ▲" : st == -1 ? "BOS ▼" : "-", not ok or na(st) ? textC : st == 1 ? bullC : st == -1 ? bearC : textC, panelC)
 
 if barstate.islast
-    row(0, tf1Input, t1)
-    row(1, tf2Input, t2)
-    row(2, tf3Input, t3)
-    row(3, tf4Input, t4)
-    row(4, "Bias", bias)
+    int lastCol = compact ? 1 : 4
+    cellAt(0, 0, "NEXUS • MTF", color.white, color.new(accentC, 15))
+    dash.merge_cells(0, 0, lastCol, 0)
+    cellAt(0, 1, "TF", textC, panelC)
+    cellAt(1, 1, "Trend", textC, panelC)
+    if not compact
+        cellAt(2, 1, "Power", textC, panelC)
+        cellAt(3, 1, "RSI", textC, panelC)
+        cellAt(4, 1, "Structure", textC, panelC)
+    matrixRow(2, tf1, d1, e1, r1, s1)
+    matrixRow(3, tf2, d2, e2, r2, s2)
+    matrixRow(4, tf3, d3, e3, r3, s3)
+    matrixRow(5, tf4, d4, e4, r4, s4)
+    matrixRow(6, tf5, d5, e5, r5, s5)
+    int blocks = int(math.round(math.abs(score) / 10))
+    string gauge = str.repeat("■", blocks) + str.repeat("□", 10 - blocks)
+    cellAt(0, 7, (score >= 0 ? "+" : "") + str.tostring(score, "#") + "%", verdictC, panelC)
+    cellAt(1, 7, compact ? verdict : gauge, verdictC, panelC)
+    if not compact
+        dash.merge_cells(1, 7, lastCol, 7)
+    cellAt(0, 8, compact ? str.tostring(since) + " bars" : verdict, color.white, color.new(verdictC, 30))
+    cellAt(1, 8, compact ? "" : "for " + str.tostring(since) + (since == 1 ? " bar" : " bars"), color.white, color.new(verdictC, 30))
+    if not compact
+        dash.merge_cells(1, 8, lastCol, 8)
 
-bool biasUp = bias == 1 and bias[1] != 1
-bool biasDn = bias == -1 and bias[1] != -1
-alertcondition(biasUp, "Bias turned bullish", "Nexus MTF: bias turned bullish on {{ticker}}")
-alertcondition(biasDn, "Bias turned bearish", "Nexus MTF: bias turned bearish on {{ticker}}")
+// ---------- Alerts ----------
+alertcondition(alignUp, "Aligned up", "Nexus MTF: timeframes aligned UP on {{ticker}} ({{interval}} chart)")
+alertcondition(alignDn, "Aligned down", "Nexus MTF: timeframes aligned DOWN on {{ticker}} ({{interval}} chart)")
+alertcondition(fadeEv, "Alignment fading", "Nexus MTF: alignment is fading on {{ticker}} - tighten stops")
+alertcondition(barstate.isconfirmed and state == 0 and nz(state[1]) != 0, "Back to mixed", "Nexus MTF: timeframes back to mixed on {{ticker}}")
+if alignUp or alignDn
+    alert((alignUp ? "ALIGNED UP " : "ALIGNED DOWN ") + syminfo.ticker + " " + timeframe.period + " | score " + str.tostring(score, "#") + "% | " + str.tostring(alignUp ? upCount : dnCount) + "/" + str.tostring(live) + " rows", alert.freq_once_per_bar_close)

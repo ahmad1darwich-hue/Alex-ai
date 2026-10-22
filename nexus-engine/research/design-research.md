@@ -211,3 +211,25 @@ Where it went:
 - templates/scalper.pine rebuilt as "Nexus Scalper - VWAP Pullback Engine & Chop Shield" on the design system.
 - bench.js: new case scalper_vwap_chop_shield. tests/preview.test.mjs: scalper template checks on 1m / 5m / 15m.
 - Market report: weekend awareness (closed-market mornings become a week-ahead outlook with the Sydney reopen time).
+
+## 2026-10-22 · multi-timeframe dashboards: ladders, weighted alignment and fading
+Sources: TradingView "MTF Dashboard 9 Timeframes + Signals" description (per-TF trend / RSI / MACD / volume components averaged
+into a confluence score, ⬆⬆ / ⬆ / ➡ symbols, star ratings, timeframes grouped lower / medium / higher, bias tint, cooldown on
+labels, Professional / Classic / Vibrant / Dark schemes), LuxAlgo library "Multi-Timeframe (MTF) Dashboard" concept page (matrix
+of states per TF, "4 of 5 bullish" count or weighted sum, ladder of 3-5 frames spaced ~3-6x apart, a decaying score 6/6 -> 3/6 as
+an early regime-change sign, closed vs live HTF values), "MSP Multi-TF Dashboard v4" description (trend / RSI / MACD / ADX /
+volume multiplier per TF, alignment streak counter, "4TF" all-aligned markers, brighter cells = stronger, compact mobile mode).
+What traders want / complain about:
+- A verdict, not a wall of cells: one alignment score / "n of 5" plus the per-TF matrix to see WHY.
+- Higher timeframes should matter more; equal votes let the 1m flip the bias.
+- Many dashboards never say whether HTF cells repaint; values of the still-open HTF candle flicker and alerts misfire.
+- Strength matters: "up" in a noisy range is not the same as a clean trend - show strength, not only direction.
+- Phones: big tables cover the chart -> compact layout.
+- Signals from a falling score (alignment weakening) are wanted as an early warning.
+Where it went:
+- knowledge.js: new "MTF DASHBOARD RULES" (auto ladder, tuple closed-bar rows, warm-up rows without weight, weighted score with weak
+  rows at half, Aligned / Mixed + Fading + streak, gauge, light chart layers, Full / Compact, alerts).
+- templates/mtf_dashboard.pine rebuilt as "Nexus MTF - Trend Matrix & Alignment Engine" on the design system.
+- bench.js: new case mtf_alignment_matrix. tests/preview.test.mjs: mtf template checks on 1m / 15m / 1H (ladders, cells, verdict).
+- Market report: weekly trend (10-week average from the daily candles) + "daily + weekly aligned up / down / mixed" tag in the
+  price data, and the prompt treats an aligned pair as the main bias.

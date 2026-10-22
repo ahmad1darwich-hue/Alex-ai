@@ -22,7 +22,7 @@ const MUST_FIX_RULES = new Set([
   "NX_TF_PERIOD",
 ]);
 // Glyphs allowed inside string literals (labels, table cells): the design system's arrows and markers.
-export const DESIGN_GLYPHS = "▲▼●◆•✕■";
+export const DESIGN_GLYPHS = "▲▼●◆•✕■○◇□"; // filled marks + their hollow pairs (gauges, strength dots)
 // Nexus rules that reproduce TradingView compile errors the type checker lets through.
 const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE"]);
 // Worth one repair attempt, but never block delivery on them.
