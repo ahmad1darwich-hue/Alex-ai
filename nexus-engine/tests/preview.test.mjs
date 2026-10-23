@@ -103,6 +103,51 @@ strategy.exit("x", "L", stop = close - 5, limit = close + 5)`;
   assert.ok(r.ok, r.error); assert.ok(r.trades.some((x) => x.kind === "entry")); assert.ok(r.stats.closed >= 1);
 });
 
+await t("strategy simulator: qty sizes, qty_percent partial exits by id, stop before limit, openprofit", () => {
+  const cs = []; for (let i = 0; i < 12; i++) { const c = 100 + i * 2; cs.push({ t: Date.UTC(2026, 0, 1) + i * 3600e3, o: c - 1, h: c + 1.5, l: c - 1.5, c, v: 10 }); }
+  const code = `//@version=6
+strategy("st", overlay = true)
+if bar_index == 1
+    strategy.entry("L", strategy.long, qty = 4)
+if strategy.position_size == 4 or bar_index == 1
+    strategy.exit("T1", "L", qty_percent = 50, stop = 90, limit = 104)
+if strategy.position_size != 0 or bar_index == 1
+    strategy.exit("T2", "L", stop = 90, limit = 109)
+plot(strategy.openprofit)`;
+  const r = runPreview(code, cs, { tfSec: 3600, symbol: GOLD });
+  assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+  const exits = r.trades.filter((x) => x.kind === "exit");
+  assert.deepEqual(exits.map((x) => x.id), ["T1", "T2"], "two partial exits by id");
+  assert.equal(exits[0].pnl, (104 - r.trades[0].price) * 2, "half of 4 units at T1");
+  assert.equal(r.stats.closed, 2);
+  assert.ok(r.plots[0].values[2] > 0, "open profit while in the trade");
+});
+
+await t("strategy template: risk-sized bracket trades, honest R ledger + in / out-of-sample verdict, designed result boxes", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "strategy.pine"), "utf8");
+  for (const [tf, n] of [[300, 1500], [900, 1200], [3600, 900]]) {
+    const r = runPreview(code, sampleCandles(tf, n, 2400), { tfSec: tf, symbol: GOLD });
+    assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+    assert.ok(r.trades.some((x) => x.kind === "entry"), tf + ": trades are taken");
+    assert.ok(r.trades.filter((x) => x.kind === "exit" && x.id === "TP1").length > 0, tf + ": TP1 partial exits fill");
+    const results = r.labels.filter((l) => /^[+-]?[\d.]+R$/.test(l.text));
+    assert.ok(results.length > 0 && results.length <= 25, tf + ": closed trade results (+1.8R) capped");
+    const other = r.labels.filter((l) => !/^[+-]?[\d.]+R$/.test(l.text));
+    assert.ok(other.every((l) => /^(Entry |SL |BE |TRAIL |TP[12] |■ OUT-OF-SAMPLE$)/.test(l.text)), "only designed labels: " + other.map((l) => l.text).join(","));
+    assert.equal(r.labels.filter((l) => l.text === "■ OUT-OF-SAMPLE").length, 1, "one out-of-sample marker");
+    assert.ok(r.labels.filter((l) => /^(SL|BE|TRAIL) \d/.test(l.text)).length <= 1, "at most one open plan");
+    const cells = r.tables[0].cells;
+    assert.match(cells["1:1"].text, /^(LONG|SHORT) • (Initial|Break-even|Trailing)$|^FLAT$/, "position row");
+    assert.match(cells["1:4"].text, /^\d+( • \d+%)?$/, "trades / win row");
+    assert.match(cells["1:6"].text, /^(-|[+-][\d.]+ R)$/, "expectancy row");
+    assert.match(cells["1:9"].text, /^\d+ • /, "in-sample row");
+    assert.match(cells["1:10"].text, /^\d+ • /, "out-of-sample row");
+    assert.match(cells["1:12"].text, /^(Too few trades \(\d+\/30\)|No edge after costs|Out-of-sample too short|Edge fades out-of-sample|Holds out-of-sample|Weaker out-of-sample)$/, "verdict row");
+    const trades = Number(cells["1:4"].text.split(" ")[0]);
+    assert.equal(trades, Number(cells["1:9"].text.split(" ")[0]) + Number(cells["1:10"].text.split(" ")[0]), "IS + OOS = all trades");
+  }
+});
+
 await t("broken or unknown code is reported, never crashes", () => {
   const r1 = runPreview(`//@version=6\nindicator("x")\nplot(close +)`, candles.slice(0, 50), { tfSec: 900 });
   assert.equal(r1.ok, false); assert.match(r1.error, /syntax|parse/);

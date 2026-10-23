@@ -233,3 +233,26 @@ Where it went:
 - bench.js: new case mtf_alignment_matrix. tests/preview.test.mjs: mtf template checks on 1m / 15m / 1H (ladders, cells, verdict).
 - Market report: weekly trend (10-week average from the daily candles) + "daily + weekly aligned up / down / mixed" tag in the
   price data, and the prompt treats an aligned pair as the main bias.
+
+## 2026-10-23 · strategy backtests: honest results, out-of-sample and overfitting
+Sources: TradersPost blog "Pine Script backtesting limitations and validation" and "Over-optimization in Pine Script" (fill
+assumptions inside OHLC bars, zero costs = a theoretical signal, slippage kills small scalp targets, Bar Magnifier on/off
+comparison, delayed / closed-bar HTF values, chronological ~70/30 in-sample / out-of-sample split with rules frozen before the
+check, plateau not peak, minimum trade count set before optimizing, re-run with higher costs, results without the biggest
+winners), TradingView open-source "Monthly Strategy Performance Table" description (realized-equity basis, paging, progressive
+detail, debug labels tying the table back to trades), TradingView Pine v6 manual "Alerts" (alertcondition() compiles in a
+strategy but no alert can be created from it; alert_message on strategy.entry / exit / close + {{strategy.order.alert_message}};
+alert() works in strategies, once per bar close unless calc_on_every_tick), NexusFi / babypips threads on misleading tests.
+What traders want / complain about:
+- Backtests that look great and die live: zero costs, lookahead HTF, intrabar fill luck, 15-trade samples, tuned on all data.
+- A proof panel on the chart (profit factor, expectancy, drawdown, losing streak) instead of digging in the Strategy Tester.
+- An out-of-sample check that is honest (same rules, just a split record) and a clear "not enough trades" warning.
+- Partial take-profits + break-even like they trade by hand; alerts that carry the order details for bots.
+Where it went:
+- templates/strategy.pine rebuilt as "Nexus Strategy - Regime Breakout Engine & Honest Backtest" on the design system (Breakout /
+  EMA-cross engine, ER regime filter, trend EMA + closed-bar auto HTF, risk-based size with max position cap, TP1 qty_percent +
+  BE, optional trail, TP2, time stop, R ledger per idea, IS vs OOS split by last % of bars, verdict needing 30 trades, result
+  boxes, OOS marker, alert_message on all orders). Last template moved to the design system.
+- knowledge.js: new "STRATEGY / BACKTEST RULES". lint.js: NX_STRATEGY_ALERTCONDITION (should-fix). bench: strategy_honest_backtest
+  (replaces the simpler breakout_strategy case). Preview simulator: qty, exits by id with qty_percent partial fills, openprofit.
+- Main Brain: new TRADING DESK mode (backtest review checklist, position size maths for gold / forex, chart review, trading plan).

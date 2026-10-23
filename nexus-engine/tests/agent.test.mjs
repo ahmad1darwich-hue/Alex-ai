@@ -48,6 +48,15 @@ await t("design studio: inferred from design words (not indicators or gardens), 
   assert.doesNotMatch(bodies[0].system, /DESIGN STUDIO/);
   assert.match(bodies[0].system, /Get it right the first time/);
 });
+await t("trading desk: inferred from backtest / position-size words (not script building), strongest model, honest checklist", async () => {
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "راجعلي هالباك تست، البروفيت فاكتور 3.8 و 25 صفقة" }] })).text();
+  assert.match(bodies[0].system, /TRADING DESK/); assert.match(bodies[0].system, /trades >= 30/); assert.match(bodies[0].system, /never place trades/);
+  assert.equal(bodies[0].model, "claude-opus-5-5");
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "what lot size for gold with a $5000 account, 1% risk and a 6 dollar stop?" }] })).text();
+  assert.match(bodies[0].system, /TRADING DESK/); assert.match(bodies[0].system, /100 oz/);
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "build me a strategy for gold with a backtest" }] })).text();
+  assert.doesNotMatch(bodies[0].system, /TRADING DESK/);
+});
 await t("security mode runs one passive check of the site", async () => {
   bodies.length = 0; await (await post({ mode: "security", messages: [{ role: "user", content: "check usws.com.au" }] })).text();
   const s = bodies[0].system; assert.match(s, /SECURITY CHECK/); assert.match(s, /redirects to HTTPS: good/); assert.match(s, /strict-transport-security: MISSING/); assert.match(s, /server: Vercel/);

@@ -41,7 +41,10 @@ displacement-scored OBs, breakers, FVG CE + IFVG, HTF bias + HTF FVGs, strong/we
 scalper (2026-10-21: session VWAP + sigma bands, chop shield PB/REV/Quiet, kill zones, spread cushion, half at TP1 + BE, time stop),
 mtf_dashboard (2026-10-22: auto TF ladder, closed-bar tuple rows with trend / power / RSI / structure, weighted alignment score,
 Fading flag + streak, gauge, Full / Compact layouts).
-Next: strategy (last one). After that: a second pass on zone quality across templates (HTF zones in sr / smc dashboards).
+strategy (2026-10-23: Breakout / EMA engine + ER regime + closed-bar auto HTF, risk sizing with cap, TP1 partial + BE, R ledger,
+in-sample vs out-of-sample verdict, result boxes). ALL 9 templates are now on the design system.
+Next: a second pass on zone quality across templates (HTF zones in sr / smc dashboards), then a monthly R grid option for the
+strategy template and a "cost stress" note (re-run with 2x costs) in the bot's <explain> for strategies.
 
 ## Understanding the user the first time (Ahmad, 2026-10-23: "I have to ask 20 times")
 Shipped: <asks> contract written before the code (every element / color / size / place / text, from words or a chart picture);
