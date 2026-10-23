@@ -103,7 +103,7 @@
     s_check: ['فحص تلقائي…', 'Automatic check…'],
     s_check_ok: ['الفحص التلقائي: 0 أخطاء', 'Automatic check: 0 errors'],
     s_check_bad: ['الفحص لقى {e} خطأ و{w} ملاحظة', 'The check found {e} error(s) and {w} finding(s)'],
-    s_design: ['عم حسّن الشكل والتصميم (التقييم الحالي {n}/100)…', 'Polishing the look (design score {n}/100)…'],
+    s_design: ['عم راجع كل شي طلبته عالشارت وحسّن التصميم (التقييم {n}/100)…', 'Checking every ask on the chart and polishing the look (design {n}/100)…'],
     b_design: ['◆ تصميم {n}/100', '◆ Design {n}/100'],
     s_fix: ['عم صلّح اللي لقاه الفحص (جولة {n})…', 'Fixing what the check found (round {n})…'],
     s_tplget: ['عم جيب المؤشر الجاهز…', 'Fetching the ready indicator…'],

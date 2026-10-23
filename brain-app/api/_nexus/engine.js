@@ -1,6 +1,6 @@
 // Nexus engine: generate -> check -> repair. Pure orchestration; the model call is injected so it can be tested offline.
 import { checkPine, sanitizeCode, describeDiagnostics, summarizeCheck, rtrimLine } from "./lint.js";
-import { designReview, needsPolish, describeDesign } from "./design.js";
+import { designReview, needsPolish, describeDesign, chartSummary } from "./design.js";
 import { TEMPLATE_BY_ID } from "./templates.js";
 import { modeInstructions } from "./knowledge.js";
 
@@ -33,11 +33,17 @@ function parseEdits(body) {
   return { edits, incomplete: state !== 0 };
 }
 
+// One item per line from <asks> / <check>: bullets and numbering stripped, bounded.
+function listLines(body) {
+  if (!body) return [];
+  return String(body).split("\n").map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 12).map((l) => l.slice(0, 200));
+}
+
 // Parses one <nexus> reply. Tolerates a missing closing tag on the last block (truncated output).
 export function parseReply(text) {
   const src = String(text || "").replace(/\r\n?/g, "\n");
   const lower = src.toLowerCase();
-  const out = { title: "", file: "", base: "", templateId: "", code: null, codeClosed: false, edits: [], editsIncomplete: false, explain: "", remember: "", raw: src };
+  const out = { title: "", file: "", base: "", templateId: "", code: null, codeClosed: false, edits: [], editsIncomplete: false, explain: "", remember: "", asks: [], check: [], raw: src };
   out.title = (tag(src, "title") || "").trim().slice(0, 120);
   out.file = (tag(src, "file") || "").trim().replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 80);
   const baseRaw = (tag(src, "base") || "").trim();
@@ -70,6 +76,8 @@ export function parseReply(text) {
     out.editsIncomplete = pe.incomplete || ee < 0;
   }
   out.remember = (tag(src, "remember") || "").replace(/\s+/g, " ").trim().slice(0, 200);
+  out.asks = listLines(tag(src, "asks"));
+  out.check = listLines(tag(src, "check")).map((l) => ({ ok: !/^(✗|x\b|❌|\[ \]|-\s*\[ \])/i.test(l), text: l.replace(/^(✓|✔|✅|✗|❌|x\b|\[[ x]\])\s*/i, "").trim() })).filter((c) => c.text);
   const ex = tag(src, "explain");
   if (ex !== null) out.explain = ex.trim();
   else {
@@ -216,6 +224,22 @@ function requirementsSoFar(history) {
   }
   return asks.slice(-20);
 }
+// The user asking for the same thing again means the last attempt did not deliver it visibly. Word overlap with an
+// earlier request (Arabic letter forms unified) finds it, so the model is told to make the change obvious this time.
+const normWords = (t) => String(t || "").toLowerCase().replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length > 2);
+export function repeatedAsk(text, history) {
+  const now = new Set(normWords(text));
+  if (now.size < 3) return "";
+  let best = "", bestScore = 0;
+  for (const a of requirementsSoFar(history)) {
+    const w = new Set(normWords(a));
+    if (w.size < 3) continue;
+    let both = 0; for (const x of now) if (w.has(x)) both++;
+    const score = both / Math.min(now.size, w.size);
+    if (score > bestScore) { bestScore = score; best = a; }
+  }
+  return bestScore >= 0.6 ? best : "";
+}
 export function buildMessages({ mode, lang, history, userContent, currentCode, tvError, check, prefs }) {
   const prior = historyToMessages(history);
   while (prior.length && prior[0].role !== "user") prior.shift();
@@ -241,6 +265,8 @@ export function buildMessages({ mode, lang, history, userContent, currentCode, t
   if (mode === "fix" && tvError) parts.push("TRADINGVIEW REPORTED (copied by the user from the Pine Editor):\n" + clip(String(tvError).trim(), 2500));
   // Findings on the current script are useful in every mode: an edit request should not leave them behind.
   if (currentCode && check && (check.errors.length || check.mustFix.length || (mode === "fix" && check.shouldFix.length))) parts.push("AUTOMATIC CHECKER FINDINGS for the current script (fix these too):\n" + describeDiagnostics(check));
+  const again = currentCode && mode !== "fix" ? repeatedAsk(text, history) : "";
+  if (again) parts.push("THE USER IS ASKING FOR THIS AGAIN (earlier: \"" + clip(again, 300) + "\"). The previous attempt did not deliver it in a way they could SEE. Find why (wrong element changed, change too small, hidden by an input default, overwritten later in the code, drawn off-screen or transparent) and make the change clearly visible this time. In <explain> say exactly what is different on the chart now.");
   parts.push("USER REQUEST:\n" + (clip(text.trim(), 12000) || (mode === "fix" ? "Fix the script." : "Design an indicator from the attachment.")));
   blocks.push({ type: "text", text: parts.join("\n\n") });
   return prior.concat([{ role: "user", content: blocks }]);
@@ -259,17 +285,32 @@ function repairMessages({ lang, request, code, check, pending }) {
   return [{ role: "user", content: [{ type: "text", text: parts.join("\n\n") }] }];
 }
 
-// One design polish round: the script compiles, the design review found it below the premium bar.
-function polishMessages({ lang, request, code, review, prefs }) {
+// One review round after the script compiles: the model sees what the chart will actually show (dry run), the
+// user's asks and the design findings, ticks off every ask and fixes what is missing or looks below the bar.
+function reviewMessages({ lang, request, asks, earlier, code, review, prefs, summary }) {
   const parts = [
-    "TASK: the script below compiles. A design review scored its LOOK " + review.score + "/100 against the DESIGN DIRECTOR rules. Upgrade the visuals so it looks like a premium commercial indicator: fix the findings below with <base>CURRENT</base> and search/replace edits. Do NOT change the trading logic, conditions, inputs that exist or alert names. Skip a finding only when it contradicts something the user explicitly asked for (their colors, shapes or a minimal look).",
-    "Put only a single dash in <explain> (the explanation the user already has is kept).",
+    "TASK: FINAL REVIEW before the user sees this script. You are the user's advocate and the design director. The user is tired of asking for the same thing many times: everything they asked for must be VISIBLE on the chart now, and it must look premium.",
+    "1. Read every ask below and compare it with the CURRENT SCRIPT and the DRY RUN (what is really drawn: colors, labels, zones, table). A color, size, position, text or element the user named must appear exactly as asked.",
+    "2. Write <check> with one line per ask in the user's language (" + (lang === "en" ? "English" : "Levantine Arabic") + "): \"✓ <ask>\" when it is really on the chart, \"✗ <ask>\" when it was missing or wrong and you fix it now in <edits>.",
+    "3. Fix every ✗ ask and the design findings with <base>CURRENT</base> and search/replace edits. Do not change trading logic the user did not ask to change. A user's own colors / shapes / minimal look beat the design findings.",
+    "4. If everything is already right, send <base>CURRENT</base> with an empty <edits></edits> and the ✓ list.",
+    "Put only a single dash in <explain>.",
   ];
   if (Array.isArray(prefs) && prefs.length) parts.push("THE USER'S LASTING PREFERENCES:\n- " + prefs.slice(-25).join("\n- "));
-  parts.push("WHAT THE USER ASKED FOR:\n" + clip(request || "(no text)", 1500));
+  if (earlier && earlier.length) parts.push("EARLIER ASKS IN THIS CONVERSATION (still in force unless changed since):\n" + earlier.map((a, i) => (i + 1) + ". " + a).join("\n"));
+  parts.push("THIS REQUEST:\n" + clip(request || "(no text)", 2500));
+  if (asks && asks.length) parts.push("THE ASKS AS UNDERSTOOD WHILE BUILDING (check each, and add any the list missed):\n- " + asks.join("\n- "));
   parts.push(scriptBlock(code));
-  parts.push("DESIGN FINDINGS (most important first):\n" + describeDesign(review));
+  if (summary) parts.push(summary);
+  if (review && review.findings.length) parts.push("DESIGN FINDINGS (look score " + review.score + "/100, most important first):\n" + describeDesign(review));
   return [{ role: "user", content: [{ type: "text", text: parts.join("\n\n") }] }];
+}
+
+// The user's asks, ticked off after the review, shown under the explanation.
+export function checklistText(items, lang) {
+  const head = lang === "en" ? "What you asked for:" : "شو طلبت وشو صار:";
+  const open = lang === "en" ? " (not done yet - tell me and I will retry)" : " (لسا ما زبط - قلّي وبرجع بعملو)";
+  return head + "\n" + items.slice(0, 10).map((c) => (c.open ? "✗ " + c.text + open : "✓ " + c.text)).join("\n");
 }
 
 // ---------- pipeline ----------
@@ -438,40 +479,57 @@ export async function runPipeline(opts) {
     pending = best.pending;
   }
 
-  // ---- design polish (one round, only for a clean build that looks below the bar) ----
+  // ---- final review (one round): every ask visible on the chart + premium look ----
+  // Runs for a clean build when the model listed the user's asks, the user repeated an ask, or the look is below the bar.
   let design = null;
+  let checklist = [];
   try { design = designReview(best.code); } catch (e) { design = null; }
-  if (design && opts.designPolish && opts.mode !== "fix" && best.check.clean && !best.pending.length && needsPolish(design) && timeLeft() > 60000) {
+  const earlier = requirementsSoFar(opts.history);
+  const repeated = baseKind === "CURRENT" ? repeatedAsk(requestText, opts.history) : "";
+  const wantReview = design && (needsPolish(design) || parsed.asks.length > 0 || !!repeated);
+  if (wantReview && opts.designPolish && opts.mode !== "fix" && best.check.clean && !best.pending.length && timeLeft() > 60000) {
     checkAbort();
     const before = design.score;
     emit({ t: "stage", id: "design", score: before });
     try {
-      const rep = await opts.callModel({ messages: polishMessages({ lang: opts.lang, request: requestText, code: best.code, review: design, prefs: opts.prefs }), effort: "medium", maxTokens: 12000, onText: () => {} });
+      let summary = "";
+      try { summary = chartSummary(best.code); } catch (e) { summary = ""; }
+      const rep = await opts.callModel({ messages: reviewMessages({ lang: opts.lang, request: requestText, asks: parsed.asks, earlier: earlier.slice(0, -1), code: best.code, review: design, prefs: opts.prefs, summary }), effort: "medium", maxTokens: 12000, onText: () => {} });
       addUsage(rep.usage);
       const rp = parseReply(rep.text);
+      checklist = rp.check;
+      const owed = checklist.filter((c) => !c.ok).length;
       let next = null;
+      let failedEdits = 0;
       if (rp.code !== null && rp.code.trim() && (rp.base === "NEW" || !rp.edits.length)) { if (rp.codeClosed && rep.stopReason !== "max_tokens") next = sanitizeCode(rp.code); }
-      else if (rp.edits.length) next = sanitizeCode(applyEdits(best.code, rp.edits).code);
-      if (next !== null) {
+      else if (rp.edits.length) { const r = applyEdits(best.code, rp.edits); next = sanitizeCode(r.code); failedEdits = r.failed.length; }
+      let adopted = false;
+      if (next !== null && next !== best.code) {
         const nextCheck = checkPine(next);
         const nextDesign = designReview(nextCheck.code);
-        // Adopted only when it still compiles cleanly and really looks better.
-        if (nextCheck.clean && nextDesign.score > before) {
+        // Adopted when it still compiles cleanly and either delivers missing asks (the look may move a little)
+        // or really looks better.
+        if (nextCheck.clean && (nextDesign.score > before || (owed > 0 && nextDesign.score >= before - 10))) {
           best = { code: nextCheck.code, check: nextCheck, pending: [] };
           design = nextDesign;
+          adopted = true;
           emit({ t: "stage", id: "check", errors: 0, warnings: 0, round: rounds + 1 });
         }
-        history.push({ round: rounds + 1, design: before + "->" + nextDesign.score, adopted: best.code === nextCheck.code });
-      }
+        history.push({ round: rounds + 1, design: before + "->" + nextDesign.score, asks: checklist.length, fixedAsks: owed, failedEdits, adopted });
+      } else history.push({ round: rounds + 1, review: "no change needed", asks: checklist.length });
+      // An ask the review could not deliver is reported honestly, never shown as done.
+      if (owed && (!adopted || failedEdits)) checklist = checklist.map((c) => (c.ok ? c : { ...c, open: true }));
+      else checklist = checklist.map((c) => ({ ...c, ok: true }));
       design = { ...design, before };
     } catch (e) {
       if (e && e.name === "AbortError" && opts.signal && opts.signal.aborted) throw e;
-      history.push({ round: rounds + 1, note: "design polish failed: " + String((e && e.message) || e).slice(0, 120) });
+      history.push({ round: rounds + 1, note: "review failed: " + String((e && e.message) || e).slice(0, 120) });
     }
   }
 
   const final = best;
-  const explain = parsed.explain || (template && (!parsed.edits.length) ? template.explain[opts.lang === "en" ? "en" : "ar"] : "");
+  let explain = parsed.explain || (template && (!parsed.edits.length) ? template.explain[opts.lang === "en" ? "en" : "ar"] : "");
+  if (checklist.length) explain = (explain ? explain.trim() + "\n\n" : "") + checklistText(checklist, opts.lang);
   return {
     kind: "script",
     code: final.code,
@@ -482,6 +540,7 @@ export async function runPipeline(opts) {
     base: template && baseKind === "TEMPLATE" ? "template:" + template.id : baseKind === "CURRENT" ? "edit" : "new",
     report: { ...summarizeCheck(final.check), rounds, fixed, history, unappliedEdits: final.pending.length, verified: final.check.clean && final.pending.length === 0, design: design ? { score: design.score, before: design.before, findings: design.findings.slice(0, 5).map((f) => f.rule.replace("NX_DESIGN_", "").toLowerCase()) } : undefined },
     remember: parsed.remember,
+    checklist: checklist.length ? checklist : undefined,
     usage,
     model: modelUsed,
   };

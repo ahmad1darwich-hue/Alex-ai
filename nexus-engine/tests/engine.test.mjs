@@ -231,6 +231,45 @@ await t("design polish: a plain clean script gets one design round, adopted only
   await runPipeline({ mode: "build", lang: "en", history: [], userContent: "ema cross", callModel: cm3 });
   assert.equal(cm3.calls.length, 1);
 });
+await t("asks + final review: the dry run and the asks reach the reviewer, a missing ask is fixed and ticked off", async () => {
+  const { chartSummary } = await import("../../brain-app/api/_nexus/design.js");
+  const styled = TEMPLATE_BY_ID.get("trend").code;
+  const p = parseReply("<nexus><base>NEW</base><asks>\n- خط EMA ذهبي\n2. جدول تحت عالشمال\n</asks><code>\n" + GOOD + "</code><explain>x</explain></nexus>");
+  assert.deepEqual(p.asks, ["خط EMA ذهبي", "جدول تحت عالشمال"]); assert.match(p.code, /indicator\("Test EMA"/);
+  const ck = parseReply("<nexus><base>CURRENT</base><check>\n✓ خط EMA ذهبي\n✗ جدول تحت عالشمال\n</check><edits></edits><explain>-</explain></nexus>").check;
+  assert.deepEqual(ck, [{ ok: true, text: "خط EMA ذهبي" }, { ok: false, text: "جدول تحت عالشمال" }]);
+  const sum = chartSummary(styled);
+  assert.match(sum, /^DRY RUN on 600 sample gold candles/); assert.match(sum, /Lines \/ plots: "Ribbon fast" width 2/); assert.match(sum, /Table at top_right/);
+  assert.match(chartSummary("//@version=6\nindicator(\"x\")\nplot(close, color = #FFC400)\n"), /gold #FFC400/);
+  // The reviewer fixes the missing ask (moves the table) -> adopted, every ask ticked.
+  const fixedCode = styled.replace(/position\.top_right/g, "position.bottom_left");
+  const build = "<nexus><base>NEW</base><asks>\nribbon trend\ntable bottom left\n</asks><code>\n" + styled + "</code><explain>built</explain></nexus>";
+  const cm = mock([build, "<nexus><base>NEW</base><check>\n✓ ribbon trend\n✗ table bottom left\n</check><code>\n" + fixedCode + "</code><explain>-</explain></nexus>"]);
+  const r = await runPipeline({ mode: "build", lang: "en", history: [], userContent: "trend ribbon, table bottom left", callModel: cm, designPolish: true });
+  assert.equal(cm.calls.length, 2);
+  const sent = cm.calls[1].messages[0].content[0].text;
+  assert.match(sent, /FINAL REVIEW/); assert.match(sent, /DRY RUN on 600/); assert.match(sent, /- table bottom left/);
+  assert.equal(r.code.includes("position.bottom_left"), fixedCode.includes("position.bottom_left")); assert.equal(r.code, fixedCode);
+  assert.match(r.explain, /^built\n\nWhat you asked for:\n✓ ribbon trend\n✓ table bottom left$/);
+  // A fix that breaks the script is not adopted and the ask is reported as not done.
+  const cm2 = mock([build, "<nexus><base>NEW</base><check>\n✓ ribbon trend\n✗ table bottom left\n</check><code>\n" + fixedCode.replace("ta.ema(", "ta.ema((") + "</code><explain>-</explain></nexus>"]);
+  const r2 = await runPipeline({ mode: "build", lang: "ar", history: [], userContent: "x", callModel: cm2, designPolish: true });
+  assert.equal(r2.code, styled); assert.match(r2.explain, /✗ table bottom left \(لسا ما زبط/);
+  // All good -> no change, checklist shown.
+  const cm3 = mock([build, "<nexus><base>CURRENT</base><check>\n✓ ribbon trend\n✓ table bottom left\n</check><edits></edits><explain>-</explain></nexus>"]);
+  const r3 = await runPipeline({ mode: "build", lang: "en", history: [], userContent: "x", callModel: cm3, designPolish: true });
+  assert.equal(r3.code, styled); assert.equal(r3.checklist.length, 2); assert.ok(r3.checklist.every((c) => c.ok));
+});
+await t("a repeated ask is spotted and the model is told to make the change visible this time", async () => {
+  const { repeatedAsk } = await import("../../brain-app/api/_nexus/engine.js");
+  const history = [{ role: "user", content: "بدي الزونات تكون حمرا شفافة والجدول تحت عالشمال" }, { role: "assistant", content: "تم" }];
+  assert.ok(repeatedAsk("قلتلك بدي الزونات حمرا شفافة والجدول تحت عالشمال!", history));
+  assert.equal(repeatedAsk("ضيف تنبيه عند كسر الهاي", history), "");
+  const m = buildMessages({ mode: "build", lang: "ar", history, userContent: "قلتلك بدي الزونات حمرا شفافة والجدول تحت عالشمال", currentCode: GOOD });
+  assert.match(m[m.length - 1].content.at(-1).text, /ASKING FOR THIS AGAIN/);
+  const m2 = buildMessages({ mode: "build", lang: "ar", history, userContent: "ضيف تنبيه عند كسر الهاي", currentCode: GOOD });
+  assert.doesNotMatch(m2[m2.length - 1].content.at(-1).text, /ASKING FOR THIS AGAIN/);
+});
 await t("design review: verified design-system templates score high, a bare script scores low", async () => {
   const { designReview } = await import("../../brain-app/api/_nexus/design.js");
   for (const id of ["trend", "sr", "sessions", "rsi_div"]) assert.ok(designReview(TEMPLATE_BY_ID.get(id).code).score >= 90, id);

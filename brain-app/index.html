@@ -175,6 +175,7 @@ html[dir="rtl"] .send svg,html[dir="rtl"] .flipx{transform:scaleX(-1)}
 <button data-mode="recovery" data-p="بدي استرجع حسابي على: " data-pen="I need to recover my account on: "><span class="em">🔑</span> <span data-i18n="dw_recover">استرجاع حساب (Recovery)</span></button>
 <button data-mode="security" data-p="هالإيميل/الرسالة احتيال؟ الصقها هون: " data-pen="Is this email/message a scam? Paste it here: "><span class="em">🎣</span> <span data-i18n="dw_phish">هالرسالة احتيال؟</span></button>
 <button data-mode="quote" data-p="اعملي عرض سعر (quote) احترافي لزبون: " data-pen="Write a professional quote for a customer: "><span class="em">🧾</span> <span data-i18n="dw_quotepro">عرض سعر USWS جاهز</span></button>
+<button data-mode="design" data-p="صمملي: " data-pen="Design me: "><span class="em">🎨</span> <span data-i18n="dw_design">استوديو تصميم (لوغو، بوست، فلاير، صفحة)</span></button>
 <button data-mode="life" data-p="ساعدني نظّم: " data-pen="Help me plan: "><span class="em">🧭</span> <span data-i18n="dw_life">تنظيم حياتي (مصاري، سفر، صحة، تعلّم)</span></button>
 <button data-action="emailq"><span class="em">📨</span> <span data-i18n="dw_emailq">اقرأ الإيميل واسأله</span></button>
 </div>
@@ -219,6 +220,7 @@ html[dir="rtl"] .send svg,html[dir="rtl"] .flipx{transform:scaleX(-1)}
 <button data-q="deep"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span data-i18n="q_deep">بحث عميق</span></button>
 <button data-q="plan"><svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg><span data-i18n="q_plan">تحليل مخطط</span></button>
 <button data-q="files"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span data-i18n="q_files">فحص ملف</span></button>
+<button data-q="design"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.9 1.2-1.8-.5-1 .2-2.2 1.3-2.2H17a4 4 0 0 0 4-4c0-5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg><span data-i18n="q_design">تصميم</span></button>
 <button data-q="security"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span data-i18n="q_sec">فحص أمان</span></button>
 </div>
 </div>
@@ -262,7 +264,7 @@ var I18N={
  brand_sub:["مساعدك","Your assistant"],
  btn_new:["+ جديد","+ New"],
  dw_title:["◇ Brain","◇ Brain"],dw_chats:["المحادثات","Chats"],c_none:["لسا ما في محادثات","No chats yet"],c_newt:["محادثة جديدة","New chat"],c_del:["حذف","Delete"],
- dw_cust:["الزباين والواتساب","Customers & WhatsApp"],dw_fsafe:['هالملف آمن؟ (فحص ملف مشبوه)','Is this file safe? (check a suspicious file)'],dw_recover:['استرجاع حساب (Recovery)','Recover an account'],dw_pro:['شغل احترافي','Pro work'],dw_deep:['بحث عميق (مصادر متعددة)','Deep research (many sources)'],dw_flow:['Workflow — نفّذ مهمة كاملة','Workflow — run a whole task'],dw_map:['حلّل مخطط أو خريطة شغل','Analyze a site plan or map'],dw_fcheck:['فحص ملف (عقد، فاتورة، Excel)','Inspect a file (contract, invoice, sheet)'],dw_sec:['فحص أمان واختراقات','Security & breach check'],dw_phish:['هالرسالة احتيال؟','Is this message a scam?'],dw_emailq:['اقرأ الإيميل واسأله','Read & ask my email'],dw_quotepro:['عرض سعر USWS جاهز','Ready USWS quote'],dw_life:['تنظيم حياتي (مصاري، سفر، صحة، تعلّم)','Life planner (money, travel, health, learning)'],
+ dw_cust:["الزباين والواتساب","Customers & WhatsApp"],dw_fsafe:['هالملف آمن؟ (فحص ملف مشبوه)','Is this file safe? (check a suspicious file)'],dw_recover:['استرجاع حساب (Recovery)','Recover an account'],dw_pro:['شغل احترافي','Pro work'],dw_deep:['بحث عميق (مصادر متعددة)','Deep research (many sources)'],dw_flow:['Workflow — نفّذ مهمة كاملة','Workflow — run a whole task'],dw_map:['حلّل مخطط أو خريطة شغل','Analyze a site plan or map'],dw_fcheck:['فحص ملف (عقد، فاتورة، Excel)','Inspect a file (contract, invoice, sheet)'],dw_sec:['فحص أمان واختراقات','Security & breach check'],dw_phish:['هالرسالة احتيال؟','Is this message a scam?'],dw_emailq:['اقرأ الإيميل واسأله','Read & ask my email'],dw_quotepro:['عرض سعر USWS جاهز','Ready USWS quote'],dw_life:['تنظيم حياتي (مصاري، سفر، صحة، تعلّم)','Life planner (money, travel, health, learning)'],dw_design:['استوديو تصميم (لوغو، بوست، فلاير، صفحة)','Design studio (logo, post, flyer, page)'],q_design:['تصميم','Design'],
  dw_reply:["رد على زبون","Reply to a customer"],
  dw_quote:["عرض سعر","Quote"],
  dw_follow:["رسالة متابعة","Follow-up message"],
@@ -535,7 +537,7 @@ fileInput.onchange=function(){var f=fileInput.files&&fileInput.files[0];if(f)han
 document.addEventListener('paste',function(e){var items=(e.clipboardData&&e.clipboardData.items)||[];var got=false;for(var i=0;i<items.length;i++){var it=items[i];if(it.kind==='file'){var f=it.getAsFile();if(f){handleFile(f);got=true;}}}if(got){e.preventDefault();input.focus();}});
 
 var curMode='';
-var MODE_NAMES={voice:['🎙️ صوت','🎙️ Voice'],deep:['🔬 بحث عميق','🔬 Deep research'],workflow:['⚙️ Workflow','⚙️ Workflow'],plan:['🗺️ مخطط/خريطة','🗺️ Plan/map'],files:['📄 فحص ملف','📄 File check'],security:['🛡️ فحص أمان','🛡️ Security check'],recovery:['🔑 استرجاع حساب','🔑 Account recovery'],quote:['🧾 عرض سعر','🧾 Quote'],life:['🧭 تنظيم حياة','🧭 Life planner']};
+var MODE_NAMES={voice:['🎙️ صوت','🎙️ Voice'],deep:['🔬 بحث عميق','🔬 Deep research'],workflow:['⚙️ Workflow','⚙️ Workflow'],plan:['🗺️ مخطط/خريطة','🗺️ Plan/map'],files:['📄 فحص ملف','📄 File check'],security:['🛡️ فحص أمان','🛡️ Security check'],recovery:['🔑 استرجاع حساب','🔑 Account recovery'],quote:['🧾 عرض سعر','🧾 Quote'],life:['🧭 تنظيم حياة','🧭 Life planner'],design:['🎨 تصميم','🎨 Design']};
 function setMode(m){curMode=MODE_NAMES[m]?m:'';var el=document.getElementById('modechip');
   if(!el){el=document.createElement('div');el.id='modechip';el.className='chip';el.style.cssText='margin:0 auto 8px;max-width:860px;width:max-content;border-color:var(--acc)';var c=document.getElementById('chips');c.parentNode.insertBefore(el,c);}
   if(!curMode){el.style.display='none';return;}

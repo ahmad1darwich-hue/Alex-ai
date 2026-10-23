@@ -97,3 +97,65 @@ export function needsPolish(review) { return review.score < 80 || review.finding
 export function describeDesign(review, max = 6) {
   return review.findings.slice(0, max).map((f) => `- [DESIGN ${f.rule.replace("NX_DESIGN_", "")}] ${f.message}`).join("\n");
 }
+
+// ---------- chart dry run summary: what the user will actually SEE ----------
+// The model writes Pine blind. This turns a dry run on sample candles into a short description of the chart (lines,
+// colors, labels, zones, table, tints), so a review round can compare it with what the user asked for.
+function parseColor(c) {
+  const s = String(c || "").trim();
+  let m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)$/i.exec(s);
+  if (m) return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] };
+  m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(s);
+  if (m) { const v = parseInt(m[1], 16); return { r: v >> 16, g: (v >> 8) & 255, b: v & 255, a: m[2] ? parseInt(m[2], 16) / 255 : 1 }; }
+  return null;
+}
+// A plain color word (so "make it gold / purple" can be checked) + hex + how solid it is.
+export function colorName(c) {
+  const p = parseColor(c);
+  if (!p) return String(c || "none");
+  const { r, g, b, a } = p;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 510, d = mx - mn;
+  let name;
+  if (d < 25) name = l > 0.85 ? "white" : l < 0.15 ? "black" : "gray";
+  else {
+    let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    name = h < 15 || h >= 340 ? "red" : h < 40 ? "orange" : h < 55 ? "gold" : h < 70 ? "yellow" : h < 160 ? "green" : h < 190 ? "teal" : h < 250 ? "blue" : h < 290 ? "purple" : "pink";
+  }
+  const hex = "#" + [r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("").toUpperCase();
+  const solid = Math.round(a * 100);
+  if (solid === 0) return "transparent";
+  return `${name} ${hex}${solid < 100 ? " (" + solid + "% opaque)" : ""}`;
+}
+const top = (arr, n = 4) => { const m = new Map(); for (const x of arr) if (x) m.set(x, (m.get(x) || 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n); };
+const list = (pairs, fmt = (k) => k) => pairs.map(([k, v]) => fmt(k) + (v > 1 ? " x" + v : "")).join(", ");
+const short = (s) => String(s || "").replace(/\s+/g, " ").slice(0, 40);
+
+export function chartSummary(input, { tfSec = 900, bars = 600 } = {}) {
+  let r;
+  try { r = runPreview(String(input || ""), sampleCandles(tfSec, bars, 2400), { tfSec, symbol: GOLD, maxMs: 2500 }); }
+  catch (e) { return "DRY RUN: could not run (" + String(e && e.message || e).slice(0, 120) + ")."; }
+  if (!r || !r.ok) return "DRY RUN: the script stopped with an error on sample bars: " + String(r && r.error || "unknown").slice(0, 160);
+  const out = [`DRY RUN on ${bars} sample gold candles (15m) - this is what the user will SEE (${r.overlay ? "on the price chart" : "in its own pane under the chart"}):`];
+  const plots = r.plots.filter((p) => !p.hidden && Array.isArray(p.values) && p.values.some((v) => v != null));
+  if (plots.length) out.push("- Lines / plots: " + plots.slice(0, 10).map((p) => `"${short(p.title || "plot")}" width ${p.width || 1}${/line/.test(p.style || "line") ? "" : " " + String(p.style).replace("plot.style_", "")}, colors ${list(top((p.colors || []).filter(Boolean), 3), colorName)}`).join("; ") + (plots.length > 10 ? `; +${plots.length - 10} more` : ""));
+  else out.push("- Lines / plots: none visible");
+  if (r.fills && r.fills.length) out.push(`- Fills between lines: ${r.fills.length} (colors ${list(top(r.fills.flatMap((f) => (f.colors || []).filter(Boolean)), 3), colorName)})`);
+  if (r.hlines && r.hlines.length) out.push(`- Horizontal levels: ${r.hlines.length}`);
+  if (r.shapes && r.shapes.length) out.push(`- plotshape markers: ${r.shapes.length} (${list(top(r.shapes.map((s) => (s.style || s.shape || "shape") + (s.text ? ' "' + short(s.text) + '"' : "")), 3))})`);
+  if (r.labels.length) out.push(`- Labels on the chart at the end: ${r.labels.length} - texts ${list(top(r.labels.map((l) => '"' + short(l.text) + '"'), 6))}; backgrounds ${list(top(r.labels.map((l) => l.color), 3), colorName)}; sizes ${list(top(r.labels.map((l) => String(l.size || "").replace("size.", "")), 2))}`);
+  else out.push("- Labels: none");
+  if (r.boxes.length) out.push(`- Boxes / zones at the end: ${r.boxes.length} - fills ${list(top(r.boxes.map((b) => b.bg), 3), colorName)}; borders ${list(top(r.boxes.map((b) => b.border), 2), colorName)}${r.boxes.some((b) => b.text) ? "; texts " + list(top(r.boxes.map((b) => b.text && '"' + short(b.text) + '"'), 4)) : ""}`);
+  if (r.lines.length) out.push(`- Drawn lines at the end: ${r.lines.length} - colors ${list(top(r.lines.map((l) => l.color), 3), colorName)}; styles ${list(top(r.lines.map((l) => String(l.style || "").replace("line.style_", "")), 2))}`);
+  const bg = (r.bg || []).filter(Boolean);
+  if (bg.length) out.push(`- Background tint on ${bg.length} of ${bars} bars (${list(top(bg, 2), colorName)})`);
+  const bc = (r.barcolor || []).filter(Boolean);
+  if (bc.length) out.push(`- Candles recolored on ${bc.length} of ${bars} bars (${list(top(bc, 3), colorName)})`);
+  for (const tb of (r.tables || []).slice(0, 2)) {
+    const cells = Object.entries(tb.cells || {}).sort((a, b) => { const [ca, ra] = a[0].split(":").map(Number), [cb, rb] = b[0].split(":").map(Number); return ra - rb || ca - cb; });
+    out.push(`- Table at ${String(tb.position || "").replace("position.", "")}, ${tb.columns} x ${tb.rows}: ` + cells.slice(0, 24).map(([, c]) => short(c.text)).filter(Boolean).join(" | ") + (cells.length > 24 ? " | ..." : ""));
+  }
+  if (r.trades && r.trades.length) out.push(`- Strategy trades drawn: ${r.trades.length}`);
+  if (r.unsupported && r.unsupported.length) out.push("- (not simulated in the dry run: " + r.unsupported.slice(0, 5).join(", ") + ")");
+  return out.join("\n");
+}

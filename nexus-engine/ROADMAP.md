@@ -42,3 +42,12 @@ scalper (2026-10-21: session VWAP + sigma bands, chop shield PB/REV/Quiet, kill 
 mtf_dashboard (2026-10-22: auto TF ladder, closed-bar tuple rows with trend / power / RSI / structure, weighted alignment score,
 Fading flag + streak, gauge, Full / Compact layouts).
 Next: strategy (last one). After that: a second pass on zone quality across templates (HTF zones in sr / smc dashboards).
+
+## Understanding the user the first time (Ahmad, 2026-10-23: "I have to ask 20 times")
+Shipped: <asks> contract written before the code (every element / color / size / place / text, from words or a chart picture);
+final review round on every clean build that sees a DRY RUN summary of the chart (design.js chartSummary: plot colors by name,
+labels, zones, lines, table cells, tints) and ticks each ask ✓ / fixes ✗ (shown under the explanation, undelivered asks said
+honestly); repeated asks detected (word overlap) and the model told to make the change visible. Main Brain: DESIGN STUDIO mode
+(understand-first brief, exact format sizes, premium rules, USWS palette, rendered SVG/HTML in the chat) + "get it right the
+first time" rule. NEXT: send the dry-run picture itself (server PNG) to the reviewer; learn design preferences from repeated
+corrections into <remember> automatically.

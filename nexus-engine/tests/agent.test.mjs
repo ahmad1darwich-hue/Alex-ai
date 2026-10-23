@@ -37,6 +37,17 @@ await t("plan mode is inferred from the words; file mode from an attachment", as
   bodies.length = 0; await (await post({ messages: [{ role: "user", content: [{ type: "text", text: "محتوى الملف \"a.csv\":\n1,2" }, { type: "text", text: "شو فيه" }] }] })).text();
   assert.match(bodies[0].system, /FILE INSPECTION/);
 });
+await t("design studio: inferred from design words (not indicators or gardens), strongest model, understand-first rules", async () => {
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "صمملي بوست انستا لعرض الديكينغ" }] })).text();
+  assert.match(bodies[0].system, /DESIGN STUDIO/); assert.match(bodies[0].system, /فهمت عليك/); assert.equal(bodies[0].model, "claude-opus-5-5"); assert.equal(bodies[0].max_tokens, 20000);
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "design me a logo for the kids channel" }] })).text();
+  assert.match(bodies[0].system, /DESIGN STUDIO/);
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "صمملي مؤشر تريدنج فيو" }] })).text();
+  assert.doesNotMatch(bodies[0].system, /DESIGN STUDIO/);
+  bodies.length = 0; await (await post({ messages: [{ role: "user", content: "تصميم حديقة خلفية مع ديكينغ" }] })).text();
+  assert.doesNotMatch(bodies[0].system, /DESIGN STUDIO/);
+  assert.match(bodies[0].system, /Get it right the first time/);
+});
 await t("security mode runs one passive check of the site", async () => {
   bodies.length = 0; await (await post({ mode: "security", messages: [{ role: "user", content: "check usws.com.au" }] })).text();
   const s = bodies[0].system; assert.match(s, /SECURITY CHECK/); assert.match(s, /redirects to HTTPS: good/); assert.match(s, /strict-transport-security: MISSING/); assert.match(s, /server: Vercel/);
