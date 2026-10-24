@@ -1027,6 +1027,8 @@ export class PreviewRunner {
       return NA;
     }
     if (name.startsWith("set_")) return NA;
+    if (name === "merge_cells") { const a = evArgs(["table_id", "start_column", "start_row", "end_column", "end_row"]); const t = a.table_id; if (t && t.merges) t.merges.push([a.start_column, a.start_row, a.end_column, a.end_row]); else if (t) t.merges = [[a.start_column, a.start_row, a.end_column, a.end_row]]; return NA; }
+    if (name === "clear" || name === "delete") return NA;
     return this.miss("table." + name);
   }
 

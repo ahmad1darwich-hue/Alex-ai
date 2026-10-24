@@ -276,4 +276,15 @@ await t("design review: verified design-system templates score high, a bare scri
   const r = designReview("//@version=6\nindicator(\"x\", overlay = true)\nplot(ta.sma(close, 20))\nplotshape(close > open, style = shape.circle)\n");
   assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_THEME")); assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_CLUTTER")); assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_BARE_PLOT"));
 });
+await t("design review, premium finish: gradients, zone life cycle, styled labels, framed table, hierarchy, color budget; all templates at 100", async () => {
+  const { designReview, needsPolish } = await import("../../brain-app/api/_nexus/design.js");
+  const { TEMPLATES } = await import("../../brain-app/api/_nexus/templates.js");
+  for (const tpl of TEMPLATES) assert.equal(designReview(tpl.code).score, 100, tpl.id + " " + designReview(tpl.code).findings.map((f) => f.rule).join(","));
+  const plain = '//@version=6\nindicator("x", overlay = true)\na = ta.sma(close, 20)\nb = ta.sma(close, 50)\nc = ta.sma(close, 100)\nplot(a, color = #00E5A0)\nplot(b, color = #FF3D71)\nplot(c, color = #7C4DFF)\nup = ta.crossover(a, b)\nif up\n    label.new(bar_index, low, "BUY")\nvar box z = box.new(bar_index, high, bar_index + 5, low, bgcolor = color.new(#00E5A0, 85))\nvar table tb = table.new(position.top_right, 2, 2)\nif barstate.islast\n    tb.cell(0, 0, "x")\n';
+  const rules = designReview(plain).findings.map((f) => f.rule);
+  for (const r of ["NX_DESIGN_NO_GRADIENT", "NX_DESIGN_STATIC_ZONES", "NX_DESIGN_PLAIN_LABELS", "NX_DESIGN_PLAIN_TABLE", "NX_DESIGN_NO_HIERARCHY"]) assert.ok(rules.includes(r), r);
+  assert.ok(needsPolish({ score: 84, findings: [] })); assert.ok(!needsPolish({ score: 90, findings: [] }));
+  const { SYSTEM_PROMPT } = await import("../../brain-app/api/_nexus/knowledge.js");
+  assert.match(SYSTEM_PROMPT, /13\. Premium finish/); assert.match(SYSTEM_PROMPT, /table\.merge_cells/);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

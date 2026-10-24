@@ -274,10 +274,14 @@ await t("signals template: graded confluence signals, one managed trade plan, R 
     const other = r.labels.filter((l) => !/^(▲ BUY|▼ SELL) • [AB]$/.test(l.text));
     assert.ok(other.every((l) => /^(Entry |SL |BE |TRAIL |TP[123] [\d.]+R |◆ TP[123]$|■ BE$|■ TRAIL$|✕ SL$|• EXIT$)/.test(l.text)), "only designed plan labels: " + other.map((l) => l.text).join(","));
     assert.equal(r.labels.filter((l) => /^(SL|BE|TRAIL) \d/.test(l.text)).length, 1, "only the last signal keeps a trade plan");
-    assert.equal(r.boxes.length, 2, "risk and reward boxes of the last plan");
+    const zones = r.boxes.filter((b) => b.text === "Supply" || b.text === "Demand");
+    assert.equal(r.boxes.length - zones.length, 2, "risk and reward boxes of the last plan");
+    assert.ok(zones.length <= 2 && new Set(zones.map((z) => z.text)).size === zones.length, "at most one live demand + one live supply");
     const cells = r.tables[0].cells;
     assert.match(cells["1:1"].text, /^(LONG • [AB]|SHORT • [AB]|FLAT)$/, "position row");
-    assert.match(cells["1:2"].text, /^[0-5]\/5 (▲|▼)$/, "confluence row");
+    assert.match(cells["1:2"].text, /^[0-6]\/6 (▲|▼)$/, "confluence row");
+    assert.match(cells["1:9"].text, /^\d+ \/ \d+$/, "late / no-room row");
+    assert.match(cells["1:10"].text, /^(At demand ▲|At supply ▼|Between zones)$/, "location row");
     assert.match(cells["1:6"].text, /^(-|Initial|Break-even|Trailing)$/, "stop mode row");
     assert.match(cells["1:7"].text, /^\d+( • \d+%)?$/, "trades / win row");
     assert.match(cells["1:8"].text, /^(-|[+-][\d.]+ • avg -?[\d.]+)$/, "total R row");
