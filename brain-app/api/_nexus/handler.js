@@ -501,7 +501,7 @@ export async function handle(req, ctx) {
         result = await runPipeline({ mode: mode === "fix" ? "fix" : "build", lang, history, userContent, currentCode, currentFile, tvError: body.tvError, prefs, callModel: makeCaller(key, deadline, state, abort.signal), emit, deadline, effort, signal: abort.signal, designPolish: true });
         result.ms = Date.now() - started;
         // One line per build (no code, no user text) so a regression can be traced in the logs.
-        try { if (result.kind === "script") console.log("NEXUS_BUILD " + JSON.stringify({ mode, verified: result.report.verified, errors: result.report.errorCount, warnings: result.report.warningCount, rounds: result.report.rounds, base: result.base, design: result.report.design && [result.report.design.before, result.report.design.score], review: (result.report.history || []).filter((h) => h.design || h.review || h.note).slice(-1)[0], ms: result.ms })); } catch (e) {}
+        try { if (result.kind === "script") console.log("NEXUS_BUILD " + JSON.stringify({ mode, verified: result.report.verified, errors: result.report.errorCount, warnings: result.report.warningCount, rounds: result.report.rounds, base: result.base, design: result.report.design && [result.report.design.before, result.report.design.score], model: result.model, review: (result.report.history || []).filter((h) => h.design || h.review || h.note).slice(-1)[0], ms: result.ms })); } catch (e) {}
         if (owner && result.remember) { const pp = addPref(result.remember).catch(() => {}); if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(pp); else await pp; }
         if (!owner) delete result.remember;
         if (v2) {
