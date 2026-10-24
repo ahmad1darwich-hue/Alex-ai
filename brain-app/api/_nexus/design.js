@@ -67,16 +67,6 @@ export function designReview(input, { preview = true } = {}) {
   if (hasSignals && !hasTable && code.split("\n").length > 40) add("NX_DESIGN_NO_DASH", 10, 'The script has a state to read (signals / trend / levels) but no dashboard. Add a compact table (var table, filled on barstate.islast, position input, default top right): header "NEXUS • <tool>" in the accent color, label / value rows with bull / bear colored values, text_size size.small, a track-record row (hits / fails, %) for signal tools (rules 6 and 6b).');
   if (!overlay && /hline\s*\(/.test(code) && !fills.length) add("NX_DESIGN_OSC_ZONES", 6, "Oscillator levels without zones. Add a faint OB / OS band and a heat fill between the line and the level when it is stretched (DESIGN DIRECTOR rule 8).");
 
-  // Premium finish (2026-10-24): what separates a "works" chart from a vendor-grade one.
-  const gradient = /color\.from_gradient\s*\(/.test(code);
-  if ((visiblePlots.length || fills.length || boxes.length) && !gradient) add("NX_DESIGN_NO_GRADIENT", 5, "Nothing changes color with strength. Use color.from_gradient(strength, lo, hi, faintColor, fullColor) for the main line / fill / candles / zone fills (strength = ATR distance, ER, RSI, volume or zone score) so strong moves and strong zones look stronger (DESIGN DIRECTOR rule 13).");
-  if (boxes.length && !/\.set_bgcolor\s*\(|box\.set_bgcolor\s*\(|\.set_border_style\s*\(|box\.set_border_style\s*\(|\.delete\s*\(|box\.delete\s*\(/.test(code)) add("NX_DESIGN_STATIC_ZONES", 6, "Zones never change once drawn. Give them a life cycle you can SEE: fresh = confident fill, touched = faded fill + dashed border (set_bgcolor / set_border_style), broken = deleted or turned into a faint breaker - keep only live information (rule 4, ZONE ENGINE RULES).");
-  const plainLabels = labels.filter((l) => !/style\s*=/.test(l.args) || !/size\s*=/.test(l.args));
-  if (labels.length && plainLabels.length * 2 > labels.length) add("NX_DESIGN_PLAIN_LABELS", 5, `label.new without a style and size (line ${plainLabels[0].line}) draws TradingView's big default bubble. Set style (label.style_label_up / down for signals, label.style_label_left for right-edge price tags, label.style_none for zone text), size.small or size.tiny, theme background or color.new(c, 100) with theme text, and put details in tooltip = instead of long text.`);
-  if (hasTable && (!/frame_color\s*=/.test(calls(code, "table.new").map((x) => x.args).join(" ")) || !/\.cell\s*\([^)]*bgcolor\s*=|table\.cell\s*\([^)]*bgcolor\s*=/.test(code))) add("NX_DESIGN_PLAIN_TABLE", 5, 'The dashboard looks like a plain grid. Give it a frame (frame_color = accent at 40, frame_width 1, border_color neutral at 85), a header row "NEXUS • <tool>" on an accent background with white text, dark cells color.new(#131722, 10), monospace values colored bull / bear (rule 6).');
-  const widths = visiblePlots.map((p) => (/linewidth\s*=\s*(\d+)/.exec(p.args) || [0, "1"])[1]);
-  if (visiblePlots.length >= 3 && new Set(widths).size === 1) add("NX_DESIGN_NO_HIERARCHY", 4, `All ${visiblePlots.length} lines have the same weight, so nothing leads the eye. Make ONE hero line (linewidth 2 + glow), secondary lines linewidth 1 and 30-50 transparency (rule 13).`);
-
   const stats = { plots: visiblePlots.length, labels: 0, shapes: 0, boxes: 0, lines: 0, bars: 0 };
   if (preview) {
     try {
@@ -89,13 +79,6 @@ export function designReview(input, { preview = true } = {}) {
         if (per1000 > 120) add("NX_DESIGN_CLUTTER", 16, `Chart clutter: about ${Math.round(per1000)} markers per 1000 bars on a 15m gold sample. Add a filter, a cooldown in bars or "signal only on a change of direction" so a clean chart shows roughly 10-60 per 1000 bars.`);
         if (r.boxes.length > 40) add("NX_DESIGN_TOO_MANY_ZONES", 10, `${r.boxes.length} boxes stay on the chart at the end of the sample. Keep only the newest N per side (input, default 4-6), delete broken / mitigated ones.`);
         if (r.lines.length > 60) add("NX_DESIGN_TOO_MANY_LINES", 8, `${r.lines.length} lines stay on the chart. Stop or delete levels once taken and keep the newest N.`);
-        // Color budget: count the distinct hues the chart actually shows (plots, labels, boxes, lines).
-        const hues = new Set();
-        const hueOf = (c) => { const p = parseColor(c); if (!p || p.a < 0.08) return; const mx = Math.max(p.r, p.g, p.b), mn = Math.min(p.r, p.g, p.b); if (mx - mn < 30) return; let h; if (mx === p.r) h = ((p.g - p.b) / (mx - mn) + 6) % 6; else if (mx === p.g) h = (p.b - p.r) / (mx - mn) + 2; else h = (p.r - p.g) / (mx - mn) + 4; hues.add(Math.round(h * 2) % 12); };
-        for (const pl of (r.plots || []).filter((x) => !x.hidden)) for (const c of new Set((pl.colors || []).slice(-300))) hueOf(c);
-        for (const d of [...(r.labels || []), ...(r.boxes || []), ...(r.lines || [])]) hueOf(d.color || d.bgcolor);
-        stats.hues = hues.size;
-        if (hues.size > 6) add("NX_DESIGN_RAINBOW", 6, `About ${hues.size} different hues on the chart - it reads as a rainbow. Keep a budget: bull + bear + one accent + neutral grays; express strength with transparency / gradients of those hues, not new colors (rule 13).`);
         const texts = r.labels.map((l) => l.text).filter(Boolean);
         let repeats = 0;
         for (let i = 1; i < texts.length; i++) if (texts[i] === texts[i - 1] && /BUY|SELL|LONG|SHORT/.test(texts[i])) repeats++;

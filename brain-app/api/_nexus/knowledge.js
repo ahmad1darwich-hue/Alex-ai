@@ -233,7 +233,6 @@ Limits
 # SIGNAL ENGINE RULES (buy/sell signals, entries with TP / SL, trade managers)
 
 - Trigger + confluence, never a bare trigger: score each trigger on independent checks (trend side of a slow EMA, momentum side of 50, ADX / efficiency strength, volume vs its average - skipped and counted as passed when the symbol has no volume, closed-bar HTF agreement), input "Minimum confluence", grade A (all or all but one) / B shown faded, an "A only" input and a separate grade-A alert. Show the score in the label tooltip and the dashboard.
-- LOCATION decides the grade (signals at the right zones): a signal only counts as strong when it fires OFF a live zone in its own direction - a buy after price tested live demand (last confirmed swing low / bullish OB / FVG / S/R flip / a swept PDL or session low) and closed back away, a sell off live supply. Make location one of the confluence checks (grade A needs it), say "at demand / at supply" in the tooltip and dashboard, and add a room-to-target veto: skip a buy that sits right under live supply (or a sell right above demand) with less than ~1 ATR (or less than TP1) of room - count those skips. Zones come from CONFIRMED pivots only and end when a close breaks them; show the live demand / supply boxes so the user sees why a signal is strong.
 - Vetoes that traders ask for: late-entry veto (skip when close is more than k x ATR from the slow EMA - chasing; count the skips), a cooldown in bars, one position at a time (no repeated BUY while long), optional exit on the opposite signal.
 - Stop: structure first (beyond the lowest low / highest high of N bars + an ATR buffer) or ATR mode, always clamped between a min and max ATR distance so a tiny or huge swing does not break the R math. Targets TP1-TP3 in R.
 - Manage the trade like a trader: stop to break-even after TP1, ratchet ATR trail after TP2 (only in the trade's favor), the live stop line and its label ("SL" -> "BE" -> "TRAIL") move with it; stop is checked BEFORE targets on the same bar (conservative) and the entry bar is never tested. State the scale-out assumption (thirds at TP1-TP3) in a tooltip.
@@ -288,13 +287,6 @@ Design system (apply all of it unless the user asks otherwise):
    - Sessions / time: soft session boxes with range text, liquidity lines until taken, hidden above the input timeframe.
    - Dashboards / MTF: one compact table, ● / ○ per timeframe, colored values, an "Aligned" verdict row.
 12. A design review scores every delivered script (theme input, colored plots, designed labels instead of plotshape triangles, glow, fills, translucent zones, dashboard, clutter measured on sample candles). Get it right the first time: a low score triggers an extra polish round.
-13. Premium finish (what makes it look vendor-grade, not just correct) - only with calls you already use correctly elsewhere in this pack; never trade compile safety for looks:
-   - Hierarchy: ONE hero element (the main line / the live zone / the last signal) is the brightest and boldest; everything else is thinner and 30-60 transparent. Old history fades: color.new(c, transparency growing with age) for past zones / signals.
-   - Color budget: bull + bear + one accent + neutral grays. Strength is shown with transparency and color.from_gradient of those hues, never with extra colors.
-   - Zones in two layers: a soft body fill (80-90) + a crisp edge or mid line (equilibrium, dotted) and a tiny right-aligned tag; the freshest / strongest zone is the most solid; zones end at the right edge with a price tag (label.style_label_left at bar_index + 3, size.tiny, transparent background, theme text).
-   - Labels carry short text; details (score, price, R, reason) go in tooltip = so the chart stays clean.
-   - Dashboard: header row "NEXUS • <tool>" on the accent background, then label / value rows; a gauge row (■■■■□□) or ● / ○ dots for strength.
-   - Breathing room: offsets from candles in ATR (labels 0.3-0.6 ATR away), no element covers the last candles, nothing repeats every bar.
 When EDITING an existing script, keep its look consistent and upgrade weak visuals you touch (a bare plot, default colors, plotshape triangles) to this design system unless the user asked to change only one thing.
 
 # BEFORE YOU ANSWER - SELF-CHECK

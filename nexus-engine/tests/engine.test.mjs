@@ -276,34 +276,4 @@ await t("design review: verified design-system templates score high, a bare scri
   const r = designReview("//@version=6\nindicator(\"x\", overlay = true)\nplot(ta.sma(close, 20))\nplotshape(close > open, style = shape.circle)\n");
   assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_THEME")); assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_CLUTTER")); assert.ok(r.findings.some((f) => f.rule === "NX_DESIGN_BARE_PLOT"));
 });
-await t("design review, premium finish: gradients, zone life cycle, styled labels, framed table, hierarchy, color budget; all templates at 100", async () => {
-  const { designReview, needsPolish } = await import("../../brain-app/api/_nexus/design.js");
-  const { TEMPLATES } = await import("../../brain-app/api/_nexus/templates.js");
-  for (const tpl of TEMPLATES) assert.ok(designReview(tpl.code).score >= 90, tpl.id + " " + designReview(tpl.code).findings.map((f) => f.rule).join(","));
-  const plain = '//@version=6\nindicator("x", overlay = true)\na = ta.sma(close, 20)\nb = ta.sma(close, 50)\nc = ta.sma(close, 100)\nplot(a, color = #00E5A0)\nplot(b, color = #FF3D71)\nplot(c, color = #7C4DFF)\nup = ta.crossover(a, b)\nif up\n    label.new(bar_index, low, "BUY")\nvar box z = box.new(bar_index, high, bar_index + 5, low, bgcolor = color.new(#00E5A0, 85))\nvar table tb = table.new(position.top_right, 2, 2)\nif barstate.islast\n    tb.cell(0, 0, "x")\n';
-  const rules = designReview(plain).findings.map((f) => f.rule);
-  for (const r of ["NX_DESIGN_NO_GRADIENT", "NX_DESIGN_STATIC_ZONES", "NX_DESIGN_PLAIN_LABELS", "NX_DESIGN_PLAIN_TABLE", "NX_DESIGN_NO_HIERARCHY"]) assert.ok(rules.includes(r), r);
-  assert.ok(needsPolish({ score: 79, findings: [] })); assert.ok(!needsPolish({ score: 85, findings: [] }));
-  const { SYSTEM_PROMPT } = await import("../../brain-app/api/_nexus/knowledge.js");
-  assert.match(SYSTEM_PROMPT, /13\. Premium finish/); assert.doesNotMatch(SYSTEM_PROMPT, /table\.merge_cells/);
-});
-await t("design review with eyes: the chart is rendered to a real PNG and every new build's reviewer sees it", async () => {
-  const { chartPicture, drawChart, parseCss } = await import("../../brain-app/api/_nexus/render.js");
-  const styled = TEMPLATE_BY_ID.get("trend").code;
-  const pic = await chartPicture(styled);
-  assert.ok(pic && pic.png.length > 1000);
-  const bytes = Buffer.from(pic.png, "base64");
-  assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]); assert.equal(bytes.readUInt32BE(16), 1100); assert.equal(bytes.readUInt32BE(20), 620);
-  assert.deepEqual(parseCss("rgba(0,229,160,0.15)"), [0, 229, 160, 0.15]); assert.deepEqual(parseCss("#FF3D71"), [255, 61, 113, 1]);
-  assert.equal(await chartPicture("//@version=6\nindicator(\"x\")\nplot(close +)"), null);
-  // The reviewer of a NEW build (even a premium one) gets the picture; nothing is changed when it says all good.
-  const cm = mock(["<nexus><base>NEW</base><code>\n" + styled + "</code><explain>built</explain></nexus>", "<nexus><base>CURRENT</base><check></check><edits></edits><explain>-</explain></nexus>"]);
-  const ev = [];
-  const r = await runPipeline({ mode: "build", lang: "en", history: [], userContent: "trend tool", callModel: cm, emit: (e) => ev.push(e), designPolish: true });
-  assert.equal(cm.calls.length, 2);
-  const content = cm.calls[1].messages[0].content;
-  assert.ok(content.some((b) => b.type === "image" && b.source.media_type === "image/png" && b.source.data.length > 1000));
-  assert.ok(content.some((b) => b.type === "text" && /CHART PICTURE/.test(b.text)));
-  assert.ok(ev.some((e) => e.id === "look" && e.seen)); assert.equal(r.code, styled);
-});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

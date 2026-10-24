@@ -7,7 +7,7 @@ bool   autoInput      = input.bool(true, "Auto settings", group = GRP_S, tooltip
 int    fastLenInput   = input.int(9, "Fast EMA (manual)", minval = 1, group = GRP_S)
 int    slowLenInput   = input.int(21, "Slow EMA (manual)", minval = 2, group = GRP_S)
 int    trendLenInput  = input.int(200, "Trend EMA", minval = 2, group = GRP_S)
-int    minScoreInput  = input.int(3, "Minimum confluence (of 6)", minval = 1, maxval = 6, group = GRP_S, tooltip = "Each cross is scored on 6 checks: trend side of the trend EMA, RSI side of 50, ADX strength, volume above average (counted as passed when the symbol has no volume), higher-timeframe agreement and LOCATION (a buy that came off a live demand zone, a sell off a live supply zone). 5-6 = grade A, below = grade B.")
+int    minScoreInput  = input.int(3, "Minimum confluence (of 5)", minval = 1, maxval = 5, group = GRP_S, tooltip = "Each cross is scored on 5 checks: trend side of the trend EMA, RSI side of 50, ADX strength, volume above average (counted as passed when the symbol has no volume) and higher-timeframe agreement. 4-5 = grade A, below = grade B.")
 bool   onlyAInput     = input.bool(false, "Grade A only", group = GRP_S)
 int    adxMinInput    = input.int(20, "ADX at least", minval = 1, group = GRP_S)
 float  volMultInput   = input.float(1.0, "Volume at least x average (20)", minval = 0.1, step = 0.1, group = GRP_S)
@@ -15,14 +15,6 @@ bool   useHtfInput    = input.bool(true, "Higher-timeframe check", group = GRP_S
 string htfInput       = input.timeframe("240", "", group = GRP_S, inline = "htf", tooltip = "Close vs EMA 50 of the last CLOSED higher-timeframe bar, so it does not repaint.")
 float  lateInput      = input.float(2.0, "Late-entry veto (ATR from slow EMA)", minval = 0.5, step = 0.25, group = GRP_S, tooltip = "Skips a cross when price is already this far from the slow EMA - chasing a stretched move. Skipped signals are counted in the dashboard.")
 int    cooldownInput  = input.int(3, "Minimum bars between signals", minval = 0, group = GRP_S)
-
-string GRP_Z = "Location (zones)"
-bool   useZoneInput   = input.bool(true, "Location check", group = GRP_Z, tooltip = "Demand = the last confirmed swing low + 0.5 ATR, supply = the last confirmed swing high - 0.5 ATR, both live until a close breaks them. A buy scores the location point only when price tested demand within the last bars; a sell only off supply.")
-int    pivLenInput    = input.int(5, "Swing strength (bars each side)", minval = 2, group = GRP_Z)
-int    zoneLookInput  = input.int(8, "Zone test within (bars)", minval = 1, group = GRP_Z)
-bool   roomInput      = input.bool(true, "Room-to-target veto", group = GRP_Z, inline = "rm", tooltip = "Skips a buy that sits right under live supply (or a sell right above live demand): less than this many ATR of room before the opposite zone. Skipped signals are counted in the dashboard.")
-float  roomAtrInput   = input.float(1.0, "ATR", minval = 0.1, step = 0.1, group = GRP_Z, inline = "rm")
-bool   showZonesInput = input.bool(true, "Show live demand / supply", group = GRP_Z)
 
 string GRP_R = "Stop & targets"
 string stopModeInput  = input.string("Swing", "Stop", options = ["Swing", "ATR"], group = GRP_R, tooltip = "Swing: beyond the lowest low / highest high of the last bars plus a buffer. ATR: a fixed ATR distance. Both are kept between the min and max distance below.")
@@ -86,45 +78,7 @@ bool  volOk  = not hasVol or nz(volume) >= volAvg * volMultInput
 // Higher-timeframe bias from the last closed HTF bar (offset + lookahead_on = no repainting).
 [htfClose, htfEma] = request.security(syminfo.tickerid, htfInput, [close[1], ta.ema(close, 50)[1]], lookahead = barmerge.lookahead_on)
 
-// Live demand / supply from the last confirmed swings (no repainting: pivots are known pivLen bars later).
-float phv = ta.pivothigh(high, pivLenInput, pivLenInput)
-float plv = ta.pivotlow(low, pivLenInput, pivLenInput)
-float lowTest  = ta.lowest(low, zoneLookInput)
-float highTest = ta.highest(high, zoneLookInput)
-var float supTop = na
-var float supBot = na
-var float demTop = na
-var float demBot = na
-var box   supBox = na
-var box   demBox = na
-if not na(phv) and not na(atr)
-    supTop := phv
-    supBot := phv - 0.5 * atr
-    supBox.delete()
-    if showZonesInput
-        supBox := box.new(bar_index - pivLenInput, supTop, bar_index + 5, supBot, border_color = color.new(bearC, 55), bgcolor = color.new(bearC, 85), text = "Supply", text_size = size.tiny, text_color = color.new(bearC, 20), text_halign = text.align_right)
-if not na(plv) and not na(atr)
-    demBot := plv
-    demTop := plv + 0.5 * atr
-    demBox.delete()
-    if showZonesInput
-        demBox := box.new(bar_index - pivLenInput, demTop, bar_index + 5, demBot, border_color = color.new(bullC, 55), bgcolor = color.new(bullC, 85), text = "Demand", text_size = size.tiny, text_color = color.new(bullC, 20), text_halign = text.align_right)
-// A close through a zone ends it.
-if not na(supTop) and close > supTop
-    supTop := na
-    supBot := na
-    supBox.delete()
-if not na(demBot) and close < demBot
-    demTop := na
-    demBot := na
-    demBox.delete()
-if barstate.islast
-    supBox.set_right(bar_index + 5)
-    demBox.set_right(bar_index + 5)
-bool atDemand = not na(demTop) and lowTest <= demTop and close > demBot
-bool atSupply = not na(supBot) and highTest >= supBot and close < supTop
-
-// Confluence score 0-6 for a direction.
+// Confluence score 0-5 for a direction.
 scoreOf(int d) =>
     int s = 0
     s += (d == 1 ? close > trendEma : close < trendEma) ? 1 : 0
@@ -132,7 +86,6 @@ scoreOf(int d) =>
     s += adx >= adxMinInput ? 1 : 0
     s += volOk ? 1 : 0
     s += (not useHtfInput or (d == 1 ? htfClose > htfEma : htfClose < htfEma)) ? 1 : 0
-    s += (not useZoneInput or (d == 1 ? atDemand : atSupply)) ? 1 : 0
     s
 
 int scoreL = scoreOf(1)
@@ -155,7 +108,6 @@ var int    trades     = 0
 var int    wins       = 0
 var float  totalR     = 0.0
 var int    lateSkips  = 0
-var int    roomSkips  = 0
 var line   stopLn     = na
 var label  stopLb     = na
 var array<line>  planLines  = array.new<line>()
@@ -180,14 +132,11 @@ if barstate.isconfirmed and not na(atr)
     int d = crossUp ? 1 : crossDn ? -1 : 0
     if d != 0 and d != pos
         int  sc   = d == 1 ? scoreL : scoreS
-        bool a    = sc >= 5
+        bool a    = sc >= 4
         bool cool = na(lastSigBar) or bar_index - lastSigBar >= cooldownInput
         if sc >= minScoreInput and (a or not onlyAInput) and cool
-            bool noRoom = roomInput and (d == 1 ? not na(supBot) and supBot > close and supBot - close < roomAtrInput * atr : not na(demTop) and demTop < close and close - demTop < roomAtrInput * atr)
             if math.abs(close - slowEma) > lateInput * atr
                 lateSkips += 1
-            else if noRoom
-                roomSkips += 1
             else
                 cand := d
 
@@ -275,14 +224,14 @@ if cand != 0 and pos == 0
     hitCount   := 0
     realized   := 0.0
     stopMode   := "Initial"
-    grade      := sc >= 5 ? "A" : "B"
+    grade      := sc >= 4 ? "A" : "B"
     lastSigBar := bar_index
     buySig     := d == 1
     sellSig    := d == -1
-    sigA       := sc >= 5
+    sigA       := sc >= 4
     color c = d == 1 ? bullC : bearC
     if showSigInput
-        label.new(bar_index, d == 1 ? low - atr * 0.4 : high + atr * 0.4, (d == 1 ? "▲ BUY • " : "▼ SELL • ") + grade, style = d == 1 ? label.style_label_up : label.style_label_down, color = sigA ? c : color.new(c, 40), textcolor = color.white, size = size.small, tooltip = "Confluence " + str.tostring(sc) + "/6" + ((d == 1 ? atDemand : atSupply) ? " • at " + (d == 1 ? "demand" : "supply") : "") + " • entry " + str.tostring(entry, format.mintick) + " • stop " + str.tostring(stop, format.mintick) + " • TP1 " + str.tostring(tp1, format.mintick))
+        label.new(bar_index, d == 1 ? low - atr * 0.4 : high + atr * 0.4, (d == 1 ? "▲ BUY • " : "▼ SELL • ") + grade, style = d == 1 ? label.style_label_up : label.style_label_down, color = sigA ? c : color.new(c, 40), textcolor = color.white, size = size.small, tooltip = "Confluence " + str.tostring(sc) + "/5 • entry " + str.tostring(entry, format.mintick) + " • stop " + str.tostring(stop, format.mintick) + " • TP1 " + str.tostring(tp1, format.mintick))
     if showPlanInput
         for l in planLines
             l.delete()
@@ -330,7 +279,7 @@ barcolor(colorBarsInput and pos != 0 ? color.new(pos == 1 ? bullC : bearC, 20) :
 
 // ---------- Dashboard ----------
 dashPos = dashPosInput == "Top right" ? position.top_right : dashPosInput == "Bottom right" ? position.bottom_right : dashPosInput == "Top left" ? position.top_left : position.bottom_left
-var table dash = table.new(dashPos, 2, 11, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+var table dash = table.new(dashPos, 2, 10, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
 
 row(int r, string k, string v, color vc) =>
     dash.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
@@ -344,15 +293,14 @@ if showDashInput and barstate.islast
     dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
     dash.cell(1, 0, "Signals", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
     row(1, "Position", pos == 1 ? "LONG • " + grade : pos == -1 ? "SHORT • " + grade : "FLAT", posC)
-    row(2, "Confluence", str.tostring(best) + "/6 " + (scoreL >= scoreS ? "▲" : "▼"), color.from_gradient(best, 1, 6, textC, scoreL >= scoreS ? bullC : bearC))
+    row(2, "Confluence", str.tostring(best) + "/5 " + (scoreL >= scoreS ? "▲" : "▼"), color.from_gradient(best, 1, 5, textC, scoreL >= scoreS ? bullC : bearC))
     row(3, "Entry / stop", pos != 0 ? str.tostring(entry, format.mintick) + " / " + str.tostring(stop, format.mintick) : "-", posC)
     row(4, "Open result", na(openR) ? "-" : (openR >= 0 ? "+" : "") + str.tostring(openR, "#.##") + " R", na(openR) ? textC : openR >= 0 ? bullC : bearC)
     row(5, "Targets hit", pos == 0 ? "-" : hitCount == 0 ? "none" : hitCount == 1 ? "TP1" : hitCount == 2 ? "TP1 • TP2" : "TP1 • TP2 • TP3", hitCount > 0 ? bullC : textC)
     row(6, "Stop mode", pos == 0 ? "-" : stopMode, stopMode == "Initial" ? textC : accentC)
     row(7, "Trades / win", str.tostring(trades) + (trades > 0 ? " • " + str.tostring(wins * 100.0 / trades, "#") + "%" : ""), trades > 0 ? color.from_gradient(wins * 100.0 / trades, 35, 65, bearC, bullC) : textC)
     row(8, "Total R", trades > 0 ? (totalR >= 0 ? "+" : "") + str.tostring(totalR, "#.#") + " • avg " + str.tostring(avgR, "#.##") : "-", trades > 0 ? (totalR >= 0 ? bullC : bearC) : textC)
-    row(9, "Late / no room", str.tostring(lateSkips) + " / " + str.tostring(roomSkips), accentC)
-    row(10, "Location", atDemand ? "At demand ▲" : atSupply ? "At supply ▼" : "Between zones", atDemand ? bullC : atSupply ? bearC : textC)
+    row(9, "Late skipped", str.tostring(lateSkips), accentC)
 
 // ---------- Alerts ----------
 alertcondition(buySig, "BUY signal", "Nexus Signals: BUY {{ticker}} {{interval}} at {{close}}")

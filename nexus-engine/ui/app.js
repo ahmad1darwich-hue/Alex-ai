@@ -103,7 +103,6 @@
     s_check: ['فحص تلقائي…', 'Automatic check…'],
     s_check_ok: ['الفحص التلقائي: 0 أخطاء', 'Automatic check: 0 errors'],
     s_check_bad: ['الفحص لقى {e} خطأ و{w} ملاحظة', 'The check found {e} error(s) and {w} finding(s)'],
-    s_look: ['👁️ عم شوف الشارت متل مصمّم محترف وصلّح اللي مش زابط…', '👁️ Looking at the chart like a pro designer and fixing what looks off…'],
     s_design: ['عم راجع كل شي طلبته عالشارت وحسّن التصميم (التقييم {n}/100)…', 'Checking every ask on the chart and polishing the look (design {n}/100)…'],
     b_design: ['◆ تصميم {n}/100', '◆ Design {n}/100'],
     s_fix: ['عم صلّح اللي لقاه الفحص (جولة {n})…', 'Fixing what the check found (round {n})…'],
@@ -471,7 +470,6 @@
       }
       if (ev.id === 'fix') return step(t('s_fix', { n: num(ev.round, 1) || 1 }));
       if (ev.id === 'design') return step(t('s_design', { n: num(ev.score, 0) }));
-      if (ev.id === 'look' && ev.seen) return step(t('s_look'));
     };
     this.code = function (d) {
       d = String(d == null ? '' : d);
