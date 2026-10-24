@@ -661,7 +661,12 @@ export class PreviewRunner {
     const named = {}; const pos = [];
     for (let k = 2; k < args.length; k++) { if (args[k].name) named[args[k].name] = this.ev(args[k].value, env); else pos.push(this.ev(args[k].value, env)); }
     let col;
-    if ("top_color" in named || pos.length >= 4) { const tc = named.top_color ?? pos[2]; col = toColor(tc); }
+    if ("top_color" in named || pos.length >= 4) {
+      // Vertical gradient fill: the chart shows one color per bar, so use the stronger end at half its strength.
+      const tc = toColor(named.top_color ?? pos[2]), bc = toColor(named.bottom_color ?? pos[3]);
+      const strong = !tc ? bc : !bc ? tc : (tc.t <= bc.t ? tc : bc);
+      col = strong ? { ...strong, t: Math.min(100, strong.t + (100 - strong.t) / 2) } : null;
+    }
     else col = toColor(named.color ?? pos[0]);
     let idx = this.plotSites.get(n);
     if (idx === undefined) { idx = this.out.fills.length; this.plotSites.set(n, idx); this.out.fills.push({ a: { kind: a1.kind, idx: a1.idx }, b: { kind: a2.kind, idx: a2.idx }, colors: [] }); }

@@ -1,0 +1,141 @@
+//@version=6
+indicator("Nexus Design Kit - Trend Cloud, Live Zones & Signals", shorttitle = "NX Kit", overlay = true, max_labels_count = 100, max_lines_count = 100, max_boxes_count = 50)
+
+// The reference look for every Nexus indicator: one hero line with glow, a vertical-gradient cloud that fades away
+// from it, zones that age (fresh = solid, old = faint) with a dashed mid line and a right-edge price tag, signal pills
+// with the details in the tooltip, a quiet status label and a compact dashboard with a text gauge.
+
+// ---------- Inputs ----------
+string GRP_T = "Trend"
+int    lenInput     = input.int(34, "Trend EMA", minval = 2, group = GRP_T)
+int    atrLenInput  = input.int(14, "ATR length", minval = 1, group = GRP_T)
+float  bandInput    = input.float(1.5, "Cloud depth (x ATR)", minval = 0.2, step = 0.1, group = GRP_T)
+string GRP_Z = "Zones"
+int    pivInput     = input.int(6, "Swing strength", minval = 2, group = GRP_Z)
+int    maxZoneInput = input.int(4, "Zones per side", minval = 1, maxval = 10, group = GRP_Z)
+int    fadeInput    = input.int(150, "Bars to fade out", minval = 10, group = GRP_Z)
+string GRP_L = "Layers"
+bool   showCloudInput = input.bool(true, "Gradient cloud", group = GRP_L, inline = "l1")
+bool   showZonesInput = input.bool(true, "Zones", group = GRP_L, inline = "l1")
+bool   showSigInput   = input.bool(true, "Signals", group = GRP_L, inline = "l2")
+bool   colorBarsInput = input.bool(true, "Color candles", group = GRP_L, inline = "l2")
+bool   showDashInput  = input.bool(true, "Dashboard", group = GRP_L)
+string GRP_ST = "Style"
+string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_ST)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color accentC  = pick(#7C4DFF, #2962FF, #B2B5BE, #E0E3EB)
+color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
+
+// ---------- Calculations ----------
+float ema   = ta.ema(close, lenInput)
+float atr   = ta.atr(atrLenInput)
+int   dir   = close > ema ? 1 : -1
+float slope = nz((ema - ema[3]) / atr)
+// Strength 0..1 from distance to the line and slope: it drives every color below.
+float power = math.min(1.0, math.abs(close - ema) / (atr * 2) * 0.6 + math.min(math.abs(slope), 1.0) * 0.4)
+color trendC = dir == 1 ? bullC : bearC
+color heroC  = color.from_gradient(power, 0.0, 1.0, color.new(trendC, 55), trendC)
+float edge   = ema - dir * bandInput * atr
+
+// ---------- Hero line, glow and gradient cloud ----------
+pHero = plot(ema, "Trend line", color = heroC, linewidth = 2)
+plot(ema, "Trend glow", color = color.new(trendC, 85), linewidth = 8, display = display.pane)
+pEdge = plot(showCloudInput ? edge : na, "Cloud edge", color = color.new(trendC, 100), display = display.pane)
+// Vertical gradient: strongest next to the line, transparent at the far edge of the cloud.
+fill(pHero, pEdge, dir == 1 ? ema : edge, dir == 1 ? edge : ema, dir == 1 ? color.new(trendC, 70) : color.new(trendC, 100), dir == 1 ? color.new(trendC, 100) : color.new(trendC, 70), title = "Cloud")
+barcolor(colorBarsInput ? color.from_gradient(power, 0.0, 1.0, color.new(neutralC, 20), trendC) : na, title = "Candles")
+
+// ---------- Live zones that age ----------
+type Zone
+    box   bx
+    line  mid
+    label tag
+    int   born
+    int   side
+
+var array<Zone> zones = array.new<Zone>()
+
+float ph = ta.pivothigh(high, pivInput, pivInput)
+float pl = ta.pivotlow(low, pivInput, pivInput)
+
+addZone(float top, float bottom, int side) =>
+    color c = side == 1 ? bullC : bearC
+    int   x = bar_index - pivInput
+    Zone z = Zone.new(box.new(x, top, bar_index + 5, bottom, border_color = color.new(c, 50), bgcolor = color.new(c, 80), text = side == 1 ? "Demand" : "Supply", text_size = size.tiny, text_color = color.new(c, 20), text_halign = text.align_left), line.new(x, (top + bottom) / 2, bar_index + 5, (top + bottom) / 2, color = color.new(c, 40), style = line.style_dashed), label.new(bar_index + 5, (top + bottom) / 2, str.tostring((top + bottom) / 2, format.mintick), style = label.style_label_left, color = color.new(c, 100), textcolor = c, size = size.tiny), bar_index, side)
+    zones.push(z)
+    int same = 0
+    for k = zones.size() - 1 to 0
+        Zone q = zones.get(k)
+        if q.side == side
+            same += 1
+            if same > maxZoneInput
+                q.bx.delete()
+                q.mid.delete()
+                q.tag.delete()
+                zones.remove(k)
+
+if showZonesInput and not na(atr)
+    if not na(ph)
+        addZone(ph, ph - 0.5 * atr, -1)
+    if not na(pl)
+        addZone(pl + 0.5 * atr, pl, 1)
+
+// Every bar: broken zones go, live ones run to the right edge and fade with age (fresh = solid, old = faint).
+if zones.size() > 0
+    for k = zones.size() - 1 to 0
+        Zone z = zones.get(k)
+        float top = z.bx.get_top()
+        float bot = z.bx.get_bottom()
+        bool  broken = z.side == 1 ? close < bot : close > top
+        if broken
+            z.bx.delete()
+            z.mid.delete()
+            z.tag.delete()
+            zones.remove(k)
+        else
+            color c   = z.side == 1 ? bullC : bearC
+            float age = math.min(1.0, (bar_index - z.born) / fadeInput)
+            z.bx.set_right(bar_index + 5)
+            z.mid.set_x2(bar_index + 5)
+            z.tag.set_x(bar_index + 5)
+            z.bx.set_bgcolor(color.new(c, 78 + age * 16))
+            z.bx.set_border_color(color.new(c, 45 + age * 40))
+
+// ---------- Signals: one pill per direction change, details in the tooltip ----------
+var int lastDir = 0
+bool flipUp = dir == 1 and lastDir == -1 and barstate.isconfirmed
+bool flipDn = dir == -1 and lastDir == 1 and barstate.isconfirmed
+if barstate.isconfirmed
+    lastDir := dir
+if showSigInput and (flipUp or flipDn)
+    string tip = "Strength " + str.tostring(math.round(power * 100)) + "% • close " + str.tostring(close, format.mintick) + " • line " + str.tostring(ema, format.mintick)
+    label.new(bar_index, flipUp ? low - atr * 0.5 : high + atr * 0.5, flipUp ? "▲ BUY" : "▼ SELL", style = flipUp ? label.style_label_up : label.style_label_down, color = color.new(flipUp ? bullC : bearC, power > 0.5 ? 0 : 35), textcolor = color.white, size = size.small, tooltip = tip)
+
+// ---------- Dashboard with a text gauge ----------
+var table dash = table.new(position.top_right, 2, 4, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+gauge(float v) =>
+    int n = math.round(v * 10)
+    string s = ""
+    for k = 1 to 10
+        s += k <= n ? "■" : "□"
+    s
+if showDashInput and barstate.islast
+    dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    dash.cell(1, 0, "Design Kit", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    dash.cell(0, 1, "Trend", text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, 1, dir == 1 ? "Bullish ▲" : "Bearish ▼", text_color = trendC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right)
+    dash.cell(0, 2, "Strength", text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, 2, gauge(power), text_color = heroC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+    dash.cell(0, 3, "Live zones", text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, 3, str.tostring(zones.size()), text_color = accentC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+
+// ---------- Alerts ----------
+alertcondition(flipUp, "Trend turned up", "Nexus Kit: trend up on {{ticker}} {{interval}} at {{close}}")
+alertcondition(flipDn, "Trend turned down", "Nexus Kit: trend down on {{ticker}} {{interval}} at {{close}}")

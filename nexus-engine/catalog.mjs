@@ -202,4 +202,23 @@ export const CATALOG = [
       ],
     },
   },
+  {
+    id: "design_kit",
+    src: "design_kit.pine",
+    file: "nexus_design_kit.pine",
+    title: { en: "Nexus Design Kit - Trend Cloud, Live Zones & Signals", ar: "عدّة التصميم - غيمة ترند وزونات حيّة وإشارات" },
+    use: "THE LOOK REFERENCE for every indicator (copy its visual parts, adapt the logic): Theme pick(); one hero line whose color strength comes from color.from_gradient(power) + a wide faint glow copy; a VERTICAL GRADIENT cloud with fill(plotA, plotB, top_value, bottom_value, top_color, bottom_color) - strong next to the line, transparent at the far edge; candles colored by strength; zones as a UDT (box + dashed mid line + right-edge price tag label) that run to the right edge, fade with age through set_bgcolor / set_border_color and are deleted when a close breaks them, capped per side; one signal pill per direction change with the details in tooltip =; a compact dashboard with a ■■■■□□ text gauge; alerts.",
+    explain: {
+      en: [
+        "A trend line with a soft glow and a gradient cloud that fades away from it; candles get brighter as the move gets stronger.",
+        "Demand and supply zones from confirmed swings run to the right edge with a dashed mid line and their price; fresh zones are solid, old ones fade, broken ones disappear.",
+        "BUY / SELL pills only when the trend flips (hover one for the details); the dashboard shows trend, a strength gauge and the live zones.",
+      ],
+      ar: [
+        "خط ترند مع توهّج خفيف وغيمة متدرّجة بتبهت كل ما بعدت عنه، والشموع بتقوى ألوانها كل ما قويت الحركة.",
+        "زونات الطلب والعرض من القمم والقيعان المؤكّدة بتمشي لآخر الشارت مع خط بالنص وسعرها؛ الجديدة واضحة والقديمة بتبهت، واللي بتنكسر بتنمحى.",
+        "إشارة BUY / SELL بس لما يقلب الترند (مرّق الماوس عليها لتشوف التفاصيل)، والجدول بيعرض الترند ومقياس القوة والزونات الحيّة.",
+      ],
+    },
+  },
 ];

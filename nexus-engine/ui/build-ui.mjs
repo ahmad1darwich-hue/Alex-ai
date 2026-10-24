@@ -26,6 +26,7 @@ const CARDS = {
   mtf: { icon: "<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 10h18M3 15h18M10 4v16\"/>", name: { ar: "جدول متعدّد الفريمات", en: "Multi-timeframe table" }, blurb: { ar: "٥ فريمات بتنختار لحالها، سكور توافق وتحذير ضعف", en: "5 auto timeframes, alignment score and fading alert" } },
   sessions: { icon: "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>", name: { ar: "جلسات وكِل زونز", en: "Sessions & kill zones" }, blurb: { ar: "لندن ونيويورك، سيولة الجلسات وSWEEP ومدى اليوم", en: "London and New York, session liquidity, sweeps and daily range" } },
   rsi_div: { icon: "<path d=\"M3 16c3-7 5-7 8 0s5 7 10-5\"/><path d=\"M4 7l6 2M14 9l6-3\"/>", name: { ar: "دايفرجنس RSI", en: "RSI divergence" }, blurb: { ar: "عادي ومخفي، مع خطوط وتنبيهات", en: "Regular and hidden, with lines and alerts" } },
+  design_kit: { icon: "<path d=\"M3 17c4-1 6-6 9-8s6-2 9-3\"/><path d=\"M3 20c4-1 6-5 9-7s6-2 9-3\" opacity=\".4\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"4\" rx=\"1\"/>", name: { ar: "ترند بتصميم احترافي", en: "Premium trend cloud" }, blurb: { ar: "غيمة متدرّجة، زونات بتبهت مع الوقت، إشارات نظيفة", en: "Gradient cloud, zones that age, clean signals" } },
   strategy: { icon: "<path d=\"M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3\"/><path d=\"M7.5 15h9\"/>", name: { ar: "قالب ستراتيجي (باك-تست)", en: "Strategy template (backtest)" }, blurb: { ar: "مخاطرة ثابتة، وقف ATR وهدف", en: "Fixed risk, ATR stop and target" } },
 };
 const templates = CATALOG.map((t) => {

@@ -103,6 +103,20 @@ strategy.exit("x", "L", stop = close - 5, limit = close + 5)`;
   assert.ok(r.ok, r.error); assert.ok(r.trades.some((x) => x.kind === "entry")); assert.ok(r.stats.closed >= 1);
 });
 
+await t("design kit: gradient cloud visible both ways, capped zones with mid line + price tag, alternating pills, gauge", () => {
+  const code = fs.readFileSync(path.join(here, "..", "templates", "design_kit.pine"), "utf8");
+  const r = runPreview(code, sampleCandles(900, 800, 2400), { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+  const cloud = r.fills[0].colors.filter(Boolean);
+  assert.ok(cloud.length > 100 && cloud.every((c) => !/,0\)$/.test(c)), "the cloud is drawn in both directions");
+  assert.ok(r.boxes.length >= 1 && r.boxes.length <= 8, "zones capped per side");
+  assert.equal(r.lines.length, r.boxes.length, "one dashed mid line per zone");
+  const pills = r.labels.filter((l) => /^(▲ BUY|▼ SELL)$/.test(l.text));
+  for (let i = 1; i < pills.length; i++) assert.notEqual(pills[i].text, pills[i - 1].text, "pills alternate");
+  assert.ok(pills.every((p) => /Strength \d+%/.test(p.tooltip)), "details live in the tooltip");
+  assert.match(r.tables[0].cells["1:2"].text, /^[■□]{10}$/, "text gauge");
+});
+
 await t("broken or unknown code is reported, never crashes", () => {
   const r1 = runPreview(`//@version=6\nindicator("x")\nplot(close +)`, candles.slice(0, 50), { tfSec: 900 });
   assert.equal(r1.ok, false); assert.match(r1.error, /syntax|parse/);

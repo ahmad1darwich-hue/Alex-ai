@@ -256,3 +256,23 @@ Where it went:
 - knowledge.js: new "STRATEGY / BACKTEST RULES". lint.js: NX_STRATEGY_ALERTCONDITION (should-fix). bench: strategy_honest_backtest
   (replaces the simpler breakout_strategy case). Preview simulator: qty, exits by id with qty_percent partial fills, openprofit.
 - Main Brain: new TRADING DESK mode (backtest review checklist, position size maths for gold / forex, chart review, trading plan).
+
+## 2026-10-24 · what makes premium indicators look premium (Ahmad: "the design is rubbish")
+Sources: TradingView blog "Pine Script vertical gradients" (official: fill(plot1, plot2, top_value, bottom_value, top_color,
+bottom_color), series arguments, the two plots act as a mask over the gradient); public descriptions of popular open scripts -
+a gradient range tool (transparent range box, dashed mid line, candles colored by distance from the mid, tiny status label,
+contrasting markers on extremes), trend-wave bands (solid main band + dashed secondary band, intensity fading with the age of
+the trend, small circles at reversals, "restraint"), an order-block matrix (volume bars inside zones, brightness = relative
+volume, edge label with the total, faded / dashed when mitigated, compact screener table), a visual library (solid core +
+transparent glow, glow intensity tied to volatility, transparency tied to confidence, auto black / white text for contrast,
+text gauges and star ratings inside table cells, named palettes).
+Common thread: restraint; color carries information (strength -> intensity, age -> fading, direction -> hue); depth from
+solid / dashed / faint layers; zones = translucent body + crisp border + dashed mid + tag and price at the right edge; signals
+small, at the turn only, details in tooltips; status in a compact dashboard with gauges.
+Where it went:
+- New verified TEMPLATE design_kit ("Nexus Design Kit - Trend Cloud, Live Zones & Signals"): hero line + glow, vertical
+  gradient cloud, candles by strength, Zone UDT with dashed mid line + right-edge price tag that fades with age and is deleted
+  on a break, signal pills with tooltips, ■□ gauge dashboard. Checked by our compiler checks and the preview (not yet pasted
+  into TradingView - first real paste is the check).
+- knowledge.js DESIGN DIRECTOR rule 13: the design kit is THE LOOK REFERENCE for every tool + the principles above.
+- Preview: gradient fills drawn with the stronger end at half strength (a bearish cloud was invisible before).
