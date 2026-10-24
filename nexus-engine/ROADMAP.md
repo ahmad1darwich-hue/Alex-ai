@@ -53,7 +53,8 @@ labels, zones, lines, table cells, tints) and ticks each ask ✓ / fixes ✗ (sh
 honestly); repeated asks detected (word overlap) and the model told to make the change visible. Main Brain: DESIGN STUDIO mode
 (understand-first brief, exact format sizes, premium rules, USWS palette, rendered SVG/HTML in the chat) + "get it right the
 first time" rule. ROLLED BACK 2026-10-24 (Ahmad: code quality got worse after the design updates of that day - premium-finish checks, signals
-location check, review with the chart picture). The engine is back to its state of commit 534a228; render.js stays in the repo
+location check, review with the chart picture). Then, at Ahmad's request, the whole indicator engine went back to commit 3e473d9 (before the 2026-10-23 daily run:
+strategy template rebuild, NX_STRATEGY_ALERTCONDITION, preview strategy simulator changes are undone too); render.js stays in the repo
 unused. Re-add ONE change at a time, only with a real TradingView compile test, and ask Ahmad for the errors he saw first.
 Was: the reviewer SEES the chart - _nexus/render.js draws the dry run (candles, plots, fills, tints, zones, lines,
 labels with a pixel font, table) into a PNG (own rasterizer + CompressionStream) and every new build gets a final review with

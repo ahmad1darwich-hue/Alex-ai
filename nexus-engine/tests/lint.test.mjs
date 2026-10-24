@@ -17,13 +17,6 @@ for (const tpl of TEMPLATES) {
   });
 }
 
-t("alertcondition in a strategy is should-fix (no alert can be created from it), fine in an indicator", () => {
-  const body = 'c = ta.crossover(close, ta.sma(close, 10))\nif c\n    strategy.entry("L", strategy.long)\nstrategy.exit("x", "L", stop = close - 5, limit = close + 5)\nalertcondition(c, "Buy", "buy {{ticker}}")\n';
-  const s1 = checkPine('//@version=6\nstrategy("s", overlay = true)\n' + body);
-  assert.ok(s1.shouldFix.some((d) => d.rule === "NX_STRATEGY_ALERTCONDITION" && /alert_message/.test(d.message)));
-  const s2 = checkPine('//@version=6\nindicator("i", overlay = true)\nc = ta.crossover(close, ta.sma(close, 10))\nalertcondition(c, "Buy", "buy {{ticker}}")\n');
-  assert.ok(!s2.shouldFix.concat(s2.mustFix).some((d) => d.rule === "NX_STRATEGY_ALERTCONDITION"));
-});
 t("syntax error is reported with TradingView wording", () => {
   const c = checkPine('//@version=6\nindicator("x")\na = ta.sma(close, 14\nplot(a)\n');
   assert.ok(!c.ok);

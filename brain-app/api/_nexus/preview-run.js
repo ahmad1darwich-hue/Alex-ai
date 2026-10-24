@@ -165,7 +165,7 @@ export class PreviewRunner {
     this.drawSeq = 1;
     this.live = { label: [], line: [], box: [] };
     this.plotSites = new Map(); // call node -> plot index
-    this.strat = { pos: 0, avg: NA, full: 0, entries: [], closed: 0, wins: 0, net: 0, exits: new Map(), lastId: "" };
+    this.strat = { pos: 0, avg: NA, entries: [], closed: 0, wins: 0, net: 0, pendingExits: new Map(), lastId: "" };
   }
 
   id(node) { let v = this.ids.get(node); if (!v) { v = this.nextId++; this.ids.set(node, v); } return v; }
@@ -423,8 +423,7 @@ export class PreviewRunner {
         }
         case "strategy": {
           const S = this.strat;
-          const open = S.pos ? (D.c[i] - S.avg) * S.pos : 0;
-          const m = { long: "long", short: "short", position_size: S.pos, position_avg_price: S.avg, closedtrades: S.closed, wintrades: S.wins, losstrades: S.closed - S.wins, netprofit: S.net, openprofit: open, equity: 10000 + S.net + open, initial_capital: 10000, opentrades: S.pos ? 1 : 0, fixed: "fixed", percent_of_equity: "percent_of_equity", cash: "cash" };
+          const m = { long: "long", short: "short", position_size: S.pos, position_avg_price: S.avg, closedtrades: S.closed, wintrades: S.wins, losstrades: S.closed - S.wins, netprofit: S.net, equity: 10000 + S.net, initial_capital: 10000, opentrades: S.pos ? 1 : 0, fixed: "fixed", percent_of_equity: "percent_of_equity", cash: "cash" };
           if (p in m) return m[p];
           break;
         }
@@ -1027,13 +1026,10 @@ export class PreviewRunner {
       return NA;
     }
     if (name.startsWith("set_")) return NA;
-    if (name === "merge_cells") { const a = evArgs(["table_id", "start_column", "start_row", "end_column", "end_row"]); const t = a.table_id; if (t && t.merges) t.merges.push([a.start_column, a.start_row, a.end_column, a.end_row]); else if (t) t.merges = [[a.start_column, a.start_row, a.end_column, a.end_row]]; return NA; }
-    if (name === "clear" || name === "delete") return NA;
     return this.miss("table." + name);
   }
 
-  // ---------- strategy (simple simulator: market orders at the next bar's open, stop / limit exits by id,
-  // qty and qty_percent partial exits; stop is checked before the limit on the same bar = conservative) ----------
+  // ---------- strategy (simple simulator: market orders at the next bar's open, stop / limit exits) ----------
   stratBar() {
     const S = this.strat, D = this.main, i = this.i;
     if (!S.queue || this.inSec) return;
@@ -1041,54 +1037,34 @@ export class PreviewRunner {
     for (const o of S.queue.splice(0)) {
       const px = D.o[i];
       if (o.type === "entry") {
-        if (S.pos !== 0 && Math.sign(S.pos) !== o.dir) this.closeTrade(px, i, "reverse", Math.abs(S.pos));
-        if (S.pos === 0) { const q = o.qty > 0 ? o.qty : 1; S.pos = o.dir * q; S.full = q; S.avg = px; S.entryBar = i; S.entryId = o.id; this.out.trades.push({ bar: i, price: px, dir: o.dir, id: o.id, kind: "entry" }); }
-      } else if (o.type === "close" && S.pos !== 0) this.closeTrade(px, i, o.id || "close", Math.abs(S.pos));
+        if (S.pos !== 0 && Math.sign(S.pos) !== o.dir) this.closeTrade(px, i, "reverse");
+        if (S.pos === 0) { S.pos = o.dir; S.avg = px; S.entryBar = i; S.entryId = o.id; this.out.trades.push({ bar: i, price: px, dir: o.dir, id: o.id, kind: "entry" }); }
+      } else if (o.type === "close" && S.pos !== 0) this.closeTrade(px, i, o.id || "close");
     }
-    if (S.pos !== 0 && S.exits.size) {
+    if (S.pos !== 0 && S.exit) {
+      const { stop, limit } = S.exit;
       const long = S.pos > 0;
-      for (const [id, x] of [...S.exits]) {
-        if (S.pos === 0) break;
-        const hitStop = !isNa(x.stop) && (long ? D.l[i] <= x.stop : D.h[i] >= x.stop);
-        const hitLim = !isNa(x.limit) && (long ? D.h[i] >= x.limit : D.l[i] <= x.limit);
-        if (!hitStop && !hitLim) continue;
-        const q = Math.min(Math.abs(S.pos), x.qty > 0 ? x.qty : x.pct < 100 ? S.full * x.pct / 100 : Math.abs(S.pos));
-        S.exits.delete(id);
-        this.closeTrade(hitStop ? x.stop : x.limit, i, hitStop ? "SL" : id, q);
-      }
+      const hitStop = !isNa(stop) && (long ? D.l[i] <= stop : D.h[i] >= stop);
+      const hitLim = !isNa(limit) && (long ? D.h[i] >= limit : D.l[i] <= limit);
+      if (hitStop) this.closeTrade(stop, i, "SL"); else if (hitLim) this.closeTrade(limit, i, "TP");
     }
   }
-  closeTrade(px, i, why, q) {
+  closeTrade(px, i, why) {
     const S = this.strat;
-    const qty = Math.min(Math.abs(S.pos), q === undefined ? Math.abs(S.pos) : q);
-    const pnl = (px - S.avg) * Math.sign(S.pos) * qty;
+    const pnl = (px - S.avg) * S.pos;
     S.closed++; if (pnl > 0) S.wins++; S.net += pnl;
-    this.out.trades.push({ bar: i, price: px, dir: -Math.sign(S.pos), id: why, kind: "exit", pnl });
-    S.pos = Math.sign(S.pos) * (Math.abs(S.pos) - qty);
-    if (Math.abs(S.pos) < 1e-12) { S.pos = 0; S.avg = NA; S.exits.clear(); S.full = 0; }
+    this.out.trades.push({ bar: i, price: px, dir: -S.pos, id: why, kind: "exit", pnl });
+    S.pos = 0; S.avg = NA; S.exit = null;
   }
   strategyFn(name, n, env, A) {
     const S = this.strat; S.queue = S.queue || [];
     if (this.inSec) return NA;
     switch (name) {
-      case "entry": { const a = A(["id", "direction", "qty", "limit", "stop"]); const dir = a.direction === "short" ? -1 : 1; if (Math.sign(S.pos) !== dir && !S.queue.some((o) => o.type === "entry" && o.dir === dir)) S.queue.push({ type: "entry", dir, id: a.id, qty: isNa(a.qty ?? NA) ? 0 : a.qty }); return NA; }
-      case "order": { const a = A(["id", "direction", "qty"]); S.queue.push({ type: "entry", dir: a.direction === "short" ? -1 : 1, id: a.id, qty: isNa(a.qty ?? NA) ? 0 : a.qty }); return NA; }
-      case "exit": {
-        const a = A(["id", "from_entry", "qty", "qty_percent", "profit", "limit", "loss", "stop"]); const m = this.sym.mintick;
-        const pend = S.queue.find((o) => o.type === "entry");
-        const dir = S.pos ? Math.sign(S.pos) : pend ? pend.dir : 0;
-        if (!dir) return NA;
-        const base = S.pos ? S.avg : this.main.c[this.i];
-        let stop = a.stop, limit = a.limit;
-        if (isNa(stop ?? NA) && a.loss !== undefined && !isNa(a.loss)) stop = base - dir * a.loss * m;
-        if (isNa(limit ?? NA) && a.profit !== undefined && !isNa(a.profit)) limit = base + dir * a.profit * m;
-        S.exits.set(String(a.id), { stop: stop === undefined ? NA : stop, limit: limit === undefined ? NA : limit, qty: isNa(a.qty ?? NA) ? 0 : a.qty, pct: isNa(a.qty_percent ?? NA) ? 100 : a.qty_percent });
-        return NA;
-      }
-      case "close": { const a = A(["id"]); if (S.pos) S.queue.push({ type: "close", id: a.id }); return NA; }
-      case "close_all": { if (S.pos) S.queue.push({ type: "close", id: "close all" }); return NA; }
-      case "cancel": { const a = A(["id"]); S.exits.delete(String(a.id)); return NA; }
-      case "cancel_all": S.exits.clear(); return NA;
+      case "entry": { const a = A(["id", "direction", "qty", "limit", "stop"]); const dir = a.direction === "short" ? -1 : 1; if (Math.sign(S.pos) !== dir) S.queue.push({ type: "entry", dir, id: a.id }); return NA; }
+      case "order": { const a = A(["id", "direction"]); S.queue.push({ type: "entry", dir: a.direction === "short" ? -1 : 1, id: a.id }); return NA; }
+      case "exit": { const a = A(["id", "from_entry", "qty", "qty_percent", "profit", "limit", "loss", "stop"]); const m = this.sym.mintick; let stop = a.stop, limit = a.limit; if (S.pos && isNa(stop ?? NA) && a.loss !== undefined) stop = S.avg - Math.sign(S.pos) * a.loss * m; if (S.pos && isNa(limit ?? NA) && a.profit !== undefined) limit = S.avg + Math.sign(S.pos) * a.profit * m; S.exit = { stop: stop === undefined ? NA : stop, limit: limit === undefined ? NA : limit }; return NA; }
+      case "close": case "close_all": { const a = A(["id"]); if (S.pos) S.queue.push({ type: "close", id: a.id }); return NA; }
+      case "cancel": case "cancel_all": return NA;
     }
     return this.miss("strategy." + name);
   }

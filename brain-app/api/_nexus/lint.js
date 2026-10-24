@@ -26,7 +26,7 @@ export const DESIGN_GLYPHS = "▲▼●◆•✕■○◇□"; // filled marks +
 // Nexus rules that reproduce TradingView compile errors the type checker lets through.
 const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE"]);
 // Worth one repair attempt, but never block delivery on them.
-const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING", "NX_STRATEGY_ALERTCONDITION"]);
+const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING"]);
 
 // Type-checker findings that TradingView's compiler does not report (confirmed on the real compiler): dropped.
 const KNOWN_FALSE_POSITIVES = [
@@ -451,14 +451,6 @@ function nexusRules(code) {
     const ln = code.slice(0, st.index).split("\n").length;
     push(ln, 1, "NX_SHORTTITLE", `The shorttitle is too long (${st[1].length} characters). It should be 10 characters or less.`);
   }
-  // TradingView (Pine v6 manual, Alerts): alertcondition() in a strategy compiles, but no alert can be created from it.
-  if (declLine && /^strategy\s*\(/.test(maskedLines[declLine - 1])) {
-    const ac = /(^|[^\w.])alertcondition[ \t]*\(/m.exec(masked);
-    if (ac) {
-      const ln = masked.slice(0, ac.index + ac[1].length).split("\n").length;
-      push(ln, 1, "NX_STRATEGY_ALERTCONDITION", "alertcondition() compiles in a strategy but TradingView cannot create alerts from it. Use alert(message, alert.freq_once_per_bar_close) inside an if block, and alert_message = \"...\" on strategy.entry / exit / close (the user puts {{strategy.order.alert_message}} in the alert).");
-    }
-  }
   return diags;
 }
 
@@ -540,8 +532,7 @@ export function checkPine(input) {
     } else if (MUST_FIX_RULES.has(d.rule)) {
       // Report each rule once per line, at most 5 lines per rule, to keep repair prompts short.
       if (mustFix.filter((x) => x.rule === d.rule).length < 5) mustFix.push(d);
-    } else if (SHOULD_FIX_RULES.has(d.rule)) shouldFix.push(d);
-    else notes.push(d);
+    } else notes.push(d);
   }
 
   const byPos = (a, b) => a.line - b.line || a.col - b.col;

@@ -1,361 +1,48 @@
 //@version=6
-strategy("Nexus Strategy - Regime Breakout Engine & Honest Backtest", shorttitle = "NX Strat", overlay = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 10, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 2, pyramiding = 0, process_orders_on_close = false, calc_on_every_tick = false, max_labels_count = 200, max_lines_count = 150, max_boxes_count = 100)
-
-// Orders are decided on the CLOSE of the bar and fill on the next bar's open: no lookahead, no repainting.
-// Costs are on by default (0.05% commission + 2 ticks slippage per order) so results are not flattering.
+strategy("Nexus Strategy Template - EMA Cross with ATR Risk", shorttitle = "NX Strat", overlay = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 10, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 1, process_orders_on_close = false, calc_on_every_tick = false)
 
 // ---------- Inputs ----------
-string GRP_S = "Entry engine"
-string engineInput    = input.string("Breakout", "Entry engine", options = ["Breakout", "EMA cross"], group = GRP_S, tooltip = "Breakout: a close beyond the highest high / lowest low of the channel. EMA cross: the fast EMA crosses the slow EMA. Both need the filters below.")
-bool   autoInput      = input.bool(true, "Auto settings", group = GRP_S, tooltip = "Picks lengths from the chart timeframe: 5m and below channel 30 + EMA 9 / 21, intraday channel 20 + EMA 12 / 26, 4h and above channel 20 + EMA 21 / 55. Turn off to use the manual lengths.")
-int    chanLenInput   = input.int(20, "Channel length (manual)", minval = 2, group = GRP_S)
-int    fastLenInput   = input.int(12, "Fast EMA (manual)", minval = 1, group = GRP_S, inline = "em")
-int    slowLenInput   = input.int(26, "Slow", minval = 2, group = GRP_S, inline = "em")
-int    trendLenInput  = input.int(200, "Trend EMA", minval = 2, group = GRP_S)
-string dirInput       = input.string("Both", "Direction", options = ["Both", "Long only", "Short only"], group = GRP_S)
-
-string GRP_F = "Filters"
-bool   useErInput     = input.bool(true, "Regime filter", group = GRP_F, inline = "er", tooltip = "Efficiency ratio = net move / sum of bar moves over the length. Below the minimum the market is choppy and new entries are blocked (counted in the dashboard).")
-float  erMinInput     = input.float(0.25, "min ER", minval = 0.05, maxval = 0.9, step = 0.05, group = GRP_F, inline = "er")
-int    erLenInput     = input.int(14, "ER length", minval = 2, group = GRP_F)
-bool   useTrendInput  = input.bool(true, "Trade with the trend EMA", group = GRP_F)
-bool   useHtfInput    = input.bool(true, "Higher-timeframe bias", group = GRP_F, inline = "htf")
-string htfInput       = input.timeframe("240", "", group = GRP_F, inline = "htf", tooltip = "Close vs EMA 50 of the last CLOSED higher-timeframe bar, so it never repaints. Used when Auto HTF is off.")
-bool   autoHtfInput   = input.bool(true, "Auto HTF from the chart", group = GRP_F, tooltip = "5m and below: 1H, up to 1H: 4H, up to 4H: daily, above: weekly. While the HTF has too little history (warm-up) it does not block trades.")
-int    cooldownInput  = input.int(5, "Bars between trades", minval = 0, group = GRP_F)
-
-string GRP_R = "Risk & exits"
-float  riskPctInput   = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, maxval = 10, step = 0.1, group = GRP_R, tooltip = "The position size is set so the stop loses about this much. Capped by the max position size below.")
-float  maxPosInput    = input.float(100, "Max position (% of equity)", minval = 1, maxval = 1000, step = 5, group = GRP_R, tooltip = "Stops a very tight stop from creating a huge position. 100 = no leverage.")
-string stopModeInput  = input.string("Swing", "Stop", options = ["Swing", "ATR"], group = GRP_R)
-int    swingLenInput  = input.int(10, "Swing lookback", minval = 2, group = GRP_R, inline = "sw")
-float  bufferInput    = input.float(0.3, "buffer (ATR)", minval = 0, step = 0.05, group = GRP_R, inline = "sw")
-float  slMultInput    = input.float(1.5, "ATR stop (x ATR)", minval = 0.1, step = 0.1, group = GRP_R)
-float  minStopInput   = input.float(0.6, "Stop distance min (ATR)", minval = 0.1, step = 0.1, group = GRP_R, inline = "mm")
-float  maxStopInput   = input.float(3.0, "max", minval = 0.2, step = 0.1, group = GRP_R, inline = "mm")
-int    atrLenInput    = input.int(14, "ATR length", minval = 1, group = GRP_R)
-float  tp1RInput      = input.float(1.0, "TP1 (R)", minval = 0.2, step = 0.25, group = GRP_R, inline = "tp1")
-int    tp1PctInput    = input.int(50, "close %", minval = 10, maxval = 90, step = 5, group = GRP_R, inline = "tp1")
-float  tp2RInput      = input.float(2.5, "TP2 (R)", minval = 0.3, step = 0.25, group = GRP_R)
-bool   beInput        = input.bool(true, "Stop to break-even after TP1", group = GRP_R)
-bool   trailInput     = input.bool(false, "Trail the stop after TP1", group = GRP_R, inline = "tr")
-float  trailMultInput = input.float(2.5, "x ATR", minval = 0.5, step = 0.1, group = GRP_R, inline = "tr")
-int    timeStopInput  = input.int(0, "Time stop (bars, 0 = off)", minval = 0, group = GRP_R, tooltip = "Closes a trade that has not reached TP1 after this many bars - the idea did not work.")
-bool   oppExitInput   = input.bool(true, "Exit on an opposite signal", group = GRP_R)
-
-string GRP_T = "Backtest honesty"
-int    startInput     = input.time(timestamp("2018-01-01T00:00:00"), "Start", group = GRP_T)
-int    endInput       = input.time(timestamp("2099-12-31T00:00:00"), "End", group = GRP_T)
-float  oosPctInput    = input.float(30, "Out-of-sample: last % of bars", minval = 0, maxval = 80, step = 5, group = GRP_T, tooltip = "Splits the record: the earlier bars are in-sample (where you tune), the last part is out-of-sample (the check). Only the record is split - trading is the same on all bars. Tune the settings on the in-sample part only.")
-int    minTradesInput = input.int(30, "Trades needed for a verdict", minval = 5, group = GRP_T)
-
-string GRP_L = "Layers"
-bool   showPlanInput  = input.bool(true, "Open trade plan", group = GRP_L, inline = "l1")
-bool   showBoxInput   = input.bool(true, "Closed trade boxes", group = GRP_L, inline = "l1")
-int    maxBoxesInput  = input.int(25, "Closed trades drawn", minval = 1, maxval = 45, group = GRP_L)
-bool   showEmasInput  = input.bool(true, "EMA cloud + trend EMA", group = GRP_L, inline = "l2")
-bool   showChanInput  = input.bool(true, "Breakout channel", group = GRP_L, inline = "l2")
-bool   showOosInput   = input.bool(true, "Out-of-sample marker", group = GRP_L)
-
-string GRP_D = "Dashboard"
-bool   showDashInput  = input.bool(true, "Show dashboard", group = GRP_D)
-string dashPosInput   = input.string("Top right", "Position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = GRP_D)
-string dashSizeInput  = input.string("Full", "Layout", options = ["Full", "Compact"], group = GRP_D)
-
-string GRP_ST = "Style"
-string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_ST)
-
-// ---------- Theme ----------
-pick(color neon, color classic, color minimal, color mono) =>
-    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
-
-color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
-color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
-color accentC  = pick(#7C4DFF, #2962FF, #B2B5BE, #E0E3EB)
-color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
-color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
-color warnC    = pick(#FFB74D, #FF9800, #FFB74D, #B2B5BE)
+string GRP_S = "Entries"
+int    fastLenInput  = input.int(20, "Fast EMA", minval = 1, group = GRP_S)
+int    slowLenInput  = input.int(50, "Slow EMA", minval = 2, group = GRP_S)
+string dirInput      = input.string("Both", "Trade direction", options = ["Both", "Long only", "Short only"], group = GRP_S)
+string GRP_R = "Risk"
+float  riskPctInput  = input.float(1.0, "Risk per trade (% of equity)", minval = 0.1, maxval = 10, step = 0.1, group = GRP_R)
+int    atrLenInput   = input.int(14, "ATR length", minval = 1, group = GRP_R)
+float  slMultInput   = input.float(2.0, "Stop distance (x ATR)", minval = 0.5, step = 0.1, group = GRP_R)
+float  rrInput       = input.float(2.0, "Reward : risk", minval = 0.5, step = 0.1, group = GRP_R)
+string GRP_T = "Backtest window"
+int    startInput    = input.time(timestamp("2020-01-01T00:00:00"), "Start", group = GRP_T)
 
 // ---------- Calculations ----------
-int   tfSec    = timeframe.in_seconds()
-int   chanLen  = autoInput ? (tfSec <= 300 ? 30 : 20) : chanLenInput
-int   fastLen  = autoInput ? (tfSec <= 300 ? 9 : tfSec < 14400 ? 12 : 21) : fastLenInput
-int   slowLen  = autoInput ? (tfSec <= 300 ? 21 : tfSec < 14400 ? 26 : 55) : math.max(slowLenInput, fastLenInput + 1)
-float fastEma  = ta.ema(close, fastLen)
-float slowEma  = ta.ema(close, slowLen)
-float trendEma = ta.ema(close, trendLenInput)
-float atr      = ta.atr(atrLenInput)
-float chanHi   = ta.highest(high, chanLen)[1]
-float chanLo   = ta.lowest(low, chanLen)[1]
-float swingLo  = ta.lowest(low, swingLenInput)
-float swingHi  = ta.highest(high, swingLenInput)
-float er       = nz(math.abs(close - close[erLenInput]) / math.sum(math.abs(ta.change(close)), erLenInput))
-bool  crossUp  = ta.crossover(fastEma, slowEma)
-bool  crossDn  = ta.crossunder(fastEma, slowEma)
-bool  brkUp    = close > chanHi and close[1] <= chanHi[1]
-bool  brkDn    = close < chanLo and close[1] >= chanLo[1]
-bool  trigL    = engineInput == "Breakout" ? brkUp : crossUp
-bool  trigS    = engineInput == "Breakout" ? brkDn : crossDn
+float fastEma = ta.ema(close, fastLenInput)
+float slowEma = ta.ema(close, slowLenInput)
+float atr     = ta.atr(atrLenInput)
+bool  crossUp = ta.crossover(fastEma, slowEma)
+bool  crossDn = ta.crossunder(fastEma, slowEma)
+bool  inWindow = time >= startInput
+bool  allowLong  = dirInput != "Short only"
+bool  allowShort = dirInput != "Long only"
 
-// Higher-timeframe bias from the last closed HTF bar (offset + lookahead_on = no repainting).
-string htfTf = not autoHtfInput ? htfInput : tfSec <= 300 ? "60" : tfSec <= 3600 ? "240" : tfSec <= 14400 ? "1D" : "1W"
-[htfClose, htfEma] = request.security(syminfo.tickerid, htfTf, [close[1], ta.ema(close, 50)[1]], lookahead = barmerge.lookahead_on)
-bool  htfWarm  = na(htfEma) or na(htfClose)
-bool  htfUp    = not useHtfInput or htfWarm or htfClose > htfEma
-bool  htfDn    = not useHtfInput or htfWarm or htfClose < htfEma
-bool  regimeOk = not useErInput or er >= erMinInput
-bool  okL      = trigL and dirInput != "Short only" and (not useTrendInput or close > trendEma) and htfUp
-bool  okS      = trigS and dirInput != "Long only" and (not useTrendInput or close < trendEma) and htfDn
-bool  inWindow = time >= startInput and time <= endInput
-int   oosBar   = math.round(last_bar_index * (1 - oosPctInput / 100))
-bool  isOos    = oosPctInput > 0 and bar_index >= oosBar
+// Position size from risk: lose `riskPctInput` % of equity if the stop is hit.
+float stopDist = atr * slMultInput
+float riskCash = strategy.equity * riskPctInput / 100
+float qty      = stopDist > 0 ? riskCash / (stopDist * syminfo.pointvalue) : na
 
-// ---------- Trade state + honest R ledger ----------
-var int    side       = 0
-var float  entryPx    = na
-var float  stopPx     = na
-var float  tp1Px      = na
-var float  tp2Px      = na
-var float  riskPx     = na
-var float  riskCash   = na
-var bool   tp1Done    = false
-var float  fullQty    = 0.0
-var string stopMode   = "Initial"
-var int    sigBar     = na
-var int    lastExitBar = na
-var bool   tradeOos   = false
-var float  netFlat    = 0.0
-var int    ctPrev     = 0
-var int    chopBlocks = 0
-var int    trades     = 0
-var int    wins       = 0
-var float  grossWinR  = 0.0
-var float  grossLossR = 0.0
-var float  totalR     = 0.0
-var float  peakR      = 0.0
-var float  maxDdR     = 0.0
-var int    lossRun    = 0
-var int    maxLossRun = 0
-var int    tradesIs   = 0
-var float  rIs        = 0.0
-var int    tradesOos  = 0
-var float  rOos       = 0.0
-var float  peakEq     = strategy.initial_capital
-var float  maxDdPct   = 0.0
-var line   stopLn     = na
-var label  stopLb     = na
-var array<line>  planLines  = array.new<line>()
-var array<label> planLabels = array.new<label>()
-var array<box>   planBoxes  = array.new<box>()
-var array<box>   doneBoxes  = array.new<box>()
-var array<label> doneLabels = array.new<label>()
-
-bool longSig  = false
-bool shortSig = false
-bool endedEv  = false
-
-clearPlan() =>
-    for l in planLines
-        l.delete()
-    for lb in planLabels
-        lb.delete()
-    for b in planBoxes
-        b.delete()
-    planLines.clear()
-    planLabels.clear()
-    planBoxes.clear()
-
-float posSize = strategy.position_size
-
-// 1) A trade idea ended (fully flat again, or opened and stopped inside one bar): book its R.
-if posSize == 0 and (side != 0 and (nz(posSize[1]) != 0 or strategy.closedtrades > ctPrev))
-    float pnl = strategy.netprofit - netFlat
-    float r   = riskCash > 0 ? pnl / riskCash : 0.0
-    trades    += 1
-    wins      += r > 0 ? 1 : 0
-    grossWinR += r > 0 ? r : 0.0
-    grossLossR += r < 0 ? -r : 0.0
-    totalR    += r
-    peakR     := math.max(peakR, totalR)
-    maxDdR    := math.max(maxDdR, peakR - totalR)
-    lossRun   := r < 0 ? lossRun + 1 : 0
-    maxLossRun := math.max(maxLossRun, lossRun)
-    if tradeOos
-        tradesOos += 1
-        rOos      += r
-    else
-        tradesIs += 1
-        rIs      += r
-    netFlat     := strategy.netprofit
-    lastExitBar := bar_index
-    endedEv     := true
-    color rc = r > 0 ? bullC : r < 0 ? bearC : neutralC
-    if showBoxInput
-        doneBoxes.push(box.new(sigBar + 1, math.max(entryPx, close), bar_index, math.min(entryPx, close), border_color = color.new(rc, 55), bgcolor = color.new(rc, 88)))
-        doneLabels.push(label.new(bar_index, side == 1 ? math.max(high, entryPx) : math.min(low, entryPx), (r >= 0 ? "+" : "") + str.tostring(r, "#.#") + "R", style = side == 1 ? label.style_label_down : label.style_label_up, color = color.new(rc, 100), textcolor = rc, size = size.tiny))
-        if doneBoxes.size() > maxBoxesInput
-            doneBoxes.shift().delete()
-            doneLabels.shift().delete()
-    if showPlanInput
-        clearPlan()
-    side := 0
-else if posSize == 0 and side == 0
-    netFlat := strategy.netprofit
-
-// 2) Manage the open trade: TP1 seen -> break-even / trail (ratchet only), time stop, opposite exit.
-if side != 0 and posSize != 0 and bar_index > sigBar
-    bool isL = side == 1
-    fullQty := math.max(fullQty, math.abs(posSize))
-    bool partial = math.abs(posSize) < fullQty * 0.999
-    if not tp1Done and (partial or (isL ? high >= tp1Px : low <= tp1Px))
-        tp1Done := true
-        if beInput and stopMode == "Initial"
-            stopPx   := isL ? math.max(stopPx, entryPx) : math.min(stopPx, entryPx)
-            stopMode := "Break-even"
-    if tp1Done and trailInput
-        float t  = close - side * trailMultInput * atr
-        float ns = isL ? math.max(stopPx, t) : math.min(stopPx, t)
-        if ns != stopPx
-            stopPx   := ns
-            stopMode := "Trailing"
-    if timeStopInput > 0 and not tp1Done and bar_index - sigBar >= timeStopInput
-        strategy.close(isL ? "Long" : "Short", comment = "Time stop", alert_message = "Nexus Strategy: time stop " + syminfo.ticker)
-    if oppExitInput and (isL ? okS : okL)
-        strategy.close(isL ? "Long" : "Short", comment = "Opposite", alert_message = "Nexus Strategy: opposite signal exit " + syminfo.ticker)
-    if showPlanInput and not na(stopLn)
-        stopLn.set_y1(stopPx)
-        stopLn.set_y2(stopPx)
-        stopLb.set_y(stopPx)
-        stopLb.set_text((stopMode == "Initial" ? "SL " : stopMode == "Break-even" ? "BE " : "TRAIL ") + str.tostring(stopPx, format.mintick))
-
-// Leave the window: close what is open.
-if not inWindow and posSize != 0
-    strategy.close_all(comment = "Window end")
-
-// 3) New idea when flat: filters, cooldown, risk-based size, bracket orders.
-bool cool = na(lastExitBar) or bar_index - lastExitBar >= cooldownInput
-if inWindow and side == 0 and posSize == 0 and cool and not na(atr) and (okL or okS)
-    if not regimeOk
-        chopBlocks += 1
-    else
-        int   d       = okL ? 1 : -1
-        float rawRisk = stopModeInput == "Swing" ? (d == 1 ? close - (swingLo - bufferInput * atr) : swingHi + bufferInput * atr - close) : slMultInput * atr
-        float rk      = math.min(math.max(rawRisk, minStopInput * atr), math.max(maxStopInput, minStopInput) * atr)
-        float cash    = strategy.equity * riskPctInput / 100
-        float qtyRisk = cash / (rk * syminfo.pointvalue)
-        float qtyCap  = strategy.equity * maxPosInput / 100 / (close * syminfo.pointvalue)
-        float qty     = math.min(qtyRisk, qtyCap)
-        if qty > 0
-            side     := d
-            entryPx  := close
-            riskPx   := rk
-            riskCash := qty * rk * syminfo.pointvalue
-            stopPx   := close - d * rk
-            tp1Px    := close + d * rk * tp1RInput
-            tp2Px    := close + d * rk * math.max(tp2RInput, tp1RInput)
-            tp1Done  := false
-            fullQty  := 0.0
-            stopMode := "Initial"
-            sigBar   := bar_index
-            tradeOos := isOos
-            longSig  := d == 1
-            shortSig := d == -1
-            string eid = d == 1 ? "Long" : "Short"
-            strategy.entry(eid, d == 1 ? strategy.long : strategy.short, qty = qty, comment = (d == 1 ? "▲ " : "▼ ") + eid, alert_message = "Nexus Strategy: " + eid + " " + syminfo.ticker + " | SL " + str.tostring(stopPx, format.mintick) + " | TP1 " + str.tostring(tp1Px, format.mintick) + " | TP2 " + str.tostring(tp2Px, format.mintick))
-            if showPlanInput
-                clearPlan()
-                int x2 = bar_index + 12
-                planBoxes.push(box.new(bar_index, math.max(entryPx, stopPx), x2, math.min(entryPx, stopPx), border_color = color.new(bearC, 75), bgcolor = color.new(bearC, 88)))
-                planBoxes.push(box.new(bar_index, math.max(entryPx, tp2Px), x2, math.min(entryPx, tp2Px), border_color = color.new(bullC, 75), bgcolor = color.new(bullC, 90)))
-                planLines.push(line.new(bar_index, entryPx, x2, entryPx, color = color.new(textC, 20)))
-                stopLn := line.new(bar_index, stopPx, x2, stopPx, color = bearC, width = 2)
-                planLines.push(stopLn)
-                planLines.push(line.new(bar_index, tp1Px, x2, tp1Px, color = color.new(bullC, 40), style = line.style_dashed))
-                planLines.push(line.new(bar_index, tp2Px, x2, tp2Px, color = color.new(bullC, 20), style = line.style_dashed))
-                planLabels.push(label.new(x2, entryPx, "Entry " + str.tostring(entryPx, format.mintick), style = label.style_label_left, color = color.new(textC, 100), textcolor = textC, size = size.tiny))
-                stopLb := label.new(x2, stopPx, "SL " + str.tostring(stopPx, format.mintick), style = label.style_label_left, color = color.new(bearC, 100), textcolor = bearC, size = size.tiny)
-                planLabels.push(stopLb)
-                planLabels.push(label.new(x2, tp1Px, "TP1 " + str.tostring(tp1RInput, "#.##") + "R • " + str.tostring(tp1PctInput) + "%", style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
-                planLabels.push(label.new(x2, tp2Px, "TP2 " + str.tostring(math.max(tp2RInput, tp1RInput), "#.##") + "R", style = label.style_label_left, color = color.new(bullC, 100), textcolor = bullC, size = size.tiny))
-
-// 4) Bracket exits for the open idea (re-sent each bar so break-even / trail move the stop).
-//    TP1 is only re-sent until it was reached, so a filled TP1 is never placed again.
-if side != 0
-    string eid = side == 1 ? "Long" : "Short"
-    if not tp1Done
-        strategy.exit("TP1", eid, qty_percent = tp1PctInput, stop = stopPx, limit = tp1Px, comment = "TP1 / SL", alert_message = "Nexus Strategy: TP1 or stop " + syminfo.ticker)
-    strategy.exit("TP2", eid, stop = stopPx, limit = tp2Px, comment = "TP2 / " + stopMode, alert_message = "Nexus Strategy: TP2 or stop " + syminfo.ticker)
-
-// The open plan follows price.
-if side != 0 and showPlanInput and bar_index > sigBar
-    for l in planLines
-        l.set_x2(bar_index + 12)
-    for b in planBoxes
-        b.set_right(bar_index + 12)
-    for lb in planLabels
-        lb.set_x(bar_index + 12)
-
-ctPrev := strategy.closedtrades
-float eq = strategy.equity
-peakEq   := math.max(peakEq, eq)
-maxDdPct := math.max(maxDdPct, peakEq > 0 ? (peakEq - eq) / peakEq * 100 : 0)
+// Orders are created on the close of the signal bar and fill on the next bar's open (no lookahead).
+if inWindow and not na(qty) and qty > 0
+    if crossUp and allowLong
+        strategy.entry("Long", strategy.long, qty = qty)
+        strategy.exit("Long exit", from_entry = "Long", stop = close - stopDist, limit = close + stopDist * rrInput)
+    if crossDn and allowShort
+        strategy.entry("Short", strategy.short, qty = qty)
+        strategy.exit("Short exit", from_entry = "Short", stop = close + stopDist, limit = close - stopDist * rrInput)
+    // Opposite cross with that direction disabled: just close the open trade.
+    if crossDn and not allowShort
+        strategy.close("Long", comment = "Cross down")
+    if crossUp and not allowLong
+        strategy.close("Short", comment = "Cross up")
 
 // ---------- Visuals ----------
-color cloudC = fastEma >= slowEma ? bullC : bearC
-color quietC = regimeOk ? cloudC : neutralC
-pFast = plot(showEmasInput ? fastEma : na, "Fast EMA", color = color.new(quietC, 25), linewidth = 1)
-plot(showEmasInput ? slowEma : na, "Slow EMA glow", color = color.new(quietC, 85), linewidth = 7, display = display.pane)
-pSlow = plot(showEmasInput ? slowEma : na, "Slow EMA", color = quietC, linewidth = 2)
-fill(pFast, pSlow, color = color.from_gradient(er, 0.1, 0.6, color.new(quietC, 94), color.new(quietC, 78)), title = "EMA cloud")
-plot(showEmasInput ? trendEma : na, "Trend EMA", color = color.new(accentC, 35), linewidth = 1)
-pHi = plot(showChanInput and engineInput == "Breakout" ? chanHi : na, "Channel high", color = color.new(bullC, 60), style = plot.style_stepline)
-pLo = plot(showChanInput and engineInput == "Breakout" ? chanLo : na, "Channel low", color = color.new(bearC, 60), style = plot.style_stepline)
-fill(pHi, pLo, color = color.new(accentC, 97), title = "Channel fill")
-bgcolor(showOosInput and isOos ? color.new(accentC, 96) : na, title = "Out-of-sample tint")
-
-if showOosInput and oosPctInput > 0 and bar_index == oosBar
-    line.new(bar_index, low, bar_index, high, extend = extend.both, color = color.new(accentC, 40), style = line.style_dotted)
-    label.new(bar_index, high + atr, "■ OUT-OF-SAMPLE", style = label.style_label_left, color = color.new(accentC, 25), textcolor = color.white, size = size.small, tooltip = "Bars after this line are the out-of-sample check. Tune settings only on the bars before it.")
-
-// ---------- Dashboard ----------
-dashPos = dashPosInput == "Top right" ? position.top_right : dashPosInput == "Bottom right" ? position.bottom_right : dashPosInput == "Top left" ? position.top_left : position.bottom_left
-var table dash = table.new(dashPos, 2, 13, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
-
-row(int r, string k, string v, color vc) =>
-    dash.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = dashSizeInput == "Full" ? size.small : size.tiny, text_halign = text.align_left)
-    dash.cell(1, r, v, text_color = vc, bgcolor = color.new(#131722, 10), text_size = dashSizeInput == "Full" ? size.small : size.tiny, text_halign = text.align_right, text_font_family = font.family_monospace)
-
-fmtR(float v) =>
-    na(v) ? "-" : (v >= 0 ? "+" : "") + str.tostring(v, "#.##") + " R"
-
-if showDashInput and barstate.islast
-    dash.clear(0, 0, 1, 12)
-    float  pf      = grossLossR > 0 ? grossWinR / grossLossR : na
-    float  expR    = trades > 0 ? totalR / trades : na
-    float  avgIs   = tradesIs > 0 ? rIs / tradesIs : na
-    float  avgOos  = tradesOos > 0 ? rOos / tradesOos : na
-    float  netPct  = strategy.netprofit / strategy.initial_capital * 100
-    string verdict = trades < minTradesInput ? "Too few trades (" + str.tostring(trades) + "/" + str.tostring(minTradesInput) + ")" : na(pf) or pf < 1 ? "No edge after costs" : oosPctInput == 0 ? "No out-of-sample check" : tradesOos < 10 ? "Out-of-sample too short" : avgOos <= 0 ? "Edge fades out-of-sample" : avgOos >= 0.5 * nz(avgIs) ? "Holds out-of-sample" : "Weaker out-of-sample"
-    color  vC      = verdict == "Holds out-of-sample" ? bullC : verdict == "Edge fades out-of-sample" or verdict == "No edge after costs" ? bearC : warnC
-    color  posC    = side == 1 ? bullC : side == -1 ? bearC : textC
-    float  openR   = side != 0 and riskCash > 0 ? strategy.openprofit / riskCash : na
-    dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
-    dash.cell(1, 0, "Strategy • " + engineInput, text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
-    row(1, "Position", side == 1 ? "LONG • " + stopMode : side == -1 ? "SHORT • " + stopMode : "FLAT", posC)
-    row(2, "Open result", fmtR(openR), na(openR) ? textC : openR >= 0 ? bullC : bearC)
-    row(3, "Regime / HTF", (regimeOk ? "Trending" : "Choppy") + " • ER " + str.tostring(er, "#.##") + " • " + (not useHtfInput ? "off" : htfWarm ? "warm-up" : htfClose > htfEma ? "▲" : "▼"), regimeOk ? accentC : neutralC)
-    row(4, "Trades / win", str.tostring(trades) + (trades > 0 ? " • " + str.tostring(wins * 100.0 / trades, "#") + "%" : ""), trades > 0 ? color.from_gradient(wins * 100.0 / trades, 30, 60, bearC, bullC) : textC)
-    row(5, "Profit factor", na(pf) ? "-" : str.tostring(pf, "#.##"), na(pf) ? textC : color.from_gradient(pf, 0.8, 1.8, bearC, bullC))
-    row(6, "Expectancy", fmtR(expR), na(expR) ? textC : expR >= 0 ? bullC : bearC)
-    if dashSizeInput == "Full"
-        row(7, "Net / max DD", (netPct >= 0 ? "+" : "") + str.tostring(netPct, "#.#") + "% / " + str.tostring(maxDdPct, "#.#") + "%", netPct >= 0 ? bullC : bearC)
-        row(8, "DD in R / streak", str.tostring(maxDdR, "#.#") + " R / " + str.tostring(maxLossRun) + " losses", maxLossRun >= 6 ? warnC : textC)
-        row(9, "In-sample", str.tostring(tradesIs) + " • " + fmtR(avgIs), na(avgIs) ? textC : avgIs >= 0 ? bullC : bearC)
-        row(10, "Out-of-sample", str.tostring(tradesOos) + " • " + fmtR(avgOos), na(avgOos) ? textC : avgOos >= 0 ? bullC : bearC)
-        row(11, "Chop blocked", str.tostring(chopBlocks), accentC)
-    row(dashSizeInput == "Full" ? 12 : 7, "Verdict", verdict, vC)
-
-// ---------- Alerts ----------
-// Order fills: create the alert on the strategy and put {{strategy.order.alert_message}} in the message.
-if longSig or shortSig
-    alert((longSig ? "LONG " : "SHORT ") + syminfo.ticker + " " + timeframe.period + " | entry ~" + str.tostring(entryPx, format.mintick) + " | SL " + str.tostring(stopPx, format.mintick) + " | TP1 " + str.tostring(tp1Px, format.mintick) + " | TP2 " + str.tostring(tp2Px, format.mintick), alert.freq_once_per_bar_close)
+plot(fastEma, "Fast EMA", color = #089981)
+plot(slowEma, "Slow EMA", color = #F23645)
