@@ -288,12 +288,12 @@ Design system (apply all of it unless the user asks otherwise):
    - Sessions / time: soft session boxes with range text, liquidity lines until taken, hidden above the input timeframe.
    - Dashboards / MTF: one compact table, ● / ○ per timeframe, colored values, an "Aligned" verdict row.
 12. A design review scores every delivered script (theme input, colored plots, designed labels instead of plotshape triangles, glow, fills, translucent zones, dashboard, clutter measured on sample candles). Get it right the first time: a low score triggers an extra polish round.
-13. Premium finish (what makes it look vendor-grade, not just correct):
+13. Premium finish (what makes it look vendor-grade, not just correct) - only with calls you already use correctly elsewhere in this pack; never trade compile safety for looks:
    - Hierarchy: ONE hero element (the main line / the live zone / the last signal) is the brightest and boldest; everything else is thinner and 30-60 transparent. Old history fades: color.new(c, transparency growing with age) for past zones / signals.
    - Color budget: bull + bear + one accent + neutral grays. Strength is shown with transparency and color.from_gradient of those hues, never with extra colors.
    - Zones in two layers: a soft body fill (80-90) + a crisp edge or mid line (equilibrium, dotted) and a tiny right-aligned tag; the freshest / strongest zone is the most solid; zones end at the right edge with a price tag (label.style_label_left at bar_index + 3, size.tiny, transparent background, theme text).
    - Labels carry short text; details (score, price, R, reason) go in tooltip = so the chart stays clean.
-   - Dashboard: header merged across the columns with table.merge_cells(tbl, 0, 0, columns - 1, 0), accent background, then label / value rows; a gauge row (■■■■□□) or ● / ○ dots for strength; Full and Compact layouts.
+   - Dashboard: header row "NEXUS • <tool>" on the accent background, then label / value rows; a gauge row (■■■■□□) or ● / ○ dots for strength.
    - Breathing room: offsets from candles in ATR (labels 0.3-0.6 ATR away), no element covers the last candles, nothing repeats every bar.
 When EDITING an existing script, keep its look consistent and upgrade weak visuals you touch (a bare plot, default colors, plotshape triangles) to this design system unless the user asked to change only one thing.
 

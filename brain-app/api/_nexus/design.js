@@ -109,7 +109,7 @@ export function designReview(input, { preview = true } = {}) {
 }
 
 // A polish round is worth a model call when the look is clearly below the bar.
-export function needsPolish(review) { return review.score < 85 || review.findings.some((f) => f.weight >= 14); }
+export function needsPolish(review) { return review.score < 80 || review.findings.some((f) => f.weight >= 14); }
 
 export function describeDesign(review, max = 6) {
   return review.findings.slice(0, max).map((f) => `- [DESIGN ${f.rule.replace("NX_DESIGN_", "")}] ${f.message}`).join("\n");

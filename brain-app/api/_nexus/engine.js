@@ -306,7 +306,7 @@ function reviewMessages({ lang, request, asks, earlier, code, review, prefs, sum
   if (review && review.findings.length) parts.push("DESIGN FINDINGS (look score " + review.score + "/100, most important first):\n" + describeDesign(review));
   const content = [{ type: "text", text: parts.join("\n\n") }];
   if (picture && picture.png) {
-    content.push({ type: "text", text: "CHART PICTURE: the dry run drawn by our renderer (last 150 of 600 sample 15m gold candles, dark chart, TradingView-like; text is a simple pixel font, a label can be cut at the left edge). LOOK at it as the design director of a top indicator vendor and fix what looks amateur: no clear hero element, clutter or overlapping labels / boxes, labels sitting on candles, the table covering price, colors that clash or too many hues, zones too faint to read or so solid they hide candles, lines with no weight hierarchy, history as loud as the live state. A chart that already looks premium stays as it is." });
+    content.push({ type: "text", text: "CHART PICTURE: the dry run drawn by our renderer (last 150 of 600 sample 15m gold candles, dark chart, TradingView-like; text is a simple pixel font, a label can be cut at the left edge). LOOK at it as the design director of a top indicator vendor and fix what looks amateur: no clear hero element, clutter or overlapping labels / boxes, labels sitting on candles, the table covering price, colors that clash or too many hues, zones too faint to read or so solid they hide candles, lines with no weight hierarchy, history as loud as the live state. A chart that already looks premium stays as it is. Visual edits only: colors, transparency, widths, label / box styles, positions, sizes, text - never change calculations, conditions, requests or the structure of the code, and never introduce a function or parameter that is not already used correctly in the script or in the verified templates." });
     content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: picture.png } });
   }
   return [{ role: "user", content }];
@@ -519,7 +519,11 @@ export async function runPipeline(opts) {
         const nextDesign = designReview(nextCheck.code);
         // Adopted when it still compiles cleanly and either delivers missing asks (the look may move a little)
         // or really looks better.
-        if (nextCheck.clean && (nextDesign.score > before || (owed > 0 && nextDesign.score >= before - 10))) {
+        // Never trade correctness for looks: a review edit must not add checker warnings, and a pure look change
+        // (no missing ask) must clearly improve the score.
+        const warnsBefore = best.check.mustFix.length + best.check.shouldFix.length, warnsAfter = nextCheck.mustFix.length + nextCheck.shouldFix.length;
+        const lookWin = owed > 0 ? nextDesign.score >= before - 10 : nextDesign.score >= before + 5;
+        if (nextCheck.clean && warnsAfter <= warnsBefore && lookWin) {
           best = { code: nextCheck.code, check: nextCheck, pending: [] };
           design = nextDesign;
           adopted = true;
