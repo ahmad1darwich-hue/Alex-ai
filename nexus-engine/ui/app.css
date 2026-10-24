@@ -49,6 +49,9 @@ html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on{transform:none;visibility:
 .btn2.pri{background:linear-gradient(145deg,var(--acc),var(--acc2));color:#042016;border-color:transparent}
 .btn2.pri:hover{filter:brightness(1.08)}
 .btn2:disabled{opacity:.5;cursor:default}
+.btn2.del{color:#ff8a9a;border-color:rgba(255,61,113,.45);background:rgba(255,61,113,.08)}
+.btn2.del:hover{border-color:#ff3d71;background:rgba(255,61,113,.16)}
+.bub.forgot{border:1px dashed rgba(255,61,113,.5);background:rgba(255,61,113,.06)}
 .vline{margin-top:8px;font-size:13px;line-height:1.6;padding:8px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);color:var(--mut)}
 .vline.ok{border-color:rgba(52,227,155,.35);color:#b7f0d2}
 .vline.warn{border-color:#8a6a1f;color:#fde68a;background:#1b160a}

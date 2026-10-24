@@ -200,6 +200,12 @@
     lib_opened: ['📂 فتحت المؤشر: {x}. طلبك الجاي بيعدّل عليه.', '📂 Opened: {x}. Your next message edits it.'],
     lib_restored: ['رجعت النسخة السابقة.', 'Previous version restored.'],
     lib_deleted: ['انحذف.', 'Deleted.'],
+    forget_btn: ['🗑️ احذف من الذاكرة', '🗑️ Delete from memory'],
+    forget_sure: ['متأكد؟ اضغط كمان مرّة', 'Sure? Tap again'],
+    forget_card: ['🗑️ هالمؤشر انحذف من الذاكرة ({x}) — البوت ما رح يرجع يبني عليه.', '🗑️ This indicator was deleted from memory ({x}) - the bot will not build on it again.'],
+    forget_note: ['🧹 بلّشنا صفحة جديدة: المؤشر القديم وطلباته انمسحوا من ذاكرة البوت (ومن مؤشراتي المحفوظة). احكيلي شو بدك من الأول.', '🧹 Fresh start: the old indicator and its requests are gone from the bot\'s memory (and from my saved indicators). Tell me what you want from scratch.'],
+    forget_none: ['ما في مؤشر حالي لأحذفه من الذاكرة.', 'There is no current indicator to delete from memory.'],
+    forget_toast: ['🗑️ انحذف من الذاكرة', '🗑️ Deleted from memory'],
     hint: [CFG.hintAr || 'Pine Script v6 · أداة تعليمية، مش نصيحة مالية', CFG.hintEn || 'Pine Script v6 · educational tool, not financial advice']
   };
   var SUG = [
@@ -301,9 +307,9 @@
     if (m.r === 'u') return { r: 'u', text: str(m.text, 20000), api: typeof m.api === 'string' ? m.api.slice(0, 6000) : undefined, imgs: num(m.imgs, 0) || undefined };
     if (m.r !== 'a') return null;
     if (m.kind === 'script') {
-      return { r: 'a', kind: 'script', id: num(m.id, 0), explain: str(m.explain, 20000), line: str(m.line, 600), code: str(m.code, MAX_CODE * 2), file: safeName(m.file), title: str(m.title, 200), report: cleanReport(m.report), base: str(m.base, 80), ms: num(m.ms, 0), dropped: m.dropped ? true : undefined, libId: libIdOk(m.libId) ? m.libId : undefined };
+      return { r: 'a', kind: 'script', id: num(m.id, 0), explain: str(m.explain, 20000), line: str(m.line, 600), code: str(m.code, MAX_CODE * 2), file: safeName(m.file), title: str(m.title, 200), report: cleanReport(m.report), base: str(m.base, 80), ms: num(m.ms, 0), dropped: m.dropped ? true : undefined, libId: libIdOk(m.libId) ? m.libId : undefined, forgot: m.forgot ? true : undefined };
     }
-    return { r: 'a', kind: 'text', explain: str(m.explain, 20000) };
+    return { r: 'a', kind: 'text', explain: str(m.explain, 20000), forget: m.forget ? true : undefined };
   }
   function libIdOk(v) { return typeof v === 'string' && /^[a-z0-9]{6,24}$/.test(v); }
   function slimJson(data) {
@@ -547,6 +553,12 @@
       bLib.onclick = function () { bLib.disabled = true; libSave(msg, null, function (ok) { bLib.disabled = false; if (ok) bLib.style.display = 'none'; }); };
       foot.appendChild(bLib); msg._libBtn = bLib;
     }
+    var bForget = tx(el('button', 'btn2 del'), 'forget_btn'), fArmed = 0; bForget.type = 'button';
+    bForget.onclick = function () {
+      if (Date.now() - fArmed > 3000) { fArmed = Date.now(); tx(bForget, 'forget_sure'); setTimeout(function () { if (Date.now() - fArmed >= 3000) tx(bForget, 'forget_btn'); }, 3100); return; }
+      forgetScript(msg);
+    };
+    foot.appendChild(bForget);
     if (msg.ms) foot.appendChild(tx(el('span', 'tm'), 'took', { n: Math.round(msg.ms / 1000) }));
     art.appendChild(foot);
 
@@ -741,7 +753,7 @@
       // One unreadable message must not hide the rest of the conversation.
       try {
         if (m.r === 'u') addUser(m.text + (m.imgs ? '  📎' + (m.imgs > 1 ? '×' + m.imgs : '') : ''));
-        else { var col = addShell(); if (m.kind === 'script' && m.code) renderScript(col, m); else addBubble(col, m.explain || '…'); }
+        else { var col = addShell(); if (m.kind === 'script' && m.code && !m.forgot) renderScript(col, m); else addBubble(col, m.explain || '…', m.forgot || m.forget ? 'forgot' : ''); }
       } catch (e) {}
     });
     // A request that never got its reply (reload, closed tab): say so and offer to send it again.
@@ -953,9 +965,13 @@
     sendBtn.firstChild.textContent = on ? '■' : '➤';
   }
   function stopRequest() { if (ctl) { try { ctl.abort(); } catch (e) {} } }
+  // The bot only sees the conversation after the last "delete from memory": a deleted indicator and the asks that
+  // produced it never come back into a new build.
   function apiMessages() {
-    var out = [];
-    S.msgs.forEach(function (m) {
+    var out = [], from = 0;
+    S.msgs.forEach(function (m, i) { if (m.forget) from = i + 1; });
+    S.msgs.slice(from).forEach(function (m) {
+      if (m.forgot) return;
       if (m.r === 'u') out.push({ role: 'user', content: String(m.api || m.text || '(attachment)').slice(0, 6000) });
       else if (m.kind === 'script') out.push({ role: 'assistant', content: String(m.explain || '').slice(0, 3000) + '\n[script delivered: ' + (m.file || 'script.pine') + ']' });
       else if (m.kind === 'text') out.push({ role: 'assistant', content: String(m.explain || '').slice(0, 3000) });
@@ -1023,6 +1039,38 @@
     var code = m[1], fm = /^\s*\/\/\s*FILE:\s*(.+?)\s*$/im.exec(code), file = 'nexus_indicator.pine';
     if (fm) { file = fm[1].trim(); code = code.replace(fm[0], '').replace(/^\n/, ''); }
     return { kind: 'script', code: code.replace(/\s+$/, '') + '\n', file: file, explain: text.replace(m[0], '').trim(), report: null };
+  }
+
+  /* ---------- "delete from memory": the bad indicator leaves the library AND the bot's memory ---------- */
+  function forgetScript(msg) {
+    if (busy) { toast(t('wait_busy')); return; }
+    var lib = msg.libId, name = msg.title || msg.file || '';
+    if (lib && LIB && syncKey) libCall('POST', '', { action: 'delete', id: lib }).then(function () { libItems = libItems.filter(function (x) { return x.id !== lib; }); }).catch(function () { toast(t('lib_err'), 3000); });
+    msg.forgot = true; msg.code = ''; msg.libId = undefined; msg.explain = t('forget_card', { x: name });
+    if (S.cur && (S.cur.id === msg.id || (lib && S.cur.libId === lib))) S.cur = null;
+    S.msgs.push({ r: 'a', kind: 'text', explain: t('forget_note'), forget: true });
+    save(); renderAll(); toast(t('forget_toast')); announce(t('forget_toast'));
+  }
+  // "احذف المؤشر من الذاكرة", "انسى هالمؤشر", "هاد مش منيح شيله", "delete it from memory", "forget this indicator".
+  // Never an edit like "احذف الجدول من المؤشر" (remove the table from the indicator).
+  function isForgetCmd(s) {
+    s = String(s || '').trim();
+    if (!s || s.length > 160) return false;
+    if (/من\s*(ال)?(مؤشر|سكربت|سكريبت|كود)|from the (indicator|script|code)/i.test(s)) return false;
+    var del = /(احذف|إحذف|حذف|امسح|إمسح|مسح|شيل|اشطب|delete|remove|erase|wipe)/i;
+    var mem = /(ذاكر|ميموري|memory|المكتب|مكتبة|library|محفوظ|saved)/i;
+    var forget = /(انس|إنس|انسا|forget)/i;
+    var ind = /(مؤشر|indicator|script|سكربت|سكريبت|هاد|هذا|هيدا|هالـ?|this|\bit\b)/i;
+    var bad = /((مش|مو|مب|ما)\s*(منيح|كويس|زابط|ظابط|نافع|حلو))|خربان|زبالة|سيء|\bbad\b|rubbish|garbage|not (good|working)/i;
+    if (del.test(s) && mem.test(s)) return true;
+    if (forget.test(s) && ind.test(s)) return true;
+    return bad.test(s) && del.test(s) && ind.test(s);
+  }
+  function currentScriptMsg() {
+    var i, m;
+    if (S.cur) for (i = S.msgs.length - 1; i >= 0; i--) { m = S.msgs[i]; if (m.kind === 'script' && m.id === S.cur.id && !m.forgot) return m; }
+    for (i = S.msgs.length - 1; i >= 0; i--) { m = S.msgs[i]; if (m.forget) return null; if (m.kind === 'script' && m.code && !m.forgot) return m; }
+    return null;
   }
 
   // Shows a delivered script and only then stores it: data that cannot be rendered never reaches the saved conversation.
@@ -1277,6 +1325,12 @@
   /* ---------- actions ---------- */
   // Sends a build request: `text` plus attachments. The script being edited is fixed at this moment, also for retries.
   function send(text, atts) {
+    if (!(atts || []).length && isForgetCmd(text)) {
+      var target = currentScriptMsg();
+      addUser(text); S.msgs.push({ r: 'u', text: String(text).slice(0, 20000) });
+      if (target) { forgetScript(target); return; }
+      var col0 = addShell(); addBubble(col0, t('forget_none')); S.msgs.push({ r: 'a', kind: 'text', explain: t('forget_none') }); save(); return;
+    }
     atts = atts || [];
     var previews = atts.filter(function (a) { return a.kind === 'image' || a.kind === 'video'; }).map(function (a) { return a.preview; });
     var fileText = '';

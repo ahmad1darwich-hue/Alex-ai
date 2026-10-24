@@ -137,6 +137,9 @@ trim(array<Zone> zones, int maxCount) =>
             else
                 dn += htf ? 0 : 1
                 hDn += htf ? 1 : 0
+    // Plain last line: the if / else chain above is then not the return value (its branches end with a Zone and an
+    // int, which TradingView rejects as the return of a function: CE10235).
+    true
 
 // Ends a zone: deleted in Present mode, kept faded where it ended in Historical mode.
 retire(Zone z) =>

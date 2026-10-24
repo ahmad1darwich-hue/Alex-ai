@@ -61,5 +61,20 @@ const text = Object.entries(built).filter(([rel]) => rel.endsWith(".html")).map(
 const found = promises.filter((re) => re.test(text)).map(String);
 ok("no promise the product cannot keep", found.length === 0, found);
 
+// 5. "Delete from memory" (Ahmad 2026-10-25): a red button on every script card + chat command; the bot only sees the
+// conversation after the last forget marker. The forget command must never swallow an edit ("remove X from the indicator").
+{
+  const app = fs.readFileSync(path.join(root, "nexus-engine/ui/app.js"), "utf8");
+  const src = /function isForgetCmd\(s\) \{[\s\S]*?\n  \}\n/.exec(app);
+  ok("forget command + button exist", !!src && /forget_btn/.test(app) && /if \(m\.forget\) from = i \+ 1/.test(app));
+  if (src) {
+    const isForgetCmd = new Function(src[0] + "; return isForgetCmd;")();
+    const yes = ["احذف المؤشر من الذاكرة", "امسحه من الذاكرة", "انسى هالمؤشر", "هاد المؤشر مش منيح شيله", "delete it from memory", "forget this indicator"];
+    const no = ["احذف الجدول من المؤشر", "شيل الخط الأحمر", "بدي مؤشر SMC كويس", "remove the table from the indicator", "delete the labels"];
+    ok("forget command: recognised", yes.every(isForgetCmd), yes.filter((x) => !isForgetCmd(x)));
+    ok("forget command: edits are not swallowed", !no.some(isForgetCmd), no.filter(isForgetCmd));
+  }
+}
+
 console.log(failed ? `\n${failed} check(s) failed` : "\nall UI checks passed");
 process.exit(failed ? 1 : 0);

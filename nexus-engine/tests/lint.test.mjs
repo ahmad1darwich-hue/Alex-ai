@@ -257,4 +257,34 @@ t("emoji cut in half never reaches the model API as a broken escape", () => {
   const body = safeStringify({ a: "ok " + "🟢".slice(0, 1) + " end", b: ["🟢"] });
   assert.doesNotMatch(body, /\\ud83d"/i); assert.ok(JSON.parse(body).b[0] === "🟢");
 });
+t("CE10235: an if / else chain as a function's return value with mixed branch types is caught (Ahmad 2026-10-25)", () => {
+  const head = `//@version=6
+indicator("t", overlay = true)
+type Zone
+    box bx
+    int dir
+var array<Zone> zs = array.new<Zone>()
+`;
+  const bad = head + `trim(array<Zone> zones, int maxCount) =>
+    int up = 0
+    if zones.size() > 0
+        for i = zones.size() - 1 to 0
+            Zone z = zones.get(i)
+            if up >= maxCount
+                z.bx.delete()
+                zones.remove(i)
+            else
+                up += 1
+trim(zs, 3)
+plot(close)
+`;
+  const c = checkPine(bad);
+  const e = c.errors.find((x) => x.rule === "NX_IF_RETURN_TYPES");
+  assert.ok(e, JSON.stringify(c.errors));
+  assert.match(e.message, /Zone vs number|number vs Zone/);
+  const good = bad.replace("                up += 1\n", "                up += 1\n    true\n");
+  assert.ok(!checkPine(good).errors.some((x) => x.rule === "NX_IF_RETURN_TYPES"), "a plain last line fixes it");
+  const same = bad.replace("                zones.remove(i)\n", "                zones.remove(i)\n                up += 0\n");
+  assert.ok(!checkPine(same).errors.some((x) => x.rule === "NX_IF_RETURN_TYPES"), "same type in every branch is fine");
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

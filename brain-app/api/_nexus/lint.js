@@ -24,7 +24,7 @@ const MUST_FIX_RULES = new Set([
 // Glyphs allowed inside string literals (labels, table cells): the design system's arrows and markers.
 export const DESIGN_GLYPHS = "▲▼●◆•✕■○◇□"; // filled marks + their hollow pairs (gauges, strength dots)
 // Nexus rules that reproduce TradingView compile errors the type checker lets through.
-const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE"]);
+const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE", "NX_IF_RETURN_TYPES"]);
 // Worth one repair attempt, but never block delivery on them.
 const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING"]);
 
@@ -392,6 +392,80 @@ function floatXRule(masked, lineOf, push) {
   }
 }
 
+// TradingView CE10235 "Return type of one of the if or switch blocks is not compatible with return type of other
+// block(s)": a function returns its LAST statement, so when that statement is an if / else chain (also when it sits as
+// the last statement inside the function's last for / if), every branch's last line becomes a possible return value
+// and they must have one type. Seen on Ahmad's chart 2026-10-25: one branch ended with zones.remove(i) (a Zone), the
+// other with a counter += 1 (an int). Only flags branches whose types are both known and differ.
+function ifReturnTypeRule(maskedLines, push) {
+  const indentOf = (l) => /^[ \t]*/.exec(l)[0].replace(/\t/g, "    ").length;
+  const blank = (l) => !l.trim();
+  const code = maskedLines.join("\n");
+  const elemType = (arr) => {
+    const esc = arr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = new RegExp("array<([\\w.]+)>[ \\t]+" + esc + "\\b").exec(code) || new RegExp("\\b" + esc + "[ \\t]*=[ \\t]*array\\.new(?:<([\\w.]+)>|_(\\w+))").exec(code);
+    return m ? (m[1] || m[2]) : "";
+  };
+  const norm = (t) => (/^(int|float)$/.test(t) ? "number" : t);
+  const kindOf = (l) => {
+    const t = l.trim();
+    if (/^[A-Za-z_]\w*[ \t]*(\+=|-=|\*=|\/=|%=)/.test(t)) return "number";
+    let m = /^(?:var[ \t]+|varip[ \t]+)?(int|float|bool|string|label|line|box|table|[A-Z]\w*)[ \t]+[A-Za-z_]\w*[ \t]*=(?!=)/.exec(t);
+    if (m) return norm(m[1]);
+    m = /^([A-Za-z_][\w.]*)\.(remove|pop|shift)[ \t]*\(/.exec(t) || /^array\.(remove|pop|shift)[ \t]*\([ \t]*([A-Za-z_][\w.]*)/.exec(t);
+    if (m) { const arr = m[1].startsWith("array") ? m[2] : m[1]; const et = elemType(arr.startsWith("array.") ? m[2] : arr); return et ? norm(et) : ""; }
+    m = /^(label|line|box)\.new[ \t]*\(/.exec(t);
+    if (m) return m[1];
+    return "";
+  };
+  // Last statement of the block that starts at `from` with indentation `ind` and ends before `to`.
+  const lastStmt = (from, to, ind) => {
+    let last = -1;
+    for (let i = from; i < to; i++) if (!blank(maskedLines[i]) && indentOf(maskedLines[i]) === ind) last = i;
+    return last;
+  };
+  const blockEnd = (start, ind) => { let j = start + 1; while (j < maskedLines.length && (blank(maskedLines[j]) || indentOf(maskedLines[j]) > ind)) j++; return j; };
+  const childIndent = (start, end) => { for (let i = start + 1; i < end; i++) if (!blank(maskedLines[i])) return indentOf(maskedLines[i]); return -1; };
+  let reported = 0;
+  const tail = (from, to, ind, depth) => {
+    if (depth > 6 || reported >= MAX_PER_RULE) return;
+    const i = lastStmt(from, to, ind);
+    if (i < 0) return;
+    const t = maskedLines[i].trim();
+    if (/^(for|while)\b/.test(t)) { const e = blockEnd(i, ind), c = childIndent(i, e); if (c > ind) tail(i + 1, e, c, depth + 1); return; }
+    if (!/^else\b/.test(t) && !/^if\b/.test(t)) return;
+    // Walk back to the "if" that opens this chain, then collect its branches.
+    let start = i;
+    while (start > from && /^else\b/.test(maskedLines[start].trim())) { start--; while (start > from && (blank(maskedLines[start]) || indentOf(maskedLines[start]) !== ind)) start--; }
+    if (!/^if\b/.test(maskedLines[start].trim())) return;
+    const branches = [];
+    for (let k = start; k < to; ) {
+      const e = blockEnd(k, ind), c = childIndent(k, e);
+      branches.push({ head: k, from: k + 1, to: e, ind: c });
+      if (e < to && /^else\b/.test((maskedLines[e] || "").trim()) && indentOf(maskedLines[e]) === ind) k = e; else break;
+    }
+    if (branches.length < 2 || !/^else[ \t]*$/.test(maskedLines[branches.at(-1).head].trim())) {
+      // An if without a final else: its value is only used through a single branch - look inside that branch.
+      if (branches.length === 1 && branches[0].ind > ind) tail(branches[0].from, branches[0].to, branches[0].ind, depth + 1);
+      return;
+    }
+    const kinds = branches.map((b) => { const j = b.ind > ind ? lastStmt(b.from, b.to, b.ind) : -1; return { line: j, kind: j >= 0 ? kindOf(maskedLines[j]) : "" }; });
+    const known = kinds.filter((k) => k.kind);
+    const types = [...new Set(known.map((k) => k.kind))];
+    if (types.length > 1) {
+      reported++;
+      push(start + 1, indentOf(maskedLines[start]) + 1, "NX_IF_RETURN_TYPES", `This if / else chain is the last statement of its function, so each branch's last line is a possible return value, and they have different types (${types.join(" vs ")}: lines ${known.map((k) => k.line + 1).join(", ")}). TradingView rejects it with CE10235 "Return type of one of the if or switch blocks is not compatible". Fix: add one plain final line at the end of the function body (indented like its first line), e.g. "true", so the chain is no longer the return value - or make every branch end with the same type.`);
+    }
+  };
+  for (let i = 0; i < maskedLines.length; i++) {
+    const l = maskedLines[i];
+    if (indentOf(l) !== 0 || !/^(?:method[ \t]+)?[A-Za-z_]\w*[ \t]*\([^)]*\)[ \t]*=>[ \t]*$/.test(l.trimEnd())) continue;
+    const e = blockEnd(i, 0), c = childIndent(i, e);
+    if (c > 0) tail(i + 1, e, c, 0);
+    i = e - 1;
+  }
+}
+
 function nexusRules(code) {
   const diags = [];
   const lines = code.split("\n");
@@ -404,6 +478,7 @@ function nexusRules(code) {
     try { constStringRule(masked, index, push); } catch (e) { /* ignore */ }
     try { compilerGapRules(masked, index, push); } catch (e) { /* ignore */ }
     try { floatXRule(masked, index.lineOf, push); } catch (e) { /* ignore */ }
+    try { ifReturnTypeRule(maskedLines, push); } catch (e) { /* ignore */ }
   } catch (e) { /* ignore */ }
 
   // v6: linewidth must be 1 or more (compile error). timeframe.period always carries a multiplier ("1D", never "D").
