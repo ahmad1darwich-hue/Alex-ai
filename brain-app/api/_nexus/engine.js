@@ -1,6 +1,7 @@
 // Nexus engine: generate -> check -> repair. Pure orchestration; the model call is injected so it can be tested offline.
 import { checkPine, sanitizeCode, describeDiagnostics, summarizeCheck, rtrimLine } from "./lint.js";
 import { designReview, needsPolish, describeDesign, chartSummary } from "./design.js";
+import { chartPicture } from "./render.js";
 import { TEMPLATE_BY_ID } from "./templates.js";
 import { modeInstructions } from "./knowledge.js";
 
@@ -287,7 +288,7 @@ function repairMessages({ lang, request, code, check, pending }) {
 
 // One review round after the script compiles: the model sees what the chart will actually show (dry run), the
 // user's asks and the design findings, ticks off every ask and fixes what is missing or looks below the bar.
-function reviewMessages({ lang, request, asks, earlier, code, review, prefs, summary }) {
+function reviewMessages({ lang, request, asks, earlier, code, review, prefs, summary, picture }) {
   const parts = [
     "TASK: FINAL REVIEW before the user sees this script. You are the user's advocate and the design director. The user is tired of asking for the same thing many times: everything they asked for must be VISIBLE on the chart now, and it must look premium.",
     "1. Read every ask below and compare it with the CURRENT SCRIPT and the DRY RUN (what is really drawn: colors, labels, zones, table). A color, size, position, text or element the user named must appear exactly as asked.",
@@ -303,7 +304,12 @@ function reviewMessages({ lang, request, asks, earlier, code, review, prefs, sum
   parts.push(scriptBlock(code));
   if (summary) parts.push(summary);
   if (review && review.findings.length) parts.push("DESIGN FINDINGS (look score " + review.score + "/100, most important first):\n" + describeDesign(review));
-  return [{ role: "user", content: [{ type: "text", text: parts.join("\n\n") }] }];
+  const content = [{ type: "text", text: parts.join("\n\n") }];
+  if (picture && picture.png) {
+    content.push({ type: "text", text: "CHART PICTURE: the dry run drawn by our renderer (last 150 of 600 sample 15m gold candles, dark chart, TradingView-like; text is a simple pixel font, a label can be cut at the left edge). LOOK at it as the design director of a top indicator vendor and fix what looks amateur: no clear hero element, clutter or overlapping labels / boxes, labels sitting on candles, the table covering price, colors that clash or too many hues, zones too faint to read or so solid they hide candles, lines with no weight hierarchy, history as loud as the live state. A chart that already looks premium stays as it is." });
+    content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: picture.png } });
+  }
+  return [{ role: "user", content }];
 }
 
 // The user's asks, ticked off after the review, shown under the explanation.
@@ -486,7 +492,8 @@ export async function runPipeline(opts) {
   try { design = designReview(best.code); } catch (e) { design = null; }
   const earlier = requirementsSoFar(opts.history);
   const repeated = baseKind === "CURRENT" ? repeatedAsk(requestText, opts.history) : "";
-  const wantReview = design && (needsPolish(design) || parsed.asks.length > 0 || !!repeated);
+  // Every new build gets the final review WITH EYES (the chart picture); edits get it when the look or the asks need it.
+  const wantReview = design && (needsPolish(design) || parsed.asks.length > 0 || !!repeated || baseKind !== "CURRENT");
   if (wantReview && opts.designPolish && opts.mode !== "fix" && best.check.clean && !best.pending.length && timeLeft() > 60000) {
     checkAbort();
     const before = design.score;
@@ -494,7 +501,10 @@ export async function runPipeline(opts) {
     try {
       let summary = "";
       try { summary = chartSummary(best.code); } catch (e) { summary = ""; }
-      const rep = await opts.callModel({ messages: reviewMessages({ lang: opts.lang, request: requestText, asks: parsed.asks, earlier: earlier.slice(0, -1), code: best.code, review: design, prefs: opts.prefs, summary }), effort: "medium", maxTokens: 12000, onText: () => {} });
+      let picture = null;
+      try { picture = await chartPicture(best.code); } catch (e) { picture = null; }
+      emit({ t: "stage", id: "look", seen: !!picture });
+      const rep = await opts.callModel({ messages: reviewMessages({ lang: opts.lang, request: requestText, asks: parsed.asks, earlier: earlier.slice(0, -1), code: best.code, review: design, prefs: opts.prefs, summary, picture }), effort: "medium", maxTokens: 12000, onText: () => {} });
       addUsage(rep.usage);
       const rp = parseReply(rep.text);
       checklist = rp.check;

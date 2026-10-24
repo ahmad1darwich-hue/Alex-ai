@@ -52,5 +52,7 @@ final review round on every clean build that sees a DRY RUN summary of the chart
 labels, zones, lines, table cells, tints) and ticks each ask ✓ / fixes ✗ (shown under the explanation, undelivered asks said
 honestly); repeated asks detected (word overlap) and the model told to make the change visible. Main Brain: DESIGN STUDIO mode
 (understand-first brief, exact format sizes, premium rules, USWS palette, rendered SVG/HTML in the chat) + "get it right the
-first time" rule. NEXT: send the dry-run picture itself (server PNG) to the reviewer; learn design preferences from repeated
+first time" rule. SHIPPED 2026-10-24: the reviewer SEES the chart - _nexus/render.js draws the dry run (candles, plots, fills, tints, zones, lines,
+labels with a pixel font, table) into a PNG (own rasterizer + CompressionStream) and every new build gets a final review with
+that picture. NEXT: render the user's real symbol / timeframe candles instead of sample gold; learn design preferences from repeated
 corrections into <remember> automatically.
