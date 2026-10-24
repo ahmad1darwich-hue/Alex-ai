@@ -62,12 +62,14 @@ await t("trading desk: inferred from backtest / position-size words (not script 
 await t("send to Telegram: the whole answer goes to Ahmad's chat, the page gets a confirmation; nothing sent otherwise", async () => {
   const { wantsTelegram, splitForTelegram } = await import("../../brain-app/api/_brain/tg-send.js");
   assert.ok(wantsTelegram("ابعتلي هالدرس على التيليجرام")); assert.ok(wantsTelegram("send this to telegram please")); assert.ok(wantsTelegram("حطلي الخطة عالتلغرام"));
+  for (const w of ["تليجرام", "تلجرام", "تيلجرام", "تيلغرام", "تيليغرام", "التيليجرام", "Telegram"]) assert.ok(wantsTelegram("ابعتلي الدرس على " + w), w);
+  assert.ok(wantsTelegram("بعتلي ياه عالتلي"));
   assert.ok(!wantsTelegram("شو هو تيليجرام؟")); assert.ok(!wantsTelegram("ابعتلي ايميل للزبون"));
   const parts = splitForTelegram(("سطر ".repeat(40) + "\n").repeat(60)); assert.ok(parts.length > 1 && parts.every((p) => p.length <= 3900));
   process.env.TELEGRAM_BOT_TOKEN = "123:abc"; process.env.TELEGRAM_CHAT_ID = "42";
   tgSent.length = 0; bodies.length = 0;
   const out = await (await post({ messages: [{ role: "user", content: "ابعتلي درس عن الأوردر بلوك على تيليجرام" }] })).text();
-  assert.match(bodies[0].system, /TELEGRAM: Ahmad asked/);
+  assert.match(bodies[0].system, /TELEGRAM: Ahmad asked/); assert.match(bodies[0].system, /فيديوهات قصيرة للشرح/);
   assert.equal(tgSent.length, 1); assert.equal(tgSent[0].chat_id, "42"); assert.match(tgSent[0].text, /ok/); assert.equal(tgSent[0].parse_mode, undefined);
   assert.match(out, /✅ انبعت على تيليجرام/);
   tgSent.length = 0; bodies.length = 0;

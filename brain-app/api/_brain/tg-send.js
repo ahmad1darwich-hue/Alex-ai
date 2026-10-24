@@ -2,11 +2,13 @@
 // Long text is split into parts under Telegram's 4096-character limit, on line breaks where possible.
 // Plain text only (no parse_mode), so markdown in an answer can never make Telegram reject the message.
 
+// Every common spelling: تيليجرام تليجرام تلجرام تيلجرام تلغرام تيليغرام تيلغرام تلكرام ... "عالتلي", Telegram, tg.
+export const TG_WORD = /(ت[يى]?ل[يى]?[جغكق]را?م|تي?لي ?[جغ]رام|عالتلي|ع التلي|telegram|tele ?gram|\btg\b)/i;
+
 // "ابعتلي هالشي على تيليجرام" / "send it to telegram": a send verb AND the word Telegram.
 export function wantsTelegram(text) {
   const s = String(text || "");
-  return /(تيليجرام|تيليغرام|تيلجرام|تلغرام|تلجرام|تليجرام|تليغرام|تيلي ?غرام|telegram|\btg\b)/i.test(s)
-    && /(ابعت|إبعت|بعت(?!قد)|ابعث|إبعث|بعث|ارسل|أرسل|إرسل|رسل|حط|حطّ|نزّل|نزل|send|forward|post|share)/i.test(s);
+  return TG_WORD.test(s) && /(ابعت|إبعت|بعت(?!قد)|ابعث|إبعث|بعث|ارسل|أرسل|إرسل|رسل|حط|حطّ|نزّل|نزل|وصّل|وصل|خلّي?ه? يوصل|ودّي|ودي|send|forward|post|share|deliver)/i.test(s);
 }
 
 export function splitForTelegram(text, max = 3900) {
@@ -32,9 +34,12 @@ export async function sendToTelegram(text) {
   try {
     for (let i = 0; i < parts.length; i++) {
       const body = (parts.length > 1 ? `(${i + 1}/${parts.length})\n` : "") + parts[i];
-      const r = await fetch("https://api.telegram.org/bot" + token + "/sendMessage", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: body, disable_web_page_preview: true }) });
-      if (!r.ok) { console.log("TG_SEND fail " + r.status); return { ok: false, why: "error" }; }
+      // A part with a video link keeps its preview, so the video plays right inside Telegram.
+      const video = /(youtube\.com\/(watch|shorts)|youtu\.be\/)/i.test(body);
+      const r = await fetch("https://api.telegram.org/bot" + token + "/sendMessage", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: body, disable_web_page_preview: !video }) });
+      if (!r.ok) { let t = ""; try { t = await r.text(); } catch (e) {} console.log("TG_SEND fail " + r.status + " " + t.slice(0, 160)); return { ok: false, why: "error", status: r.status }; }
     }
+    console.log("TG_SEND ok " + parts.length + " part(s)");
     return { ok: true, parts: parts.length };
   } catch (e) { console.log("TG_SEND error " + String(e && e.message || e).slice(0, 120)); return { ok: false, why: "error" }; }
 }

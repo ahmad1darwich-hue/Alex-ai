@@ -226,7 +226,8 @@ export default async function handler(req) {
   if (body.voice) sys += "\n\n" + VOICE;
   // "Send it to Telegram": the server sends this whole answer to Ahmad's Telegram chat once it is written.
   const toTelegram = wantsTelegram(luText);
-  if (toTelegram) sys += "\n\nTELEGRAM: Ahmad asked to get this on Telegram. Brain's server sends your WHOLE answer to his Telegram chat (the Brain bot) automatically right after you finish - so never say you cannot send to Telegram. Write the complete content itself, ready to keep and study (if he means something from earlier in this chat - a lesson, a plan, a list - write it out again in full, cleanly organised). Do not add a closing line about sending; the page confirms it.";
+  if (toTelegram) console.log("TG_SEND asked " + (process.env.TELEGRAM_BOT_TOKEN ? "token" : "no-token") + " " + (process.env.TELEGRAM_CHAT_ID ? "chat" : "no-chat"));
+  if (toTelegram) sys += "\n\nTELEGRAM: Ahmad asked to get this on Telegram. Brain's server sends your WHOLE answer to his Telegram chat (the Brain bot) automatically right after you finish - so never say you cannot send to Telegram. Write the complete content itself, ready to keep and study (if he means something from earlier in this chat - a lesson, a plan, a list - write it out again in full, cleanly organised). Do not add a closing line about sending; the page confirms it. For a lesson or an explanation, use web_search to find 1-3 SHORT explainer videos on YouTube (ideally under 10 minutes, a clear teacher, Arabic first when good ones exist, otherwise English) that match exactly this topic, and end with \"🎬 فيديوهات قصيرة للشرح:\" and one line per video: title - full youtube.com or youtu.be link (only real links from your search results, never invented).";
   sys += "\n\nNOW: " + new Date().toLocaleString("en-AU", { timeZone: "Australia/Sydney", dateStyle: "full", timeStyle: "short" }) + " (Sydney).";
   const heavy = mode === "deep" || mode === "workflow" || mode === "plan" || mode === "design";
   const pro = body.pro === true || heavy || mode === "security" || mode === "trading";
@@ -330,7 +331,7 @@ export default async function handler(req) {
         if (tail) controller.enqueue(enc.encode(tail));
         if (toTelegram && said.trim()) {
           const sent = await sendToTelegram(said.trim() + (tail || ""));
-          controller.enqueue(enc.encode(sent.ok ? "\n\n✅ انبعت على تيليجرام" + (sent.parts > 1 ? " (" + sent.parts + " رسائل)" : "") : sent.why === "unset" ? "\n\n⚠️ ما انبعت على تيليجرام: بوت تيليجرام مش مضبوط بإعدادات Vercel (TELEGRAM_BOT_TOKEN و TELEGRAM_CHAT_ID)." : "\n\n⚠️ ما قدرت إبعته على تيليجرام هالمرّة، جرّب كمان مرّة."));
+          controller.enqueue(enc.encode(sent.ok ? "\n\n✅ انبعت على تيليجرام" + (sent.parts > 1 ? " (" + sent.parts + " رسائل)" : "") : sent.why === "unset" ? "\n\n⚠️ ما انبعت على تيليجرام: بوت تيليجرام مش مضبوط بإعدادات Vercel (TELEGRAM_BOT_TOKEN و TELEGRAM_CHAT_ID)." : "\n\n⚠️ ما قدرت إبعته على تيليجرام هالمرّة (" + (sent.status === 403 ? "البوت محظور أو ما بلّشت معه محادثة: افتح البوت بتيليجرام واكبس Start" : sent.status === 400 ? "رقم المحادثة غلط" : sent.status === 401 ? "توكن البوت غلط" : "خطأ " + (sent.status || "شبكة")) + ")."));
         }
       } catch (e) {
         controller.enqueue(enc.encode("\n⚠️ انقطع البث: " + String(e && e.message || e)));
