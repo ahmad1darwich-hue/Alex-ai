@@ -5,6 +5,7 @@
 import { brainAuth, lockedReply } from "./_brain/lock.js";
 import { checkFile } from "./_brain/filecheck.js";
 import { safeStringify } from "./_brain/safe-json.js";
+import { wantsTelegram, sendToTelegram } from "./_brain/tg-send.js";
 export const config = { runtime: "edge" };
 
 const MODEL = process.env.BRAIN_MODEL || "claude-sonnet-5-5";
@@ -223,6 +224,9 @@ export default async function handler(req) {
   }
   if (mode) sys += "\n\n" + MODES[mode];
   if (body.voice) sys += "\n\n" + VOICE;
+  // "Send it to Telegram": the server sends this whole answer to Ahmad's Telegram chat once it is written.
+  const toTelegram = wantsTelegram(luText);
+  if (toTelegram) sys += "\n\nTELEGRAM: Ahmad asked to get this on Telegram. Brain's server sends your WHOLE answer to his Telegram chat (the Brain bot) automatically right after you finish - so never say you cannot send to Telegram. Write the complete content itself, ready to keep and study (if he means something from earlier in this chat - a lesson, a plan, a list - write it out again in full, cleanly organised). Do not add a closing line about sending; the page confirms it.";
   sys += "\n\nNOW: " + new Date().toLocaleString("en-AU", { timeZone: "Australia/Sydney", dateStyle: "full", timeStyle: "short" }) + " (Sydney).";
   const heavy = mode === "deep" || mode === "workflow" || mode === "plan" || mode === "design";
   const pro = body.pro === true || heavy || mode === "security" || mode === "trading";
@@ -324,6 +328,10 @@ export default async function handler(req) {
         }
         const tail = sourcesFooter(said, cited, searched);
         if (tail) controller.enqueue(enc.encode(tail));
+        if (toTelegram && said.trim()) {
+          const sent = await sendToTelegram(said.trim() + (tail || ""));
+          controller.enqueue(enc.encode(sent.ok ? "\n\n✅ انبعت على تيليجرام" + (sent.parts > 1 ? " (" + sent.parts + " رسائل)" : "") : sent.why === "unset" ? "\n\n⚠️ ما انبعت على تيليجرام: بوت تيليجرام مش مضبوط بإعدادات Vercel (TELEGRAM_BOT_TOKEN و TELEGRAM_CHAT_ID)." : "\n\n⚠️ ما قدرت إبعته على تيليجرام هالمرّة، جرّب كمان مرّة."));
+        }
       } catch (e) {
         controller.enqueue(enc.encode("\n⚠️ انقطع البث: " + String(e && e.message || e)));
       } finally {

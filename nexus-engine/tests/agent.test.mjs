@@ -14,8 +14,10 @@ globalThis.fetch = async (url, init) => {
   if (u.startsWith("http://usws.com.au")) return new Response("", { status: 308, headers: { location: "https://usws.com.au/" } });
   if (u.startsWith("https://usws.com.au")) return new Response("<html></html>", { status: 200, headers: { "x-content-type-options": "nosniff", server: "Vercel" } });
   if (u.includes("finance.yahoo.com")) { const sym = decodeURIComponent(u.split("/chart/")[1].split("?")[0]); const px = { "EURUSD=X": [1.085, 1.08], "CL=F": [71.2, 72.0] }[sym]; return px ? Response.json({ chart: { result: [{ meta: { regularMarketPrice: px[0], chartPreviousClose: px[1] } }] } }) : new Response("no", { status: 404 }); }
+  if (u.includes("api.telegram.org")) { tgSent.push(JSON.parse(init.body)); return Response.json({ ok: true }); }
   return new Response("{}", { status: 200 });
 };
+const tgSent = [];
 const { default: agent } = await import("../../brain-app/api/agent.js");
 const post = (body) => agent(new Request("https://b.test/api/agent", { method: "POST", headers: { "x-brain-key": process.env.BRAIN_KEY, "content-type": "application/json" }, body: JSON.stringify(body) }));
 let n = 0; const t = async (name, fn) => { try { await fn(); n++; } catch (e) { console.error("FAIL", name, e); process.exitCode = 1; } };
@@ -56,6 +58,25 @@ await t("trading desk: inferred from backtest / position-size words (not script 
   assert.match(bodies[0].system, /TRADING DESK/); assert.match(bodies[0].system, /100 oz/);
   bodies.length = 0; await (await post({ messages: [{ role: "user", content: "build me a strategy for gold with a backtest" }] })).text();
   assert.doesNotMatch(bodies[0].system, /TRADING DESK/);
+});
+await t("send to Telegram: the whole answer goes to Ahmad's chat, the page gets a confirmation; nothing sent otherwise", async () => {
+  const { wantsTelegram, splitForTelegram } = await import("../../brain-app/api/_brain/tg-send.js");
+  assert.ok(wantsTelegram("ابعتلي هالدرس على التيليجرام")); assert.ok(wantsTelegram("send this to telegram please")); assert.ok(wantsTelegram("حطلي الخطة عالتلغرام"));
+  assert.ok(!wantsTelegram("شو هو تيليجرام؟")); assert.ok(!wantsTelegram("ابعتلي ايميل للزبون"));
+  const parts = splitForTelegram(("سطر ".repeat(40) + "\n").repeat(60)); assert.ok(parts.length > 1 && parts.every((p) => p.length <= 3900));
+  process.env.TELEGRAM_BOT_TOKEN = "123:abc"; process.env.TELEGRAM_CHAT_ID = "42";
+  tgSent.length = 0; bodies.length = 0;
+  const out = await (await post({ messages: [{ role: "user", content: "ابعتلي درس عن الأوردر بلوك على تيليجرام" }] })).text();
+  assert.match(bodies[0].system, /TELEGRAM: Ahmad asked/);
+  assert.equal(tgSent.length, 1); assert.equal(tgSent[0].chat_id, "42"); assert.match(tgSent[0].text, /ok/); assert.equal(tgSent[0].parse_mode, undefined);
+  assert.match(out, /✅ انبعت على تيليجرام/);
+  tgSent.length = 0; bodies.length = 0;
+  await (await post({ messages: [{ role: "user", content: "مرحبا" }] })).text();
+  assert.equal(tgSent.length, 0); assert.doesNotMatch(bodies[0].system, /TELEGRAM: Ahmad asked/);
+  delete process.env.TELEGRAM_BOT_TOKEN;
+  const out2 = await (await post({ messages: [{ role: "user", content: "send it to telegram" }] })).text();
+  assert.match(out2, /مش مضبوط/);
+  delete process.env.TELEGRAM_CHAT_ID;
 });
 await t("security mode runs one passive check of the site", async () => {
   bodies.length = 0; await (await post({ mode: "security", messages: [{ role: "user", content: "check usws.com.au" }] })).text();
