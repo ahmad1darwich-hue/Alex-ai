@@ -327,4 +327,19 @@ await t("break / continue inside an if block stop or skip the loop (were read as
   assert.equal(r.plots[0].values.at(-1), 4); assert.equal(r.plots[1].values.at(-1), 5);
 });
 
+await t("request.security_lower_tf: chart bars stand in for intrabars (arrays, tuples), noted as approximate", () => {
+  const code = `//@version=6
+indicator("ltf", overlay = true)
+vols = request.security_lower_tf(syminfo.tickerid, "1", volume)
+[hs, ls] = request.security_lower_tf(syminfo.tickerid, "1", [high, low])
+plot(array.sum(vols))
+plot(array.size(hs) > 0 ? array.max(hs) - array.min(ls) : na)`;
+  const r = runPreview(code, candles, { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error);
+  const last = (p) => p.values.filter((x) => x !== null && !Number.isNaN(x)).at(-1);
+  assert.equal(last(r.plots[0]), candles.at(-1).v);
+  assert.ok(Math.abs(last(r.plots[1]) - (candles.at(-1).h - candles.at(-1).l)) < 1e-6);
+  assert.ok(r.unsupported.some((u) => /security_lower_tf/.test(u)));
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

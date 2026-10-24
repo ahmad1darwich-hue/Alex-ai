@@ -43,6 +43,8 @@ mtf_dashboard (2026-10-22: auto TF ladder, closed-bar tuple rows with trend / po
 Fading flag + streak, gauge, Full / Compact layouts).
 strategy (2026-10-23: Breakout / EMA engine + ER regime + closed-bar auto HTF, risk sizing with cap, TP1 partial + BE, R ledger,
 in-sample vs out-of-sample verdict, result boxes). ALL 9 templates are now on the design system.
+2026-10-24 run 2: VOLUME PROFILE RULES in the knowledge pack + session_volume_profile bench case (no template yet - add a
+verified volume_profile template only after the bench case passes for a few days).
 Next: a second pass on zone quality across templates (HTF zones in sr / smc dashboards), then a monthly R grid option for the
 strategy template and a "cost stress" note (re-run with 2x costs) in the bot's <explain> for strategies.
 

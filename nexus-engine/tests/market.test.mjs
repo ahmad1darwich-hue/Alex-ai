@@ -80,6 +80,9 @@ await t("weekly trend + daily/weekly alignment from the same daily candles", asy
   assert.equal(weeklyTrend(up.map((x, i) => ({ ...x, c: 3000 - i * 4, h: 3005 - i * 4, l: 2995 - i * 4 }))).wtrend, "down");
   assert.equal(alignment("up", "up"), "aligned up"); assert.equal(alignment("down", "up"), "mixed"); assert.equal(alignment("range", "range"), "mixed"); assert.equal(alignment("up", undefined), "");
   const txt = await priceLevels(["XAUUSD (Gold)"], async () => ({ candles: up, source: "yahoo" }));
+  const wk = weeklyTrend(up), wkC = weeklyTrend(up, true);
+  assert.ok(wk.pwHigh > wk.pwLow && wkC.pwHigh > wk.pwHigh, "previous completed week: the week before the current one, or the last week on a weekend");
+  assert.match(txt, /previous week high [\d.]+ \/ low [\d.]+; weekly trend up/);
   assert.match(txt, /weekly trend up \(10-week average [\d.]+\); daily \+ weekly aligned up \[yahoo\]/);
 });
 await t("dollar driver (DXY) from daily closes: tone for gold, empty without data", async () => {

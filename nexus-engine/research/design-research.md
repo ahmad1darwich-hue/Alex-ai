@@ -276,3 +276,24 @@ Where it went:
   into TradingView - first real paste is the check).
 - knowledge.js DESIGN DIRECTOR rule 13: the design kit is THE LOOK REFERENCE for every tool + the principles above.
 - Preview: gradient fills drawn with the stronger end at half strength (a bearish cloud was invisible before).
+
+## 2026-10-24 (run 2) · volume profile: POC, value area, naked POCs, HVN / LVN
+Sources: TradingView public script pages / tag listings for session, periodic and multi-mode volume profiles (public
+descriptions only), TradingView Pine v6 manual "Limitations" (official: up to 200,000 intrabars via request.security_lower_tf
+depending on plan, 100K on non-professional plans; 500 line / box / label IDs, 100 polylines; collections max 100,000 elements;
+500 ms per loop per bar; 40 unique request.*() calls).
+How the good ones work (ideas only):
+- Rows (bins) over the period's range, ~25 by default; each bar's (or 1m intrabar's) volume spread evenly over the rows it
+  touched, or all on the close row. POC = the fullest row; value area grown from the POC to 70% of the volume.
+- Profiles cost ~rows + 1 boxes each, so the number of profiles is clamped to what fits in 500 boxes; drawn with bar_index
+  so they do not drift on zoom; histogram anchored to one edge of the period, POC row widest, value area stronger.
+- Levels traders actually use: POC, VAH / VAL, previous session levels and NAKED POCs (untouched) extended until hit;
+  "In value / above / below" status; a buy / sell split by candle direction is a proxy, not real aggressor delta.
+- Complaints: thin or missing old profiles (intrabar history limit), clutter from too many profiles, fake "delta",
+  meaningless profiles on forex tick volume.
+Where it went:
+- knowledge.js: new "VOLUME PROFILE RULES" (rows + box budget, even spread, POC + 70% value area from the POC, bar_index
+  drawing, naked POCs until touched, in-value status, proxy delta named honestly, time-at-price "TPO" fallback without volume).
+- bench: session_volume_profile (replaces the simple vwap_bands case; VWAP is covered by the scalper case).
+- Preview runner: request.security_lower_tf now returns arrays / tuples (chart bars stand in for intrabars, listed as approximate).
+- Market report: previous week high / low (last completed week; the last week itself on a weekend) in the price data + prompt.

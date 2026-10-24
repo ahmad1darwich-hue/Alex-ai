@@ -829,8 +829,24 @@ export class PreviewRunner {
     return this.miss("math." + name);
   }
 
+  // ---------- request.security_lower_tf ----------
+  // The preview only has chart-timeframe candles, so each chart bar stands in for its intrabars: the result is an
+  // array (or a tuple of arrays) with ONE element per bar. Volume profiles and intrabar tools still draw; the note
+  // in `unsupported` tells the user this part is approximate.
+  requestLower(n, env) {
+    const args = n.arguments || [];
+    const named = {}; const pos = [];
+    for (const a of args) { if (a.name) named[a.name] = a.value; else pos.push(a.value); }
+    const exprNode = named.expression || pos[2];
+    this.unsupported.add("request.security_lower_tf (approximate: chart bars used as intrabars)");
+    if (!exprNode) return new PArr([]);
+    const v = this.ev(exprNode, env);
+    return Array.isArray(v) ? v.map((x) => new PArr([x])) : new PArr([v]);
+  }
+
   // ---------- request.security ----------
   request(name, n, env) {
+    if (name === "security_lower_tf") return this.requestLower(n, env);
     if (name !== "security") return this.miss("request." + name);
     const args = n.arguments || [];
     const named = {}; const pos = [];
