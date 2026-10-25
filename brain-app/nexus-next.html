@@ -74,6 +74,13 @@ html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on{transform:none;visibility:
 .btn2.del{color:#ff8a9a;border-color:rgba(255,61,113,.45);background:rgba(255,61,113,.08)}
 .btn2.del:hover{border-color:#ff3d71;background:rgba(255,61,113,.16)}
 .bub.forgot{border:1px dashed rgba(255,61,113,.5);background:rgba(255,61,113,.06)}
+.btn2.clip{border-color:rgba(124,77,255,.55);background:rgba(124,77,255,.12)}
+.clipbody .cliprow{display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap}
+.clipbody .cliprow label,.clipbody .cliprow .lb{min-width:120px;color:var(--mut);font-size:13px}
+.clipbody .cliprow .libq{flex:1;min-width:180px;margin:0}
+.clipstage{display:flex;justify-content:center;margin-top:10px}
+.clipstage canvas,.clipstage video{width:min(270px,70vw);aspect-ratio:9/16;height:auto;border-radius:12px;border:1px solid var(--line2);background:#05070b}
+.clipst{margin:10px 0 0;text-align:center;color:var(--mut);font-size:13px}
 .vline{margin-top:8px;font-size:13px;line-height:1.6;padding:8px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);color:var(--mut)}
 .vline.ok{border-color:rgba(52,227,155,.35);color:#b7f0d2}
 .vline.warn{border-color:#8a6a1f;color:#fde68a;background:#1b160a}
@@ -636,6 +643,30 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     lib_opened: ['📂 فتحت المؤشر: {x}. طلبك الجاي بيعدّل عليه.', '📂 Opened: {x}. Your next message edits it.'],
     lib_restored: ['رجعت النسخة السابقة.', 'Previous version restored.'],
     lib_deleted: ['انحذف.', 'Deleted.'],
+    clip_btn: ['🎬 مقطع تيك توك', '🎬 TikTok clip'],
+    clip_title: ['🎬 مقطع للتيك توك', '🎬 Clip for TikTok'],
+    clip_lead: ['Brain بيشغّل المؤشر على شموع حقيقية وبيعيدها شمعة شمعة (متل Bar Replay) وبيسجّل فيديو طولي 1080×1920 جاهز للنشر. التسجيل بياخد نفس مدّة المقطع، خلّي الصفحة مفتوحة.', 'Brain runs the indicator on real candles, replays them bar by bar (like Bar Replay) and records a vertical 1080x1920 video ready to post. Recording takes as long as the clip - keep this page open.'],
+    clip_tf: ['الفريم', 'Timeframe'],
+    clip_dur: ['المدّة', 'Length'],
+    clip_hook: ['الجملة اللي بتشدّ (فوق)', 'Hook text (top)'],
+    clip_hook_def: ['شوف {x} كيف بيقرأ السوق 👀', 'Watch {x} read the market 👀'],
+    clip_handle: ['اسمك / رابط التلغرام (تحت)', 'Your name / Telegram (bottom)'],
+    clip_handle_ph: ['مثلاً: تلغرام @YourChannel', 'e.g. Telegram @YourChannel'],
+    clip_go: ['🎬 سجّل المقطع', '🎬 Record clip'],
+    clip_again: ['🎬 سجّل كمان واحد', '🎬 Record another'],
+    clip_loading: ['عم شغّل المؤشر على الشموع…', 'Running the indicator on the candles…'],
+    clip_rec: ['🔴 عم سجّل… باقي {s} ثانية', '🔴 Recording… {s}s left'],
+    clip_done: ['✅ جاهز ({s} MB، {f}). نزّله وانشره.', '✅ Ready ({s} MB, {f}). Download and post it.'],
+    clip_webm: ['(متصفحك بيسجّل WebM؛ للـ MP4 استعمل Safari أو Chrome جديد)', '(your browser records WebM; for MP4 use Safari or a recent Chrome)'],
+    clip_dl: ['⬇️ نزّل الفيديو', '⬇️ Download video'],
+    clip_share: ['📤 شارك', '📤 Share'],
+    clip_cancel: ['توقّف التسجيل.', 'Recording stopped.'],
+    clip_err: ['ما زبط المقطع:', 'Clip failed:'],
+    clip_sample: ['ما وصلت شموع حقيقية لهالرمز هلّق، جرّب رمز أو فريم تاني.', 'No live candles for this symbol right now - try another symbol or timeframe.'],
+    clip_unsupported: ['متصفحك ما بيدعم تسجيل الفيديو. جرّب Chrome أو Safari.', 'Your browser cannot record video. Try Chrome or Safari.'],
+    clip_sim: ['محاكاة على Brain', 'Brain replay'],
+    clip_disc: ['تعليمي · مش نصيحة مالية', 'Educational · not financial advice'],
+    clip_cta: ['اشترك بالمؤشر 👇', 'Get the indicator 👇'],
     forget_btn: ['🗑️ احذف من الذاكرة', '🗑️ Delete from memory'],
     forget_sure: ['متأكد؟ اضغط كمان مرّة', 'Sure? Tap again'],
     forget_card: ['🗑️ هالمؤشر انحذف من الذاكرة ({x}) — البوت ما رح يرجع يبني عليه.', '🗑️ This indicator was deleted from memory ({x}) - the bot will not build on it again.'],
@@ -995,6 +1026,7 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
       forgetScript(msg);
     };
     foot.appendChild(bForget);
+    if (clipSupported() && msg.code) { var bClip = tx(el('button', 'btn2 clip'), 'clip_btn'); bClip.type = 'button'; bClip.onclick = function () { openClip(msg); }; foot.appendChild(bClip); }
     if (msg.ms) foot.appendChild(tx(el('span', 'tm'), 'took', { n: Math.round(msg.ms / 1000) }));
     art.appendChild(foot);
 
@@ -1020,6 +1052,188 @@ html[dir="rtl"] .send:not(.stop) span{display:inline-block;transform:scaleX(-1)}
     col.appendChild(art);
     arts.push({ msg: msg, use: bUse });
     refreshCurrent(); toBottom();
+  }
+
+  /* ---------- clip maker (Brain Indicators): a vertical 1080x1920 replay video of an indicator for TikTok / Reels ----------
+     The script runs on real candles (/api/preview with timeline), then the chart replays the last bars one by one:
+     a drawing appears only once it existed (born / moved / died from the runner), nothing after the current bar is
+     shown. Recorded in the browser (canvas + MediaRecorder), never uploaded anywhere. Labelled as a Brain replay. */
+  var CLIP_W = 1080, CLIP_H = 1920, CLIP_TOP = 300, CLIP_CH = 1300, CLIP_FPS = 30;
+  function clipSupported() { return !!(PREVIEW && window.NexusChart && window.MediaRecorder && window.HTMLCanvasElement && HTMLCanvasElement.prototype.captureStream); }
+  function clipMime() {
+    var list = ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    for (var i = 0; i < list.length; i++) { try { if (MediaRecorder.isTypeSupported(list[i])) return list[i]; } catch (e) {} }
+    return '';
+  }
+  function clipWrap(ctx, text, maxW, maxLines) {
+    var words = String(text || '').split(/\s+/).filter(Boolean), lines = [], cur = '';
+    words.forEach(function (w) { var tryL = cur ? cur + ' ' + w : w; if (ctx.measureText(tryL).width > maxW && cur) { lines.push(cur); cur = w; } else cur = tryL; });
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] += '…'; }
+    return lines;
+  }
+  function clipText(ctx, text, x, y, font, color, align) {
+    ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle';
+    ctx.direction = /[؀-ۿ]/.test(String(text)) ? 'rtl' : 'ltr';
+    ctx.fillText(text, x, y); ctx.direction = 'ltr';
+  }
+  // The script's dashboard (first table) drawn on the canvas for the end card.
+  function clipTable(ctx, tb, cx, top, maxW) {
+    if (!tb || !tb.cells) return 0;
+    var rows = tb.rows || 0, cols = tb.columns || 0, fs = 30, pad = 16, rh = fs + 22, widths = [], used = [], r, c, cell;
+    ctx.font = '600 ' + fs + 'px ui-monospace,Menlo,Consolas,monospace';
+    for (r = 0; r < rows; r++) {
+      var any = false;
+      for (c = 0; c < cols; c++) { cell = tb.cells[c + ':' + r]; if (cell && String(cell.text || '').trim()) { any = true; widths[c] = Math.max(widths[c] || 0, ctx.measureText(String(cell.text)).width + pad * 2); } }
+      if (any) used.push(r);
+    }
+    if (!used.length) return 0;
+    var total = 0; for (c = 0; c < cols; c++) total += widths[c] || 0;
+    var k = total > maxW ? maxW / total : 1, x0 = cx - total * k / 2, h = rh * Math.max(0.7, k);
+    used.forEach(function (row, i) {
+      var x = x0, y = top + i * h;
+      for (c = 0; c < cols; c++) {
+        var w = (widths[c] || 0) * k; cell = tb.cells[c + ':' + row];
+        ctx.fillStyle = (cell && cell.bgcolor) || tb.bgcolor || 'rgba(19,23,34,.92)'; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        if (cell && cell.text) {
+          var al = cell.text_halign === 'text.align_left' ? 'left' : cell.text_halign === 'text.align_right' ? 'right' : 'center';
+          ctx.font = '600 ' + Math.round(fs * k) + 'px ui-monospace,Menlo,Consolas,monospace'; ctx.fillStyle = cell.text_color || '#d1d4dc'; ctx.textBaseline = 'middle'; ctx.textAlign = al;
+          ctx.fillText(String(cell.text), al === 'left' ? x + pad * k : al === 'right' ? x + w - pad * k : x + w / 2, y + h / 2);
+        }
+        x += w;
+      }
+    });
+    return used.length * h;
+  }
+  function clipFrame(ctx, o, chartCv, p, endT) {
+    var g = ctx.createLinearGradient(0, 0, 0, CLIP_H); g.addColorStop(0, '#0b1220'); g.addColorStop(1, '#05070b');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, CLIP_W, CLIP_H);
+    // header: brand pill + hook
+    ctx.fillStyle = 'rgba(0,229,160,.14)'; ctx.strokeStyle = 'rgba(0,229,160,.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(CLIP_W / 2 - 150, 34, 300, 56, 28); else ctx.rect(CLIP_W / 2 - 150, 34, 300, 56); ctx.fill(); ctx.stroke();
+    clipText(ctx, o.brand, CLIP_W / 2, 63, '700 28px Inter,system-ui,sans-serif', '#7dffd0');
+    ctx.font = '800 62px Inter,system-ui,sans-serif';
+    clipWrap(ctx, o.hook, CLIP_W - 100, 2).forEach(function (ln, i, arr) { clipText(ctx, ln, CLIP_W / 2, (arr.length > 1 ? 160 : 190) + i * 76, '800 62px Inter,system-ui,sans-serif', '#ffffff'); });
+    // chart
+    ctx.drawImage(chartCv, 0, CLIP_TOP, CLIP_W, CLIP_CH);
+    clipText(ctx, o.sim, 150, CLIP_TOP + 30, '500 22px Inter,system-ui,sans-serif', 'rgba(255,255,255,.45)');
+    // progress
+    ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(0, CLIP_TOP + CLIP_CH, CLIP_W, 6);
+    ctx.fillStyle = '#00e5a0'; ctx.fillRect(0, CLIP_TOP + CLIP_CH, CLIP_W * Math.min(1, p), 6);
+    // footer
+    clipText(ctx, o.title, CLIP_W / 2, 1666, '800 46px Inter,system-ui,sans-serif', '#00e5a0');
+    clipText(ctx, o.market, CLIP_W / 2, 1728, '600 32px Inter,system-ui,sans-serif', '#aab4c3');
+    if (o.handle) clipText(ctx, o.handle, CLIP_W / 2, 1790, '700 36px Inter,system-ui,sans-serif', '#ffffff');
+    clipText(ctx, o.disc, CLIP_W / 2, 1860, '500 23px Inter,system-ui,sans-serif', 'rgba(255,255,255,.5)');
+    // end card: the dashboard + call to action over a dimmed chart
+    if (endT > 0) {
+      var a = Math.min(1, endT / 0.4);
+      ctx.fillStyle = 'rgba(5,7,11,' + (0.72 * a) + ')'; ctx.fillRect(0, CLIP_TOP, CLIP_W, CLIP_CH);
+      ctx.globalAlpha = a;
+      var h = clipTable(ctx, o.table, CLIP_W / 2, CLIP_TOP + 170, CLIP_W - 120);
+      var y = Math.min(CLIP_TOP + 170 + h + 120, CLIP_TOP + CLIP_CH - 160);
+      clipText(ctx, o.cta, CLIP_W / 2, y, '800 54px Inter,system-ui,sans-serif', '#ffffff');
+      if (o.handle) clipText(ctx, o.handle, CLIP_W / 2, y + 80, '700 44px Inter,system-ui,sans-serif', '#00e5a0');
+      ctx.globalAlpha = 1;
+    }
+  }
+  var CLIP = { run: null };
+  function clipModal() {
+    var m = $('clipModal'); if (m) return m;
+    m = el('div', 'modal'); m.id = 'clipModal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-labelledby', 'clipTitle');
+    m.innerHTML = '<div class="mcard"><div class="mhead"><b id="clipTitle"></b><button class="btn2 close" type="button" data-close="1" aria-label="close">✕</button></div>' +
+      '<div class="mbody clipbody"><p class="mlead" id="clipLead"></p>' +
+      '<div class="cliprow"><label id="clipSymL" for="clipSym"></label><select id="clipSym" class="pv-sel"></select></div>' +
+      '<div class="cliprow"><span id="clipTfL" class="lb"></span><div id="clipTfs" class="pv-tfs"></div></div>' +
+      '<div class="cliprow"><label id="clipDurL" for="clipDur"></label><select id="clipDur" class="pv-sel"><option value="15">15s</option><option value="25" selected>25s</option><option value="35">35s</option></select></div>' +
+      '<div class="cliprow"><label id="clipHookL" for="clipHook"></label><input id="clipHook" class="libq" maxlength="90"></div>' +
+      '<div class="cliprow"><label id="clipHandleL" for="clipHandle"></label><input id="clipHandle" class="libq" maxlength="60"></div>' +
+      '<div class="clipstage"><canvas id="clipCv" width="1080" height="1920"></canvas><video id="clipVid" controls playsinline></video></div>' +
+      '<p class="clipst" id="clipSt" role="status"></p></div>' +
+      '<div class="mfoot"><button class="btn2" type="button" id="clipShare"></button><a class="btn2" id="clipDl" download></a><button class="btn2 pri" type="button" id="clipGo"></button></div></div>';
+    document.body.appendChild(m);
+    return m;
+  }
+  function openClip(msg) {
+    if (busy) { toast(t('wait_busy')); return; }
+    clipModal();
+    var pref = pvPrefs();
+    $('clipTitle').textContent = t('clip_title'); $('clipLead').textContent = t('clip_lead');
+    $('clipSymL').textContent = t('pv_sym'); $('clipTfL').textContent = t('clip_tf'); $('clipDurL').textContent = t('clip_dur');
+    $('clipHookL').textContent = t('clip_hook'); $('clipHandleL').textContent = t('clip_handle');
+    var sym = $('clipSym'), tfs = $('clipTfs'); sym.innerHTML = ''; tfs.innerHTML = '';
+    PV_SYMS.forEach(function (s) { var o = el('option', '', s[1]); o.value = s[0]; if (s[0] === pref.symbol) o.selected = true; sym.appendChild(o); });
+    var tf = pref.tf;
+    PV_TFS.forEach(function (x) { var b = el('button', 'pv-tf' + (x[0] === tf ? ' on' : ''), x[1]); b.type = 'button'; b.onclick = function () { tf = x[0]; tfs.querySelectorAll('button').forEach(function (y) { y.classList.toggle('on', y === b); }); }; tfs.appendChild(b); });
+    var name = msg.title || (msg.file || 'Indicator').replace(/\.pine$/i, '').replace(/_/g, ' ');
+    $('clipHook').value = t('clip_hook_def', { x: name });
+    var handle = ''; try { handle = localStorage.getItem('nx_clip_handle') || ''; } catch (e) {}
+    $('clipHandle').value = handle; $('clipHandle').placeholder = t('clip_handle_ph');
+    var cv = $('clipCv'), vid = $('clipVid'), go = $('clipGo');
+    cv.style.display = ''; vid.style.display = 'none'; $('clipDl').style.display = 'none'; $('clipShare').style.display = 'none'; $('clipSt').textContent = '';
+    var c0 = cv.getContext('2d'); c0.fillStyle = '#05070b'; c0.fillRect(0, 0, CLIP_W, CLIP_H);
+    go.textContent = t('clip_go'); go.disabled = false;
+    go.onclick = function () {
+      var h = $('clipHandle').value.trim(); try { localStorage.setItem('nx_clip_handle', h); } catch (e) {}
+      recordClip(msg, { symbol: sym.value, tf: tf, dur: +$('clipDur').value || 25, hook: $('clipHook').value.trim() || name, handle: h, name: name });
+    };
+    openModal('clipModal');
+  }
+  function recordClip(msg, opt) {
+    var cv = $('clipCv'), vid = $('clipVid'), dl = $('clipDl'), sh = $('clipShare'), go = $('clipGo'), st = $('clipSt'), m = $('clipModal');
+    var mime = clipMime();
+    if (!mime) { st.textContent = t('clip_unsupported'); return; }
+    go.disabled = true; st.textContent = t('clip_loading'); cv.style.display = ''; vid.style.display = 'none'; dl.style.display = 'none'; sh.style.display = 'none';
+    var run = CLIP.run = {};
+    fetch(PREVIEW, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: msg.code, symbol: opt.symbol, tf: opt.tf, timeline: true }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (CLIP.run !== run) return;
+        if (!d || !d.ok || !Array.isArray(d.candles) || !d.result || !d.result.ok) throw new Error((d && d.result && d.result.error) || (d && d.message) || 'error');
+        if (d.sample) throw new Error(t('clip_sample'));
+        PV_TFS.forEach(function (x) { if (x[0] === d.tf) d.tfName = x[1]; });
+        var host = el('div'); host.style.cssText = 'position:fixed;left:-20000px;top:0;width:' + CLIP_W / 2 + 'px;height:' + CLIP_CH / 2 + 'px;';
+        document.body.appendChild(host);
+        var chart = window.NexusChart.create(host, d, { dpr: 2 });
+        var n = d.candles.length, from = d.result.timelineFrom != null ? d.result.timelineFrom : Math.max(0, n - 220);
+        var playS = Math.max(6, opt.dur - 4), bars = Math.max(30, Math.min(n - 1 - from, Math.round(playS * 4.5))), start = n - 1 - bars;
+        var o = { brand: 'NEXUS · BRAIN', hook: opt.hook, title: opt.name, market: (d.label || d.symbol) + ' · ' + (d.tfName || d.tf), handle: opt.handle, sim: t('clip_sim'), disc: t('clip_disc'), cta: t('clip_cta'), table: (d.result.tables || [])[0] };
+        var ctx = cv.getContext('2d'), stream = cv.captureStream(CLIP_FPS), chunks = [];
+        var rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8000000 });
+        rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+        var introS = 1, endS = 3, total = introS + playS + endS, t0 = 0, stopped = false;
+        function finish(ok) {
+          if (stopped) return; stopped = true;
+          try { if (rec.state !== 'inactive') rec.stop(); } catch (e) {}
+          try { chart.destroy(); } catch (e) {} host.remove(); go.disabled = false;
+          if (!ok) { st.textContent = t('clip_cancel'); CLIP.run = null; }
+        }
+        rec.onstop = function () {
+          if (CLIP.run !== run || !chunks.length) return;
+          var type = mime.split(';')[0], blob = new Blob(chunks, { type: type }), url = URL.createObjectURL(blob);
+          var ext = /mp4/.test(type) ? 'mp4' : 'webm', file = (opt.name + '_' + (d.symbol || '') + '_' + (d.tfName || d.tf)).replace(/[^\w؀-ۿ-]+/g, '_') + '.' + ext;
+          vid.src = url; vid.style.display = ''; cv.style.display = 'none';
+          dl.href = url; dl.download = file; dl.textContent = t('clip_dl'); dl.style.display = '';
+          st.textContent = t('clip_done', { s: Math.round(blob.size / 1e5) / 10, f: ext.toUpperCase() }) + (ext === 'webm' ? ' ' + t('clip_webm') : '');
+          var f = null; try { f = new File([blob], file, { type: type }); } catch (e) {}
+          if (f && navigator.canShare && navigator.canShare({ files: [f] })) { sh.textContent = t('clip_share'); sh.style.display = ''; sh.onclick = function () { navigator.share({ files: [f], title: opt.name }).catch(function () {}); }; }
+          go.textContent = t('clip_again');
+        };
+        function tick() {
+          if (stopped) return;
+          if (!m.classList.contains('on') || CLIP.run !== run) { finish(false); return; }
+          var sec = (performance.now() - t0) / 1000, f;
+          if (sec < introS) f = start; else f = Math.min(n - 1, start + Math.floor((sec - introS) / playS * bars));
+          clipFrame(ctx, o, chart.renderFrame(f, 70, 8), Math.min(1, sec / total), sec - introS - playS);
+          st.textContent = t('clip_rec', { s: Math.max(0, Math.ceil(total - sec)) });
+          if (sec >= total) { finish(true); return; }
+          setTimeout(tick, 1000 / CLIP_FPS);
+        }
+        clipFrame(ctx, o, chart.renderFrame(start, 70, 8), 0, 0);
+        rec.start(500); t0 = performance.now(); tick();
+      })
+      .catch(function (e) { if (CLIP.run !== run) return; go.disabled = false; st.textContent = t('clip_err') + ' ' + String(e && e.message || e).slice(0, 160); });
   }
 
   /* ---------- chart preview (Brain Indicators): candles + what the script draws, from /api/preview ---------- */

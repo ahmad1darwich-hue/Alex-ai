@@ -62,3 +62,10 @@ Was: the reviewer SEES the chart - _nexus/render.js draws the dry run (candles, 
 labels with a pixel font, table) into a PNG (own rasterizer + CompressionStream) and every new build gets a final review with
 that picture. NEXT: render the user's real symbol / timeframe candles instead of sample gold; learn design preferences from repeated
 corrections into <remember> automatically.
+
+## Clip maker for TikTok (Ahmad 2026-10-25: renting the indicators, marketing on TikTok, customers via Telegram)
+Shipped: 🎬 button on every script card (Brain Indicators only): /api/preview timeline:true (born / moved / died per drawing) ->
+chart.renderFrame(f) bar-by-bar replay (nothing past the bar, drawings only while they existed) -> 1080x1920 canvas (hook, chart,
+progress, title, market, handle, educational note, end card with the dashboard + CTA) -> MediaRecorder (H.264 MP4 where supported,
+else WebM) -> download / share. Labelled "Brain replay". NEXT: batch "clips for all my indicators", Arabic/English caption +
+hashtags text next to the video, optional music-free voice-over line, real-time scheduling via a social tool if Ahmad connects one.

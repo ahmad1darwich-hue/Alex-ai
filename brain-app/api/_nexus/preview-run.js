@@ -164,6 +164,11 @@ export class PreviewRunner {
     this.out = { plots: [], hlines: [], fills: [], shapes: [], bg: [], barcolor: [], labels: [], lines: [], boxes: [], tables: [], trades: [] };
     this.drawSeq = 1;
     this.live = { label: [], line: [], box: [] };
+    // Replay timeline (clip maker): when each drawing was born, last MOVED (a coordinate other than the right edge
+    // changed) and died, so a bar-by-bar replay never shows a drawing before it existed.
+    this.timeline = !!(opts && opts.timeline);
+    this.tlFrom = opts && Number.isFinite(opts.timelineFrom) ? opts.timelineFrom : Math.max(0, (candles ? candles.length : 0) - 220);
+    this.dead = { label: [], line: [], box: [] };
     this.plotSites = new Map(); // call node -> plot index
     this.strat = { pos: 0, avg: NA, entries: [], closed: 0, wins: 0, net: 0, pendingExits: new Map(), lastId: "" };
   }
@@ -983,12 +988,18 @@ export class PreviewRunner {
   newDrawing(kind, props) {
     if (this.inSec) return NA;
     const d = new Drawing(kind, this.drawSeq++, props);
+    d.born = this.i; d.moved = this.i;
     const live = this.live[kind]; live.push(d);
     const max = kind === "label" ? this.decl.maxLabels : kind === "line" ? this.decl.maxLines : this.decl.maxBoxes;
     let alive = live.filter((x) => !x.deleted);
-    while (alive.length > max) { alive[0].deleted = true; alive = alive.slice(1); }
+    while (alive.length > max) { this.kill(alive[0]); alive = alive.slice(1); }
     if (live.length > max * 4) this.live[kind] = live.filter((x) => !x.deleted);
     return d;
+  }
+  kill(d) {
+    if (d.deleted) return;
+    d.deleted = true; d.died = this.i;
+    if (this.timeline && this.i >= this.tlFrom) { const a = this.dead[d.kind]; a.push(d); if (a.length > 3000) a.shift(); }
   }
   drawFn(kind, name, pre, n, env, isMethod) {
     const PN = {
@@ -1004,7 +1015,7 @@ export class PreviewRunner {
     }
     const vals = pre || this.posArgs(n, env);
     const d = vals[0];
-    if (name === "delete") { if (d instanceof Drawing) d.deleted = true; return NA; }
+    if (name === "delete") { if (d instanceof Drawing) this.kill(d); return NA; }
     if (!(d instanceof Drawing)) return NA;
     if (name === "copy") return this.newDrawing(kind, { ...d.p });
     const v = vals[1], v2 = vals[2];
@@ -1016,7 +1027,10 @@ export class PreviewRunner {
     }[kind];
     const f = setters[name];
     if (!f) return this.miss(kind + "." + name);
+    const before = name.startsWith("set_") ? JSON.stringify([p.x, p.y, p.x1, p.y1, p.y2, p.left, p.top, p.bottom]) : "";
     const r = f();
+    // Only the right edge growing (set_right / set_x2 / an unchanged y) keeps a drawing in place for the replay.
+    if (before && JSON.stringify([p.x, p.y, p.x1, p.y1, p.y2, p.left, p.top, p.bottom]) !== before) d.moved = this.i;
     return name.startsWith("get_") ? r : NA;
   }
   tableFn(name, n, env, self) {
@@ -1094,7 +1108,9 @@ export class PreviewRunner {
   result(error, errorLine) {
     const n = this.main.n;
     const toX = (x, xloc) => (xloc === "xloc.bar_time" ? this.timeToBar(x) : x);
-    const pick = (kind, f) => this.live[kind].filter((d) => !d.deleted).map(f);
+    const tl = this.timeline, from = this.tlFrom;
+    const stamp = (d, o) => (tl ? Object.assign(o, { born: d.born, moved: d.moved, died: d.died }) : o);
+    const pick = (kind, f) => (tl ? this.dead[kind].filter((d) => d.died >= from).concat(this.live[kind].filter((d) => !d.deleted)) : this.live[kind].filter((d) => !d.deleted)).map((d) => stamp(d, f(d)));
     const out = this.out;
     const labels = pick("label", (d) => ({ x: toX(d.p.x, d.p.xloc), y: d.p.y, yloc: d.p.yloc, text: String(d.p.text ?? ""), color: cssColor(d.p.color), textcolor: cssColor(d.p.textcolor), style: d.p.style, size: d.p.size, tooltip: d.p.tooltip, fo: !!d.p.fo }))
       .filter((l) => !isNa(l.x) && (l.yloc !== "yloc.price" || !isNa(l.y)));
@@ -1110,7 +1126,7 @@ export class PreviewRunner {
       plots, hlines: out.hlines, fills: out.fills.map((f) => ({ ...f, colors: Array.from({ length: n }, (_, k) => f.colors[k] || null) })),
       shapes: out.shapes.filter((s) => s.bar >= 0 && s.bar < n + 50),
       bg: Array.from({ length: n }, (_, k) => out.bg[k] || null), barcolor: Array.from({ length: n }, (_, k) => out.barcolor[k] || null),
-      labels: labels.slice(-500), lines: lines.slice(-500), boxes: boxes.slice(-500), tables,
+      labels: labels.slice(tl ? -2500 : -500), lines: lines.slice(tl ? -2500 : -500), boxes: boxes.slice(tl ? -2500 : -500), tables, timelineFrom: tl ? from : undefined,
       trades: out.trades.slice(-400), stats: this.decl.kind === "strategy" ? { closed: this.strat.closed, wins: this.strat.wins, net: this.strat.net } : undefined,
       unsupported: [...this.unsupported].slice(0, 12), ms: Date.now() - this.t0, bars: n,
     };

@@ -342,4 +342,32 @@ plot(array.size(hs) > 0 ? array.max(hs) - array.min(ls) : na)`;
   assert.ok(r.unsupported.some((u) => /security_lower_tf/.test(u)));
 });
 
+await t("timeline for the clip maker: born / moved / died per drawing, deleted ones kept inside the window", () => {
+  const code = `//@version=6
+indicator("tl", overlay = true, max_labels_count = 5)
+var line ln = line.new(na, na, na, na)
+if bar_index % 10 == 0
+    label.new(bar_index, high, "x")
+var box b = na
+if bar_index == last_bar_index - 30
+    b := box.new(bar_index, high, bar_index + 5, low)
+if bar_index == last_bar_index - 10
+    b.delete()
+if barstate.islast
+    ln.set_xy1(bar_index - 20, close)
+    ln.set_xy2(bar_index, close)
+plot(close)`;
+  const r = runPreview(code, candles, { tfSec: 900, symbol: GOLD, timeline: true, timelineFrom: candles.length - 120 });
+  assert.ok(r.ok, r.error);
+  const last = candles.length - 1;
+  assert.equal(r.timelineFrom, candles.length - 120);
+  const bx = r.boxes.find((b) => b.born === last - 30);
+  assert.ok(bx && bx.died === last - 10, "deleted box kept with its life span: " + JSON.stringify(r.boxes.map((b) => [b.born, b.died])));
+  assert.ok(r.labels.some((l) => l.died != null), "labels pushed out by max_labels_count are kept with died");
+  assert.ok(r.labels.filter((l) => l.died == null).length <= 5);
+  const ln = r.lines[0]; assert.equal(ln.born, 0); assert.equal(ln.moved, last, "set_xy on the last bar = moved there");
+  const plain = runPreview(code, candles, { tfSec: 900, symbol: GOLD });
+  assert.ok(plain.boxes.length === 0 && plain.labels.every((l) => l.born === undefined), "without timeline the output is unchanged");
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

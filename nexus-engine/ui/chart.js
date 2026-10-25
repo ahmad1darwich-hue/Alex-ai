@@ -62,7 +62,7 @@
   Chart.prototype.zoom = function (f, x) { var b = this.barAt(x); this.spacing = Math.max(2, Math.min(40, this.spacing * f)); var nb = this.barAt(x); this.end += b - nb; this.clamp(); this.draw(); };
   Chart.prototype.clamp = function () { this.end = Math.max(10, Math.min(this.n - 1 + Math.floor(this.W / this.spacing * 0.6), this.end)); };
   Chart.prototype.resize = function () {
-    var r = this.box.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    var r = this.box.getBoundingClientRect(), dpr = this.o.dpr || window.devicePixelRatio || 1;
     this.Wfull = Math.max(200, r.width); this.Hfull = Math.max(180, r.height);
     this.cv.width = Math.round(this.Wfull * dpr); this.cv.height = Math.round(this.Hfull * dpr);
     this.cv.style.width = this.Wfull + 'px'; this.cv.style.height = this.Hfull + 'px';
@@ -90,6 +90,12 @@
   };
   Chart.prototype.paint = function () {
     var ctx = this.ctx, d = this.d, r = this.r, C = d.candles, rg = this.range(), a = rg[0], b = rg[1], self = this;
+    // Replay frame (clip maker): nothing after bar F is drawn, and a drawing only shows while it existed at bar F
+    // (born / moved / died come from the preview timeline). Right edges are cut a few bars past F.
+    var F = this.frame == null ? null : this.frame, n1 = this.n - 1;
+    if (F != null) b = Math.min(b, F);
+    var vis = function (o) { return F == null || o.born === undefined || (o.born <= F && (o.died == null || o.died > F) && (o.moved == null || o.moved <= F || F >= n1)); };
+    var cut = F == null || F >= n1 ? null : F + 10;
     ctx.clearRect(0, 0, this.Wfull, this.Hfull); ctx.fillStyle = BG; ctx.fillRect(0, 0, this.Wfull, this.Hfull);
     // scales
     var lo = Infinity, hi = -Infinity, k;
@@ -113,7 +119,7 @@
       // background colors
       (r.bg || []).forEach(function (c, j) { if (c && j >= a && j <= b) { ctx.fillStyle = c; ctx.fillRect(self.xOf(j) - self.spacing / 2, P.top, self.spacing + 0.5, P.h); } });
       this.fills(P, a, b);
-      (r.boxes || []).forEach(function (bx) { self.boxDraw(bx, bx.fo ? A : P); });
+      (r.boxes || []).forEach(function (bx) { if (!vis(bx)) return; if (cut != null && bx.right > cut) bx = Object.assign({}, bx, { right: Math.max(bx.left, cut), extend: 'extend.none' }); self.boxDraw(bx, bx.fo ? A : P); });
     }
     // candles
     var bw = Math.max(1, Math.min(13, this.spacing * 0.7));
@@ -127,10 +133,14 @@
     if (r.ok) {
       (r.plots || []).forEach(function (p) { if (!p.hidden) self.plot(p, p.forceOverlay ? A : P, a, b); });
       (r.hlines || []).forEach(function (h) { if (h.hidden || !isNum(h.price)) return; ctx.strokeStyle = h.color; ctx.lineWidth = h.width || 1; dash(ctx, h.style); var y = Math.round(P.y(h.price)) + 0.5; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(self.W, y); ctx.stroke(); ctx.setLineDash([]); });
-      (r.lines || []).forEach(function (l) { self.lineDraw(l, l.fo ? A : P); });
-      (r.shapes || []).forEach(function (s) { if (s.bar >= a - 1 && s.bar <= b + 1) self.shape(s, P); });
+      (r.lines || []).forEach(function (l) {
+        if (!vis(l)) return;
+        if (cut != null && Math.max(l.x1, l.x2) > cut) { if (Math.min(l.x1, l.x2) > cut) return; var hi = l.x2 > l.x1 ? 'x2' : 'x1', lo2 = hi === 'x2' ? 'x1' : 'x2', yh = hi === 'x2' ? 'y2' : 'y1', yl = hi === 'x2' ? 'y1' : 'y2', o = Object.assign({}, l, { extend: 'extend.none' }); o[yh] = l[yl] + (l[yh] - l[yl]) * (cut - l[lo2]) / (l[hi] - l[lo2] || 1); o[hi] = cut; l = o; }
+        self.lineDraw(l, l.fo ? A : P);
+      });
+      (r.shapes || []).forEach(function (s) { if (s.bar >= a - 1 && s.bar <= b + (F == null ? 1 : 0)) self.shape(s, P); });
       (r.trades || []).forEach(function (t) { if (t.bar >= a && t.bar <= b) self.trade(t); });
-      (r.labels || []).forEach(function (l) { self.label(l, l.fo ? A : P); });
+      (r.labels || []).forEach(function (l) { if (!vis(l) || (cut != null && l.x > cut + 10)) return; self.label(l, l.fo ? A : P); });
     }
     this.drawUser(A);
     ctx.restore();
@@ -164,7 +174,7 @@
     for (var k = a - (a % every); k <= b; k += every) { if (k < 0) continue; var x = this.xOf(k); if (x < 20 || x > this.W - 20) continue; ctx.fillText(tfLabel(C[k].t, this.tfSec), x, y + this.TX / 2); }
   };
   Chart.prototype.lastPrice = function () {
-    var ctx = this.ctx, C = this.d.candles, c = C[this.n - 1], A = this.paneA, y = A.y(c.c);
+    var ctx = this.ctx, C = this.d.candles, c = C[this.frame == null ? this.n - 1 : Math.min(this.n - 1, this.frame)], A = this.paneA, y = A.y(c.c);
     if (y < 0 || y > A.h) return;
     var col = c.c >= c.o ? UP : DN;
     ctx.strokeStyle = col; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(this.W, Math.round(y) + 0.5); ctx.stroke(); ctx.setLineDash([]);
@@ -199,7 +209,7 @@
     }
     ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     var step = /stepline/.test(st), prev = null;
-    for (var i = Math.max(0, a - 1); i <= Math.min(this.n - 1, b + 1); i++) {
+    for (var i = Math.max(0, a - 1); i <= Math.min(this.n - 1, b + (this.frame == null ? 1 : 0)); i++) {
       var val = p.values[i], col = p.colors[i];
       if (!isNum(val) || !col) { prev = null; continue; }
       var px = this.xOf(i), py = pane.y(val);
@@ -429,6 +439,15 @@
       if (d.type === 'buy' || d.type === 'sell') return d.type.toUpperCase() + ' mark at ' + fmt(d.a.p, mt) + ' (' + when(d.a.t) + ')';
       return 'note "' + d.text + '" at ' + fmt(d.a.p, mt) + ' (' + when(d.a.t) + ')';
     });
+  };
+  // Clip maker: draw bar `f` of a replay now (synchronously), with the camera keeping `ahead` empty bars on the right.
+  Chart.prototype.renderFrame = function (f, barsInView, ahead) {
+    this.frame = f; this.hover = -1;
+    if (barsInView) this.spacing = Math.max(2, this.W / barsInView);
+    this.end = f + (ahead == null ? 6 : ahead);
+    if (this._raf) { try { (window.cancelAnimationFrame || clearTimeout)(this._raf); } catch (e) {} this._raf = 0; }
+    this.paint();
+    return this.cv;
   };
   Chart.prototype.snapshot = function () { this.hover = -1; if (this._raf) { try { (window.cancelAnimationFrame || clearTimeout)(this._raf); } catch (e) {} this._raf = 0; } this.paint(); return this.cv.toDataURL('image/jpeg', 0.85); };
 

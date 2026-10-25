@@ -1,5 +1,6 @@
 // Chart preview for Brain Indicators (Vercel EDGE function).
-//   POST { code, symbol, tf } -> { ok, symbol, tf, source, candles: [{t,o,h,l,c,v}], result }
+//   POST { code, symbol, tf, timeline? } -> { ok, symbol, tf, source, candles: [{t,o,h,l,c,v}], result }
+// With timeline: true every label / line / box also carries born / moved / died bar indexes (clip maker replay).
 // `result` is what the Pine script draws (plots, shapes, labels, lines, boxes, tables, trades), computed by our own
 // runner (_nexus/preview-run.js) over live public candles (_brain/candles.js). Educational preview only: it is an
 // approximation of TradingView and never places trades.
@@ -45,7 +46,9 @@ export default async function handler(req) {
   }
   const S = SYMBOLS[symbol];
   let result;
-  try { result = runPreview(b.code, candles, { tfSec, symbol: S, maxMs: 7000, maxSteps: 1.6e7 }); } // big pro scripts need more than the default 2.5 s
+  // timeline: the clip maker replays the last bars one by one and needs to know when each drawing was born / died.
+  const timeline = b.timeline === true;
+  try { result = runPreview(b.code, candles, { tfSec, symbol: S, maxMs: 7000, maxSteps: 1.6e7, timeline, timelineFrom: timeline ? Math.max(0, candles.length - 240) : undefined }); } // big pro scripts need more than the default 2.5 s
   catch (e) { result = { ok: false, error: "preview failed: " + String(e && e.message || e).slice(0, 200) }; }
   console.log("PREVIEW", JSON.stringify({ symbol, tf, source, bars: candles.length, ok: result.ok, ms: result.ms, err: result.error ? String(result.error).slice(0, 120) : undefined, unsupported: result.unsupported }));
   return json({ ok: true, symbol, label: S.label, tf, source, sample, mintick: S.mintick, candles, result });
