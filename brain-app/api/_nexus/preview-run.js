@@ -1027,10 +1027,10 @@ export class PreviewRunner {
     }[kind];
     const f = setters[name];
     if (!f) return this.miss(kind + "." + name);
-    const before = name.startsWith("set_") ? JSON.stringify([p.x, p.y, p.x1, p.y1, p.y2, p.left, p.top, p.bottom]) : "";
+    const before = name.startsWith("set_") ? JSON.stringify([p.y, p.x1, p.y1, p.y2, p.left, p.top, p.bottom]) : "";
     const r = f();
-    // Only the right edge growing (set_right / set_x2 / an unchanged y) keeps a drawing in place for the replay.
-    if (before && JSON.stringify([p.x, p.y, p.x1, p.y1, p.y2, p.left, p.top, p.bottom]) !== before) d.moved = this.i;
+    // Only the right edge growing (set_right / set_x2, a label sliding right at the same y) keeps a drawing in place for the replay.
+    if (before && JSON.stringify([p.y, p.x1, p.y1, p.y2, p.left, p.top, p.bottom]) !== before) d.moved = this.i;
     return name.startsWith("get_") ? r : NA;
   }
   tableFn(name, n, env, self) {

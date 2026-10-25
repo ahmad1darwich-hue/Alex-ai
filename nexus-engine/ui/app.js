@@ -782,12 +782,12 @@
           if (!m.classList.contains('on') || CLIP.run !== run) { finish(false); return; }
           var sec = (performance.now() - t0) / 1000, f;
           if (sec < introS) f = start; else f = Math.min(n - 1, start + Math.floor((sec - introS) / playS * bars));
-          clipFrame(ctx, o, chart.renderFrame(f, 70, 8), Math.min(1, sec / total), sec - introS - playS);
+          clipFrame(ctx, o, chart.renderFrame(f, 70, 14), Math.min(1, sec / total), sec - introS - playS);
           st.textContent = t('clip_rec', { s: Math.max(0, Math.ceil(total - sec)) });
           if (sec >= total) { finish(true); return; }
           setTimeout(tick, 1000 / CLIP_FPS);
         }
-        clipFrame(ctx, o, chart.renderFrame(start, 70, 8), 0, 0);
+        clipFrame(ctx, o, chart.renderFrame(start, 70, 14), 0, 0);
         rec.start(500); t0 = performance.now(); tick();
       })
       .catch(function (e) { if (CLIP.run !== run) return; go.disabled = false; st.textContent = t('clip_err') + ' ' + String(e && e.message || e).slice(0, 160); });

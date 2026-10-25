@@ -69,3 +69,8 @@ chart.renderFrame(f) bar-by-bar replay (nothing past the bar, drawings only whil
 progress, title, market, handle, educational note, end card with the dashboard + CTA) -> MediaRecorder (H.264 MP4 where supported,
 else WebM) -> download / share. Labelled "Brain replay". NEXT: batch "clips for all my indicators", Arabic/English caption +
 hashtags text next to the video, optional music-free voice-over line, real-time scheduling via a social tool if Ahmad connects one.
+
+## New verified templates (Ahmad 2026-10-25: "add all of them" before the TikTok launch)
+volume_profile, liquidity, supply_demand, fib_pivots - on the design system, clean in our checker and the preview on 15m / 1h / 4h,
+visually checked through the clip maker. NOT yet pasted into TradingView: Ahmad's first paste is the real compile check - fix any
+error he sends first. Then: a bench case each, and tune S&D defaults on real gold data (sample candles give few impulses).

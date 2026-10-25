@@ -221,4 +221,90 @@ export const CATALOG = [
       ],
     },
   },
+  {
+    id: "volume_profile",
+    src: "volume_profile.pine",
+    file: "nexus_volume_profile.pine",
+    title: { en: "Nexus Volume Profile - POC, Value Area & Naked POCs", ar: "فوليوم بروفايل: POC ومنطقة القيمة والـ Naked POC" },
+    use: "Volume profile on the design system: one profile per period (Auto = Day up to 15m, Week up to 4h, Month above, or chosen), rows input (box budget: rows x profiles kept under 500), each bar's volume spread evenly over the rows it touched (time at price / TPO fallback when the symbol has no volume, shown as Mode), POC = fullest row, value area grown from the POC to the input % (VAH / VAL dashed), finished profiles right-anchored at the period end with a gap between rows (POC row = hero gold), the developing profile drawn right of price on the last bar, naked POCs extended until price trades through them (then dotted and faded), dashboard (mode, price vs the last value area, last POC in ATR, developing POC, nearest naked POC), alerts (naked POC touched / new, close above VAH / below VAL).",
+    explain: {
+      en: [
+        "One volume profile per day, week or month (Auto picks from your timeframe): the busiest price (POC, gold) and the value area where 70% of the volume traded (VAH / VAL dashed).",
+        "Finished profiles sit at the end of their period; the live one grows beside price on the right.",
+        "A POC that price has not traded back to stays on the chart as a naked POC until it is touched - traders watch these as magnets.",
+        "Dashboard: price above / inside / below the last value area, distance to the last POC and the nearest naked POC in ATR.",
+        "Symbols without real volume (many forex / CFD feeds) switch to time at price and the dashboard says TPO.",
+      ],
+      ar: [
+        "بروفايل فوليوم لكل يوم أو أسبوع أو شهر (Auto بيختار حسب فريمك): أكتر سعر انتداول (POC بالدهبي) ومنطقة القيمة اللي فيها 70% من الفوليوم (VAH و VAL متقطّعين).",
+        "البروفايلات الخالصة بتطلع عند آخر فترتها، والحالي بيكبر جنب السعر على اليمين.",
+        "الـ POC اللي السعر ما رجعله بيضل على الشارت كـ Naked POC لحتى يلمسه، والترادرز بيعتبروه مغناطيس للسعر.",
+        "الجدول: السعر فوق أو جوّا أو تحت منطقة القيمة السابقة، وبعده عن آخر POC وعن أقرب Naked POC بالـ ATR.",
+        "الرموز اللي ما فيها فوليوم حقيقي (كتير من الفوركس والـ CFD) بتشتغل على الوقت عند السعر والجدول بيكتب TPO.",
+      ],
+    },
+  },
+  {
+    id: "liquidity",
+    src: "liquidity.pine",
+    file: "nexus_liquidity.pine",
+    title: { en: "Nexus Liquidity - Pools, Sweeps & Stop Hunts", ar: "سيولة وصيد ستوبات: Pools و Sweeps و Hunt" },
+    use: "Liquidity tool on the design system: buy-side (BSL, above swing highs) and sell-side (SSL, below swing lows) pools from confirmed pivots (auto length per timeframe), swings within a tolerance in ATR join one pool (EQ, hit count, thicker line), previous day / week high and low merged into a pool on the same price, pools capped per side, each pool ends SWEPT (wick through + close back: SWEEP label with tooltip, dotted line) or TAKEN (close beyond: faded), finished pools kept as faint history (newest 30), HUNT signal = close back beyond the sweep candle within N bars (pill with invalidation in the tooltip), dashboard (nearest BSL / SSL in ATR, resting pools, sweep counts, last event), alerts (BSL / SSL swept, HUNT up / down, pool taken).",
+    explain: {
+      en: [
+        "Shows where stops are waiting: buy-side liquidity above swing highs (BSL) and sell-side below swing lows (SSL). Equal highs / lows and the previous day / week high and low are the strongest pools.",
+        "When a wick takes a pool and the candle closes back, it is marked SWEEP (a stop hunt). A close beyond means the pool was taken and the move ran.",
+        "After a sweep, a close back beyond the sweep candle prints ▲ HUNT / ▼ HUNT; hover it to see where the idea is wrong.",
+        "Dashboard: nearest buy-side and sell-side pool in ATR, resting pools, sweeps so far and the last event. Confirmed bars only.",
+      ],
+      ar: [
+        "بيورجيك وين الستوبات ناطرة: سيولة شراء فوق القمم (BSL) وسيولة بيع تحت القيعان (SSL). القمم والقيعان المتساوية وقمة وقاع اليوم والأسبوع السابق أقوى شي.",
+        "لما ذيل الشمعة يضرب السيولة وتسكّر راجعة، بينكتب SWEEP (صيد ستوبات). وإذا سكّرت ورا السيولة يعني انأخدت والحركة كمّلت.",
+        "بعد الـ Sweep، إذا شمعة سكّرت ورا شمعة الـ Sweep بتطلع ▲ HUNT أو ▼ HUNT، ومرّق الماوس عليها لتشوف وين الفكرة بتخرب.",
+        "الجدول: أقرب سيولة شراء وبيع بالـ ATR، عدد المناطق، الـ Sweeps لهلّق، وآخر حدث. على شموع مسكّرة بس.",
+      ],
+    },
+  },
+  {
+    id: "supply_demand",
+    src: "supply_demand.pine",
+    file: "nexus_supply_demand.pine",
+    title: { en: "Nexus Supply & Demand - Base, Impulse & HTF Zones", ar: "عرض وطلب: مناطق القاعدة والانطلاقة والفريم الأكبر" },
+    use: "Supply / demand on the design system and zone rules: impulse candle (body >= k x ATR and >= 60% of its range) leaving a base of 1-N small candles (range <= k x ATR, small body) with a departure in ATR; demand = base low to the top of the base bodies, supply mirrored; score (impulse strength, tight base, gap left, freshness) shown on the zone and in the fill strength; life cycle fresh -> tested (dashed, touch count) -> broken by a close (or wick) through the far side -> removed or faded in Historical mode; newer overlapping zone replaces the older one; zones per side capped; HTF zones from closed HTF bars (request.security with [1] offsets, lookahead_on) in the accent color, dashed; first-touch rejection pills (stop beyond the zone, target in R) with a held / failed track record; dashboard (nearest supply / demand with ATR distance and score, live chart / HTF zones, track record); alerts.",
+    explain: {
+      en: [
+        "Demand and supply zones where price sat quietly (the base) and then left with a strong candle. Each zone has a score: how hard price left, how tight the base was, whether it left a gap, and whether it is still fresh.",
+        "Fresh zones are solid; a touched zone turns dashed with its touch count; a candle closing through it removes it. Higher-timeframe zones are purple and dashed.",
+        "The first touch of a fresh zone that is rejected prints ▲ D / ▼ S; the dashboard keeps score of how often that held.",
+        "Key settings: Impulse body and Departure (x ATR), base candles, zones per side, HTF timeframe, Present / Historical.",
+      ],
+      ar: [
+        "مناطق طلب وعرض وين السعر قعد هادي (القاعدة) وبعدين طلع منها بشمعة قوية. كل منطقة إلها تقييم: قديش طلع بقوة، قديش القاعدة ضيقة، إذا ترك فجوة، وإذا لسّا فريش.",
+        "المنطقة الفريش واضحة؛ اللي انلمست بتصير متقطّعة مع عدد اللمسات؛ والشمعة اللي بتسكّر من خلالها بتمحيها. مناطق الفريم الأكبر بنفسجي متقطّع.",
+        "أول لمسة لمنطقة فريش وبترفض السعر بتطلع ▲ D أو ▼ S، والجدول بيحسب قديش صمدت.",
+        "أهم الإعدادات: قوة شمعة الانطلاقة والابتعاد (بالـ ATR)، عدد شموع القاعدة، عدد المناطق لكل جهة، فريم الـ HTF، Present / Historical.",
+      ],
+    },
+  },
+  {
+    id: "fib_pivots",
+    src: "fib_pivots.pine",
+    file: "nexus_fib_pivots.pine",
+    title: { en: "Nexus Fib & Pivots - Auto Swing Levels & Golden Zone", ar: "فيبوناتشي وبيفوتس تلقائي مع الـ Golden Zone" },
+    use: "Auto Fibonacci + floor pivots on the design system: fib on the last confirmed swing leg (pivots with auto length, leg >= k x ATR or the previous fib stays), levels 0 / 0.236 / 0.382 / 0.5 / 0.618 / 0.786 / 1 + extension targets 1.272 / 1.618, golden zone box 0.618-0.65 (hero gold), right-edge labels with ratio and price, redrawn on each new leg; pivots of the previous day / week / month (Auto by timeframe) Classic or Fibonacci (P, R1-R3, S1-S3) from closed HTF data (lookahead_on with [1]), current period live, last two periods faded; fib levels within 0.25 ATR of a pivot marked with a diamond (confluence); one golden-zone reaction signal per leg (touch, then a close back out with the leg; invalid beyond the leg start); dashboard (leg and size in ATR, retraced %, golden zone state, pivot P and side, nearest pivot); alerts.",
+    explain: {
+      en: [
+        "Draws Fibonacci on the last real swing by itself (small swings are ignored) with the golden zone 0.618 - 0.65 and the 1.272 / 1.618 targets, and redraws it when a new swing forms.",
+        "Adds the pivot levels (P, R1-R3, S1-S3) of the previous day, week or month; a fib level that sits on a pivot gets a ◆ (confluence).",
+        "When price pulls back into the golden zone and closes back out with the swing, it prints ▲ GZ / ▼ GZ once per swing; the tooltip shows where it is wrong and the targets.",
+        "Dashboard: swing direction and size, how far price has retraced, golden zone state, the pivot and the nearest level.",
+      ],
+      ar: [
+        "بيرسم الفيبوناتشي لحالو على آخر موجة حقيقية (الموجات الصغيرة بيتجاهلها) مع الـ Golden Zone بين 0.618 و 0.65 والأهداف 1.272 و 1.618، وبيعيد الرسم لما تتكوّن موجة جديدة.",
+        "بيضيف البيفوتس (P و R1-R3 و S1-S3) لليوم أو الأسبوع أو الشهر السابق؛ ومستوى الفيبو اللي بيوقع على بيفوت بيطلع جنبه ◆ (تلاقي).",
+        "لما السعر يرجع لجوّا الـ Golden Zone ويسكّر طالع منها مع اتجاه الموجة، بتطلع ▲ GZ أو ▼ GZ مرّة وحدة بكل موجة، والتفاصيل بتبيّن وين الفكرة بتخرب والأهداف.",
+        "الجدول: اتجاه الموجة وحجمها، قديش السعر رجع منها، حالة الـ Golden Zone، البيفوت وأقرب مستوى.",
+      ],
+    },
+  },
 ];

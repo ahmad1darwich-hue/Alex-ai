@@ -1,0 +1,221 @@
+//@version=6
+indicator("Nexus Volume Profile - POC, Value Area & Naked POCs", shorttitle = "NX VP", overlay = true, max_boxes_count = 500, max_lines_count = 200, max_labels_count = 100)
+
+// One profile per period (day / week / month, picked from the chart timeframe in Auto): each bar's volume is spread
+// evenly over the price rows it touched, the fullest row is the POC and the value area grows from the POC until it holds
+// the chosen share of the volume. A finished period's POC that price has not traded through stays as a naked POC until
+// it is touched. Symbols without volume fall back to time at price (TPO) and say so.
+
+// ---------- Inputs ----------
+string GRP_P = "Profile"
+string periodInput  = input.string("Auto", "Period", options = ["Auto", "Day", "Week", "Month"], group = GRP_P, tooltip = "Auto: Day up to 15m, Week up to 4h, Month above.")
+int    rowsInput    = input.int(24, "Rows", minval = 8, maxval = 40, group = GRP_P, tooltip = "Price rows per profile. Fewer rows = more profiles fit on the chart.")
+float  vaInput      = input.float(70.0, "Value area (%)", minval = 50.0, maxval = 95.0, step = 1.0, group = GRP_P)
+int    widthInput   = input.int(35, "Width (% of the period)", minval = 10, maxval = 100, group = GRP_P)
+int    keepInput    = input.int(4, "Finished profiles to keep", minval = 1, maxval = 8, group = GRP_P)
+bool   showVaInput  = input.bool(true, "VAH / VAL lines", group = GRP_P)
+string GRP_N = "Naked POCs"
+bool   showNakedInput = input.bool(true, "Naked POCs", group = GRP_N, tooltip = "A finished period's POC that price has not traded through. It stays until price touches it.")
+int    nakedMaxInput  = input.int(5, "Keep last", minval = 1, maxval = 15, group = GRP_N)
+string GRP_L = "Layers"
+bool   showDashInput = input.bool(true, "Dashboard", group = GRP_L)
+string GRP_S = "Style"
+string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_S)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color pocC     = pick(#FFC400, #FF9800, #C9A227, #E0E3EB)
+color vaC      = pick(#7C4DFF, #2962FF, #B2B5BE, #B2B5BE)
+color outC     = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
+
+// ---------- Types & state ----------
+type Done
+    array<box>  rows
+    array<line> lines
+
+type Naked
+    line  ln
+    label lb
+    float price
+
+var array<float> bh = array.new<float>()
+var array<float> bl = array.new<float>()
+var array<float> bv = array.new<float>()
+var array<box>   liveRows  = array.new<box>()
+var array<line>  liveLines = array.new<line>()
+var array<Done>  done   = array.new<Done>()
+var array<Naked> nakeds = array.new<Naked>()
+var int   pStart  = 0
+var float prevPoc = na
+var float prevVah = na
+var float prevVal = na
+var float devPoc  = na
+var bool  sawVolume = false
+
+int    tfSec    = timeframe.in_seconds()
+string periodTf = periodInput == "Day" ? "D" : periodInput == "Week" ? "W" : periodInput == "Month" ? "M" : tfSec <= 900 ? "D" : tfSec <= 14400 ? "W" : "M"
+bool   newPeriod = timeframe.change(periodTf)
+float  atr = ta.atr(14)
+if not na(volume) and volume > 0
+    sawVolume := true
+string mode = sawVolume ? "Volume" : "TPO"
+
+// ---------- Profile maths ----------
+// Fills `vols` (one value per row) from the bars of the period and returns [pocRow, vahRow, valRow, maxRowVolume].
+calc(array<float> vols, float lo, float step) =>
+    int rows = vols.size()
+    for i = 0 to bh.size() - 1
+        int r0 = math.max(0, math.min(rows - 1, int(math.floor((bl.get(i) - lo) / step))))
+        int r1 = math.max(0, math.min(rows - 1, int(math.floor((bh.get(i) - lo) / step))))
+        float share = bv.get(i) / (r1 - r0 + 1)
+        for r = r0 to r1
+            vols.set(r, vols.get(r) + share)
+    int   poc   = 0
+    float total = 0.0
+    float mx    = 0.0
+    for r = 0 to rows - 1
+        float v = vols.get(r)
+        total += v
+        if v > mx
+            mx  := v
+            poc := r
+    float target = total * vaInput / 100.0
+    float acc = mx
+    int up = poc
+    int dn = poc
+    while acc < target and (up < rows - 1 or dn > 0)
+        float vu = up < rows - 1 ? vols.get(up + 1) : -1.0
+        float vd = dn > 0 ? vols.get(dn - 1) : -1.0
+        if vu >= vd
+            up  += 1
+            acc += vu
+        else
+            dn  -= 1
+            acc += vd
+    [poc, up, dn, mx]
+
+// Draws the profile of the bars collected so far: rows start at `anchor` and grow `width` bars to the left (dirX = -1,
+// finished periods: next to where the period ended) or to the right (dirX = 1, the live profile beside price);
+// POC / VAH / VAL run from xs to xe. Returns [poc, vah, val].
+drawProfile(int xs, int xe, int anchor, int width, int dirX, array<box> bxs, array<line> lns) =>
+    float hi = bh.max()
+    float lo = bl.min()
+    float step = math.max((hi - lo) / rowsInput, syminfo.mintick)
+    array<float> vols = array.new<float>(rowsInput, 0.0)
+    [poc, up, dn, mx] = calc(vols, lo, step)
+    for r = 0 to rowsInput - 1
+        float v = vols.get(r)
+        if v > 0 and mx > 0
+            bool  inVa = r >= dn and r <= up
+            color c = r == poc ? pocC : inVa ? vaC : outC
+            int   len = math.max(1, int(math.round(width * v / mx)))
+            int   xa  = dirX == 1 ? anchor : anchor - len
+            int   xb  = dirX == 1 ? anchor + len : anchor
+            // a thin gap between rows makes it read as a histogram, not a block
+            bxs.push(box.new(xa, lo + step * (r + 0.88), xb, lo + step * (r + 0.12), border_color = color.new(c, r == poc ? 30 : 100), bgcolor = color.new(c, r == poc ? 45 : inVa ? 72 : 88)))
+    float pocP = lo + step * (poc + 0.5)
+    float vahP = lo + step * (up + 1)
+    float valP = lo + step * dn
+    lns.push(line.new(xs, pocP, xe, pocP, color = pocC, width = 2))
+    if showVaInput
+        lns.push(line.new(xs, vahP, xe, vahP, color = color.new(vaC, 25), style = line.style_dashed))
+        lns.push(line.new(xs, valP, xe, valP, color = color.new(vaC, 25), style = line.style_dashed))
+    [pocP, vahP, valP]
+
+clearLive() =>
+    for b in liveRows
+        b.delete()
+    for l in liveLines
+        l.delete()
+    liveRows.clear()
+    liveLines.clear()
+
+// ---------- A period ends: freeze its profile, keep its POC as a naked POC ----------
+bool nakedNew = false
+if newPeriod and bh.size() > 0
+    clearLive()
+    Done d = Done.new(array.new<box>(), array.new<line>())
+    int span = math.max(bar_index - 1 - pStart, 3)
+    [pocP, vahP, valP] = drawProfile(pStart, bar_index - 1, bar_index - 1, math.max(3, int(span * widthInput / 100)), -1, d.rows, d.lines)
+    done.push(d)
+    if done.size() > keepInput
+        Done old = done.shift()
+        for b in old.rows
+            b.delete()
+        for l in old.lines
+            l.delete()
+    prevPoc := pocP
+    prevVah := vahP
+    prevVal := valP
+    if showNakedInput
+        nakedNew := true
+        nakeds.push(Naked.new(line.new(bar_index - 1, pocP, bar_index + 10, pocP, color = color.new(pocC, 25), width = 1), label.new(bar_index + 10, pocP, "nPOC " + str.tostring(pocP, format.mintick), style = label.style_label_left, color = color.new(pocC, 100), textcolor = pocC, size = size.tiny, tooltip = "Naked POC: the busiest price of the last period, not traded through since."), pocP))
+        if nakeds.size() > nakedMaxInput
+            Naked o = nakeds.shift()
+            o.ln.delete()
+            o.lb.delete()
+    bh.clear()
+    bl.clear()
+    bv.clear()
+    pStart := bar_index
+
+bh.push(high)
+bl.push(low)
+bv.push(sawVolume ? nz(volume) : 1.0)
+
+// ---------- Naked POCs: extend until price trades through them ----------
+bool nakedTouched = false
+if nakeds.size() > 0
+    for i = nakeds.size() - 1 to 0
+        Naked n = nakeds.get(i)
+        if high >= n.price and low <= n.price and n.ln.get_x1() < bar_index
+            nakedTouched := true
+            n.ln.set_x2(bar_index)
+            n.ln.set_style(line.style_dotted)
+            n.ln.set_color(color.new(pocC, 70))
+            n.lb.delete()
+            nakeds.remove(i)
+        else
+            n.ln.set_x2(bar_index + 10)
+            n.lb.set_x(bar_index + 10)
+
+// ---------- The developing profile (redrawn on the last bar) ----------
+if barstate.islast and bh.size() > 0
+    clearLive()
+    int w = math.max(6, int(30 * widthInput / 100))
+    [dPoc, dVah, dVal] = drawProfile(pStart, bar_index + 3 + w, bar_index + 3, w, 1, liveRows, liveLines)
+    devPoc := dPoc
+
+// ---------- Dashboard ----------
+var table dash = table.new(position.top_right, 2, 6, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(vaC, 40), frame_width = 1)
+row(int r, string k, string v, color vc) =>
+    dash.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, r, v, text_color = vc, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+
+if showDashInput and barstate.islast
+    float nearest = na
+    for n in nakeds
+        if na(nearest) or math.abs(n.price - close) < math.abs(nearest - close)
+            nearest := n.price
+    string where = na(prevVah) ? "-" : close > prevVah ? "Above value ▲" : close < prevVal ? "Below value ▼" : "In value ●"
+    color  whereC = na(prevVah) ? textC : close > prevVah ? bullC : close < prevVal ? bearC : vaC
+    dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(vaC, 15), text_size = size.small)
+    dash.cell(1, 0, "Volume Profile", text_color = color.white, bgcolor = color.new(vaC, 15), text_size = size.small)
+    row(1, "Mode", mode + " • " + periodTf, mode == "TPO" ? pocC : textC)
+    row(2, "vs last value", where, whereC)
+    row(3, "Last POC", na(prevPoc) ? "-" : str.tostring(prevPoc, format.mintick) + " • " + str.tostring(math.abs(close - prevPoc) / atr, "#.#") + " ATR", pocC)
+    row(4, "Developing POC", na(devPoc) ? "-" : str.tostring(devPoc, format.mintick), pocC)
+    row(5, "Nearest naked POC", na(nearest) ? "-" : str.tostring(nearest, format.mintick) + " • " + str.tostring(math.abs(close - nearest) / atr, "#.#") + " ATR", vaC)
+
+// ---------- Alerts ----------
+bool acceptAbove = ta.crossover(close, prevVah)
+bool acceptBelow = ta.crossunder(close, prevVal)
+alertcondition(nakedTouched, "Naked POC touched", "Nexus VP: price touched a naked POC on {{ticker}} {{interval}} at {{close}}")
+alertcondition(nakedNew, "New naked POC", "Nexus VP: a period closed and left a naked POC on {{ticker}} {{interval}}")
+alertcondition(acceptAbove, "Close above last value area", "Nexus VP: close above the last value area high on {{ticker}} {{interval}} at {{close}}")
+alertcondition(acceptBelow, "Close below last value area", "Nexus VP: close below the last value area low on {{ticker}} {{interval}} at {{close}}")

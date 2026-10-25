@@ -95,7 +95,8 @@
     var F = this.frame == null ? null : this.frame, n1 = this.n - 1;
     if (F != null) b = Math.min(b, F);
     var vis = function (o) { return F == null || o.born === undefined || (o.born <= F && (o.died == null || o.died > F) && (o.moved == null || o.moved <= F || F >= n1)); };
-    var cut = F == null || F >= n1 ? null : F + 10;
+    var cut = F == null || F >= n1 ? null : F + 4;
+    ctx.direction = 'ltr'; // prices and level names read left to right even on the Arabic page
     ctx.clearRect(0, 0, this.Wfull, this.Hfull); ctx.fillStyle = BG; ctx.fillRect(0, 0, this.Wfull, this.Hfull);
     // scales
     var lo = Infinity, hi = -Infinity, k;
@@ -140,7 +141,7 @@
       });
       (r.shapes || []).forEach(function (s) { if (s.bar >= a - 1 && s.bar <= b + (F == null ? 1 : 0)) self.shape(s, P); });
       (r.trades || []).forEach(function (t) { if (t.bar >= a && t.bar <= b) self.trade(t); });
-      (r.labels || []).forEach(function (l) { if (!vis(l) || (cut != null && l.x > cut + 10)) return; self.label(l, l.fo ? A : P); });
+      (r.labels || []).forEach(function (l) { if (!vis(l)) return; if (cut != null && l.x > cut) l = Object.assign({}, l, { x: cut }); self.label(l, l.fo ? A : P); });
     }
     this.drawUser(A);
     ctx.restore();

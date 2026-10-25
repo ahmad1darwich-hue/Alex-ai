@@ -1,0 +1,257 @@
+//@version=6
+indicator("Nexus Supply & Demand - Base, Impulse & HTF Zones", shorttitle = "NX S&D", overlay = true, max_boxes_count = 120, max_lines_count = 120, max_labels_count = 150)
+
+// A zone is the quiet base (1-3 small candles) that price left with an impulse: a large-body candle that closes clearly
+// beyond the base (displacement in ATR). Demand = base low to the top of its bodies, supply mirrored. Each zone carries
+// a score (departure strength, tight base, gap left behind, freshness) and lives: fresh -> tested (dashed, touch count)
+// -> broken (a close through the far side) -> gone. Higher-timeframe zones come from closed HTF bars only.
+
+// ---------- Inputs ----------
+string GRP_Z = "Zones"
+float  impInput     = input.float(1.0, "Impulse body (x ATR)", minval = 0.5, step = 0.1, group = GRP_Z, tooltip = "The candle that leaves the base must have a body at least this many ATR(14).")
+float  dispInput    = input.float(0.5, "Departure (x ATR)", minval = 0.0, step = 0.25, group = GRP_Z, tooltip = "The impulse must close at least this far beyond the base.")
+int    maxBaseInput = input.int(3, "Max base candles", minval = 1, maxval = 5, group = GRP_Z)
+float  baseAtrInput = input.float(1.2, "Base candle max range (x ATR)", minval = 0.3, step = 0.1, group = GRP_Z)
+int    perSideInput = input.int(4, "Zones per side", minval = 1, maxval = 12, group = GRP_Z)
+string brokenInput  = input.string("Close", "Broken when", options = ["Close", "Wick"], group = GRP_Z)
+string GRP_H = "Higher timeframe"
+bool   useHtfInput  = input.bool(true, "HTF zones", group = GRP_H, inline = "h")
+string htfInput     = input.timeframe("240", "", group = GRP_H, inline = "h", tooltip = "Zones of this timeframe, from closed bars only (no repainting). Ignored when it is not above the chart timeframe.")
+string GRP_S = "Signals"
+bool   showSigInput = input.bool(true, "Rejection on first touch", group = GRP_S, tooltip = "A fresh zone touched for the first time and a candle that closes back out of it in the zone's direction.")
+float  targetRInput = input.float(2.0, "Track record target (R)", minval = 0.5, step = 0.5, group = GRP_S)
+int    expiryInput  = input.int(40, "Give up after (bars)", minval = 5, group = GRP_S)
+string GRP_L = "Layers"
+string modeInput     = input.string("Present", "Mode", options = ["Present", "Historical"], group = GRP_L, tooltip = "Historical also keeps the last broken zones, faded, where they ended.")
+bool   showDashInput = input.bool(true, "Dashboard", group = GRP_L)
+string GRP_ST = "Style"
+string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_ST)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color accentC  = pick(#7C4DFF, #2962FF, #B2B5BE, #E0E3EB)
+color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#9598A1, #787B86, #9598A1, #B2B5BE)
+
+// ---------- Types & state ----------
+type Zone
+    box    bx
+    line   mid
+    float  top
+    float  bot
+    int    dir      // 1 = demand, -1 = supply
+    bool   htf
+    int    base     // formation points (0-75)
+    int    touches
+    bool   inside
+    int    born
+
+type Trade
+    int   dir
+    float entry
+    float stop
+    int   bar
+
+var array<Zone>  zones   = array.new<Zone>()
+var array<box>   history = array.new<box>()
+var array<Trade> trades  = array.new<Trade>()
+var int held = 0
+var int failed = 0
+
+float atr   = ta.atr(14)
+int   tfSec = timeframe.in_seconds()
+bool  htfOn = useHtfInput and timeframe.in_seconds(htfInput) > tfSec
+
+// ---------- Helpers ----------
+score(Zone z) =>
+    math.min(100, z.base + (z.touches == 0 ? 25 : z.touches == 1 ? 10 : 0))
+
+zoneColor(Zone z) =>
+    z.htf ? accentC : z.dir == 1 ? bullC : bearC
+
+paint(Zone z) =>
+    int   sc = score(z)
+    color c  = zoneColor(z)
+    bool  tested = z.touches > 0
+    z.bx.set_right(bar_index + 8)
+    z.mid.set_x2(bar_index + 8)
+    z.bx.set_bgcolor(color.from_gradient(sc, 20, 95, color.new(c, 92), color.new(c, tested ? 80 : 70)))
+    z.bx.set_border_color(color.new(c, tested ? 55 : 30))
+    z.bx.set_border_style(z.htf or tested ? line.style_dashed : line.style_solid)
+    z.bx.set_text((z.htf ? "HTF " : "") + (z.dir == 1 ? "Demand" : "Supply") + (tested ? " • x" + str.tostring(z.touches) : "") + " • " + str.tostring(sc))
+    z.mid.set_color(color.new(c, 50))
+
+// Adds a zone; a newer overlapping zone of the same side and timeframe replaces the older one; keeps the newest per side.
+addZone(int left, float top, float bot, int dir, bool htf, int base) =>
+    if zones.size() > 0
+        for i = zones.size() - 1 to 0
+            Zone o = zones.get(i)
+            if o.dir == dir and o.htf == htf and top >= o.bot and bot <= o.top
+                o.bx.delete()
+                o.mid.delete()
+                zones.remove(i)
+    color c = htf ? accentC : dir == 1 ? bullC : bearC
+    Zone z = Zone.new(box.new(left, top, bar_index + 8, bot, border_width = 1, text_size = size.tiny, text_halign = text.align_right, text_valign = text.align_top, text_color = color.new(c, 10)), line.new(left, (top + bot) / 2, bar_index + 8, (top + bot) / 2, style = line.style_dotted), top, bot, dir, htf, base, 0, false, bar_index)
+    paint(z)
+    zones.push(z)
+    int same = 0
+    for i = zones.size() - 1 to 0
+        Zone q = zones.get(i)
+        if q.dir == dir and q.htf == htf
+            same += 1
+            if same > perSideInput
+                q.bx.delete()
+                q.mid.delete()
+                zones.remove(i)
+    true
+
+retire(Zone z) =>
+    z.mid.delete()
+    if modeInput == "Historical"
+        z.bx.set_right(bar_index)
+        z.bx.set_bgcolor(color.new(neutralC, 94))
+        z.bx.set_border_color(color.new(neutralC, 75))
+        z.bx.set_border_style(line.style_dotted)
+        z.bx.set_text("")
+        history.push(z.bx)
+        if history.size() > 20
+            history.shift().delete()
+    else
+        z.bx.delete()
+    true
+
+// ---------- Detection on the chart timeframe (confirmed bars) ----------
+// Impulse = this bar; base = the 1..maxBase small candles right before it.
+float body    = math.abs(close - open)
+bool  impUp   = close > open and body >= impInput * atr and body >= 0.6 * (high - low)
+bool  impDn   = close < open and body >= impInput * atr and body >= 0.6 * (high - low)
+bool  newDemand = false
+bool  newSupply = false
+if barstate.isconfirmed and not na(atr) and (impUp or impDn)
+    int   n     = 0
+    float bTop  = na
+    float bBot  = na
+    for k = 1 to maxBaseInput
+        bool small = (high[k] - low[k]) <= baseAtrInput * atr and math.abs(close[k] - open[k]) <= 0.6 * (high[k] - low[k])
+        if not small
+            break
+        n += 1
+        bTop := impUp ? math.max(nz(bTop, math.max(open[k], close[k])), math.max(open[k], close[k])) : math.max(nz(bTop, high[k]), high[k])
+        bBot := impUp ? math.min(nz(bBot, low[k]), low[k]) : math.min(nz(bBot, math.min(open[k], close[k])), math.min(open[k], close[k]))
+    if n > 0 and bTop > bBot
+        float depart = impUp ? close - bTop : bBot - close
+        if depart >= dispInput * atr
+            bool gap = impUp ? low > high[2] : high < low[2]
+            int  pts = int(math.min(body / atr, 3.0) / 3.0 * 40.0) + (n == 1 ? 20 : n == 2 ? 15 : 10) + (gap ? 15 : 0)
+            addZone(bar_index - n, bTop, bBot, impUp ? 1 : -1, false, pts)
+            newDemand := impUp
+            newSupply := impDn
+
+// ---------- Higher-timeframe zones (closed HTF bars only) ----------
+htfZone() =>
+    float b1    = math.abs(close[1] - open[1])
+    float atrH  = ta.atr(14)
+    float a     = atrH[1]
+    bool  up    = close[1] > open[1] and b1 >= impInput * a and b1 >= 0.6 * (high[1] - low[1])
+    bool  dn    = close[1] < open[1] and b1 >= impInput * a and b1 >= 0.6 * (high[1] - low[1])
+    bool  small = (high[2] - low[2]) <= baseAtrInput * a and math.abs(close[2] - open[2]) <= 0.6 * (high[2] - low[2])
+    float top   = up ? math.max(open[2], close[2]) : high[2]
+    float bot   = up ? low[2] : math.min(open[2], close[2])
+    bool  ok    = (up or dn) and small and (up ? close[1] - top : bot - close[1]) >= dispInput * a
+    [ok ? top : na, ok ? bot : na, ok ? (up ? 1 : -1) : 0]
+
+[hTop, hBot, hDir] = request.security(syminfo.tickerid, htfInput, htfZone(), lookahead = barmerge.lookahead_on)
+bool htfNew = false
+if htfOn and barstate.isconfirmed and not na(hTop) and (na(hTop[1]) or hTop != hTop[1] or hBot != hBot[1])
+    htfNew := true
+    addZone(bar_index, hTop, hBot, hDir, true, 60)
+
+// ---------- Life cycle (a zone is not judged on the bar it was born) ----------
+bool rejUp = false
+bool rejDn = false
+bool broke = false
+if barstate.isconfirmed and zones.size() > 0
+    for i = zones.size() - 1 to 0
+        Zone z = zones.get(i)
+        if bar_index > z.born
+            bool through  = z.dir == 1 ? (brokenInput == "Close" ? close < z.bot : low < z.bot) : (brokenInput == "Close" ? close > z.top : high > z.top)
+            bool touching = high >= z.bot and low <= z.top
+            if through
+                broke := true
+                retire(z)
+                zones.remove(i)
+            else
+                if touching and not z.inside
+                    bool rejected = z.dir == 1 ? close > z.top and close > open : close < z.bot and close < open
+                    if z.touches == 0 and rejected and not z.htf
+                        float stop = z.dir == 1 ? z.bot - atr * 0.3 : z.top + atr * 0.3
+                        trades.push(Trade.new(z.dir, close, stop, bar_index))
+                        rejUp := rejUp or z.dir == 1
+                        rejDn := rejDn or z.dir == -1
+                        if showSigInput
+                            label.new(bar_index, z.dir == 1 ? low - atr * 0.4 : high + atr * 0.4, z.dir == 1 ? "▲ D" : "▼ S", style = z.dir == 1 ? label.style_label_up : label.style_label_down, color = z.dir == 1 ? bullC : bearC, textcolor = color.white, size = size.small, tooltip = "First touch of a fresh " + (z.dir == 1 ? "demand" : "supply") + " zone (score " + str.tostring(score(z)) + ") rejected. Stop " + str.tostring(stop, format.mintick) + ", target " + str.tostring(targetRInput) + "R.")
+                    z.touches += 1
+                z.inside := touching
+                paint(z)
+
+// Track record of the rejection signals: target first = held, stop first = failed, or expired.
+if barstate.isconfirmed and trades.size() > 0
+    for i = trades.size() - 1 to 0
+        Trade t = trades.get(i)
+        if bar_index > t.bar
+            float risk = math.abs(t.entry - t.stop)
+            bool  won  = t.dir == 1 ? high >= t.entry + risk * targetRInput : low <= t.entry - risk * targetRInput
+            bool  lost = t.dir == 1 ? low <= t.stop : high >= t.stop
+            if lost
+                failed += 1
+                trades.remove(i)
+            else if won
+                held += 1
+                trades.remove(i)
+            else if bar_index - t.bar >= expiryInput
+                trades.remove(i)
+
+if barstate.islast
+    for z in zones
+        paint(z)
+
+// ---------- Dashboard ----------
+var table dash = table.new(position.top_right, 2, 6, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+row(int r, string k, string v, color vc) =>
+    dash.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    dash.cell(1, r, v, text_color = vc, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+
+if showDashInput and barstate.islast
+    float nd = na
+    float ns = na
+    int   sd = 0
+    int   ss = 0
+    int   nh = 0
+    for z in zones
+        nh += z.htf ? 1 : 0
+        if z.dir == 1 and z.top < close and (na(nd) or z.top > nd)
+            nd := z.top
+            sd := score(z)
+        if z.dir == -1 and z.bot > close and (na(ns) or z.bot < ns)
+            ns := z.bot
+            ss := score(z)
+    int judged = held + failed
+    dash.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    dash.cell(1, 0, "Supply & Demand", text_color = color.white, bgcolor = color.new(accentC, 15), text_size = size.small)
+    row(1, "Supply ▲", na(ns) ? "-" : str.tostring(ns, format.mintick) + " • " + str.tostring((ns - close) / atr, "#.#") + " ATR • " + str.tostring(ss), bearC)
+    row(2, "Demand ▼", na(nd) ? "-" : str.tostring(nd, format.mintick) + " • " + str.tostring((close - nd) / atr, "#.#") + " ATR • " + str.tostring(sd), bullC)
+    row(3, "Live zones", str.tostring(zones.size() - nh) + " chart / " + str.tostring(nh) + " HTF", textC)
+    row(4, "HTF " + htfInput, htfOn ? "on" : "off", htfOn ? accentC : textC)
+    row(5, "First touch held", str.tostring(held) + " / " + str.tostring(judged) + (judged > 0 ? " • " + str.tostring(held * 100.0 / judged, "#") + "%" : ""), judged > 0 ? color.from_gradient(held * 100.0 / judged, 30, 60, bearC, bullC) : textC)
+
+// ---------- Alerts ----------
+alertcondition(newDemand, "New demand zone", "Nexus S&D: new demand zone on {{ticker}} {{interval}}")
+alertcondition(newSupply, "New supply zone", "Nexus S&D: new supply zone on {{ticker}} {{interval}}")
+alertcondition(htfNew, "New HTF zone", "Nexus S&D: new higher-timeframe zone on {{ticker}} {{interval}}")
+alertcondition(rejUp, "Demand rejection", "Nexus S&D: fresh demand zone held on first touch on {{ticker}} {{interval}} at {{close}}")
+alertcondition(rejDn, "Supply rejection", "Nexus S&D: fresh supply zone held on first touch on {{ticker}} {{interval}} at {{close}}")
+alertcondition(broke, "Zone broken", "Nexus S&D: a zone was broken on {{ticker}} {{interval}} at {{close}}")

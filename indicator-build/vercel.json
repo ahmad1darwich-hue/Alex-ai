@@ -9,7 +9,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'none'; script-src 'sha256-Uyw8i+tbYZYhXkF+t1oR5K8CSNnPofC3No2Av8UpydE=' 'sha256-rnw2qO6uirmrik4ruQiaUzu5yT/Byi9Kyv4viX2wsjI='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://brain-ahmad-93cb.vercel.app; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+          "value": "default-src 'none'; script-src 'sha256-30++lZVtDy20rNz3QaNrgehbcoJMrsbUutL0s3Il3MA=' 'sha256-t6oGQCp761zO1+gLfPejMdV8njEZr3TmRsbzasfoC8g='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://brain-ahmad-93cb.vercel.app; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         },
         {
           "key": "X-Content-Type-Options",
