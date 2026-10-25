@@ -20,13 +20,14 @@ const MUST_FIX_RULES = new Set([
   "NX_IMPORT",
   "NX_ARRAY_INDEX",
   "NX_TF_PERIOD",
+  "NX_ALERT_PLACEHOLDER", // alert() sends "{{close}}" literally: placeholders are only filled in alertcondition()
 ]);
 // Glyphs allowed inside string literals (labels, table cells): the design system's arrows and markers.
 export const DESIGN_GLYPHS = "▲▼●◆•✕■○◇□"; // filled marks + their hollow pairs (gauges, strength dots)
 // Nexus rules that reproduce TradingView compile errors the type checker lets through.
 const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE", "NX_IF_RETURN_TYPES"]);
 // Worth one repair attempt, but never block delivery on them.
-const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING"]);
+const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING", "NX_STRATEGY_ALERTCONDITION"]);
 
 // Type-checker findings that TradingView's compiler does not report (confirmed on the real compiler): dropped.
 const KNOWN_FALSE_POSITIVES = [
@@ -493,6 +494,10 @@ function nexusRules(code) {
     if (t && tf++ < MAX_PER_RULE) { const u = t[1] || t[2]; push(i + 1, t.index + 1, "NX_TF_PERIOD", `timeframe.period is "1${u}" in Pine v6 (always with a multiplier), so comparing it with "${u}" is never true. Compare with "1${u}" or use timeframe.is${({ S: "seconds", D: "daily", W: "weekly", M: "monthly" })[u]}.`); }
   }
 
+  // Alerts (TradingView Pine v6 alerts FAQ): alert() does not process {{...}} placeholders; alertcondition() has no
+  // effect in strategies. Strings are blanked in maskedLines, so "{{" is looked up in the raw line.
+  try { alertRules(lines, maskedLines, push); } catch (e) { /* ignore */ }
+
   for (let i = 0; i < lines.length; i++) {
     if (/^import[ \t]+[\w-]+\/[\w-]+\/\d+/.test(lines[i])) push(i + 1, 1, "NX_IMPORT", "Imported libraries cannot be verified by the checker. Do not import libraries: write the needed logic directly in the script.");
   }
@@ -551,6 +556,37 @@ export function legacyHint(message) {
   return "";
 }
 
+// Placeholders in alert() messages are sent literally; alertcondition() in a strategy creates no alert.
+function alertRules(lines, maskedLines, push) {
+  const masked = maskedLines.join("\n");
+  const isStrategy = /^strategy[ \t]*\(/m.test(masked);
+  let ph = 0, sa = 0;
+  // Variables holding a placeholder string that are later passed to alert(...).
+  const phVars = new Set();
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].includes("{{")) continue;
+    const ml = maskedLines[i];
+    const v = /^[ \t]*(?:var[ \t]+)?(?:string[ \t]+)?([A-Za-z_]\w*)[ \t]*:?=(?!=)/.exec(ml);
+    if (v) phVars.add(v[1]);
+  }
+  for (let i = 0; i < lines.length && ph < MAX_PER_RULE; i++) {
+    const ml = maskedLines[i];
+    const call = /(?<![\w.])alert[ \t]*\(/.exec(ml);
+    if (!call) continue;
+    const viaVar = [...phVars].some((n) => new RegExp("(?<![\\w.])alert[ \\t]*\\([ \\t]*" + n + "\\b").test(ml));
+    if (lines[i].slice(call.index).includes("{{") || viaVar) {
+      ph++;
+      push(i + 1, call.index + 1, "NX_ALERT_PLACEHOLDER", "alert() does not replace {{...}} placeholders (only alertcondition() messages do), so the alert would arrive with the literal text \"{{close}}\". Build the message from values: syminfo.ticker, timeframe.period, str.tostring(close, format.mintick).");
+    }
+  }
+  if (isStrategy) {
+    for (let i = 0; i < lines.length && sa < 1; i++) {
+      const m = /(?<![\w.])alertcondition[ \t]*\(/.exec(maskedLines[i]);
+      if (m) { sa++; push(i + 1, m.index + 1, "NX_STRATEGY_ALERTCONDITION", "alertcondition() has no effect in a strategy (TradingView alerts FAQ): no alert can be created from it. Use alert(message, alert.freq_once_per_bar_close) inside the event's if block, or alert_message on strategy.entry / strategy.exit."); }
+    }
+  }
+}
+
 /**
  * Checks a script. Returns:
  *  errors    - compile errors (must be fixed)
@@ -604,6 +640,8 @@ export function checkPine(input) {
     } else if (ERROR_RULES.has(d.rule)) {
       // The parser / type checker may report the same line itself: keep one finding per line.
       if (!errors.some((e) => e.line === d.line)) errors.push(d);
+    } else if (SHOULD_FIX_RULES.has(d.rule)) {
+      if (!shouldFix.some((x) => x.rule === d.rule)) shouldFix.push(d);
     } else if (MUST_FIX_RULES.has(d.rule)) {
       // Report each rule once per line, at most 5 lines per rule, to keep repair prompts short.
       if (mustFix.filter((x) => x.rule === d.rule).length < 5) mustFix.push(d);

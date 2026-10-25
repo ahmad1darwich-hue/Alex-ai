@@ -74,3 +74,10 @@ hashtags text next to the video, optional music-free voice-over line, real-time 
 volume_profile, liquidity, supply_demand, fib_pivots - on the design system, clean in our checker and the preview on 15m / 1h / 4h,
 visually checked through the clip maker. NOT yet pasted into TradingView: Ahmad's first paste is the real compile check - fix any
 error he sends first. Then: a bench case each, and tune S&D defaults on real gold data (sample candles give few impulses).
+
+## Alerts + automation (2026-10-25 run 2)
+Shipped: knowledge rule 8b (verified alert facts), lint NX_ALERT_PLACEHOLDER / NX_STRATEGY_ALERTCONDITION, bench alert_webhook_json,
+Brain /api/tv-alert (TradingView webhook -> Ahmad's Telegram; needs TV_ALERT_KEY set in Vercel), market report calendar feed
+(CALENDAR DATA in Sydney time; check MARKET_REPORT output that events appear - if the feed is blocked from Vercel, nothing changes).
+NEXT: forward alerts to a customer Telegram channel per rented indicator (Ahmad's renting plan), a "copy webhook JSON" button on
+script cards, and an alert-presets block in the verified templates (one Any-alert mode) - one template at a time with a TV compile test.

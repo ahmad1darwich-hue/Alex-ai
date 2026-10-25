@@ -167,6 +167,42 @@ async function yahooDailyCloses(sym) {
   } finally { clearTimeout(t); }
 }
 
+// High-impact events from a public weekly calendar feed (JSON list of { title, country, date (ISO with offset),
+// impact, forecast, previous }), printed in Sydney time so the model never has to convert times itself.
+// Optional: any failure returns "" and the report falls back to web search for the calendar.
+export const CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+const CAL_CURRENCIES = new Set(["USD", "EUR", "GBP", "JPY", "CNY", "AUD"]);
+export function calendarLines(list, ms = Date.now(), open = true) {
+  if (!Array.isArray(list)) return [];
+  const until = ms + (open ? 30 : 7 * 24) * 3600e3; // the next 30 hours, or the coming week on a closed market
+  const fmtSyd = new Intl.DateTimeFormat("en-AU", { timeZone: "Australia/Sydney", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const out = [];
+  for (const e of list) {
+    if (!e || String(e.impact || "").toLowerCase() !== "high") continue;
+    const cur = String(e.country || "").toUpperCase();
+    if (!CAL_CURRENCIES.has(cur)) continue;
+    const t = Date.parse(e.date);
+    if (!isFinite(t) || t < ms - 3600e3 || t > until) continue;
+    const extra = [e.forecast ? "forecast " + String(e.forecast).slice(0, 12) : "", e.previous ? "previous " + String(e.previous).slice(0, 12) : ""].filter(Boolean).join(", ");
+    out.push({ t, line: `${fmtSyd.format(new Date(t))} Sydney - ${cur} ${String(e.title || "").replace(/[\r\n]+/g, " ").slice(0, 60)}${extra ? " (" + extra + ")" : ""}` });
+  }
+  return out.sort((a, b) => a.t - b.t).slice(0, 10).map((x) => x.line);
+}
+export async function calendarData(fetchJson = fetchCalendar, ms = Date.now()) {
+  try {
+    const lines = calendarLines(await fetchJson(), ms, marketStatus(ms).open);
+    return lines.length ? "CALENDAR DATA (high-impact, public weekly feed, times already converted to Sydney - use these times exactly; search only for the news behind them):\n" + lines.join("\n") : "";
+  } catch (e) { return ""; }
+}
+async function fetchCalendar() {
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), 5000);
+  try {
+    const r = await fetch(CALENDAR_URL, { headers: { "user-agent": "Mozilla/5.0", accept: "application/json" }, signal: c.signal });
+    if (!r.ok) return [];
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+
 export const DISCLAIMER = "تحليل تعليمي مش نصيحة مالية. قرار الصفقة إلك.";
 
 const PROMPT = (markets, levels = "") => `You are Brain, the market analyst of Ahmad, a Sydney-based trader (gold first, also oil and US indices; Smart Money Concepts style). It is ${sydneyNow()} in Sydney.
@@ -177,7 +213,7 @@ ${sessionClock()}
 ${weekendNote()}
 
 Markets: ${markets.join(", ")}.
-${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, previous week high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason. If a search price is fresher, prefer it and keep levels consistent with it. The data trend is a fact, not a forecast: go against it (🟢 in a down trend, 🔴 in an up trend) only when today's news clearly says so, otherwise follow it or use 🟡; near the top of the 5-day range (>85%) or the bottom (<15%) mention the stretch in the reason. When daily + weekly are aligned up / down that direction is the main bias and dips / rallies against it are pullbacks; when they are mixed say the bigger trend disagrees (one short phrase) and prefer 🟡 unless the news is clear.\n" : ""}
+${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, previous week high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason (when CALENDAR DATA is given, its events and Sydney times win over search results). If a search price is fresher, prefer it and keep levels consistent with it. The data trend is a fact, not a forecast: go against it (🟢 in a down trend, 🔴 in an up trend) only when today's news clearly says so, otherwise follow it or use 🟡; near the top of the 5-day range (>85%) or the bottom (<15%) mention the stretch in the reason. When daily + weekly are aligned up / down that direction is the main bias and dips / rallies against it are pullbacks; when they are mixed say the bigger trend disagrees (one short phrase) and prefer 🟡 unless the news is clear.\n" : ""}
 Ahmad wants it SHORT: no long explanations. Write in Levantine Arabic (tickers and numbers in English). Plain text for a chat app: no markdown headings, no tables, no ** bold. Exactly this layout:
 
 📊 الذهب والنفط والمؤشرات · <date>
@@ -221,7 +257,7 @@ export async function buildReport({ key, markets = MARKETS, signal } = {}) {
   let last = null;
   // Price data never holds the report up for long: 12 s at most, then the report goes ahead on search alone.
   let timer;
-  const levels = await Promise.race([Promise.all([priceLevels(markets), dollarDriver()]).then((x) => x.filter(Boolean).join("\n")), new Promise((r) => { timer = setTimeout(() => r(""), 12000); })]).catch(() => "");
+  const levels = await Promise.race([Promise.all([priceLevels(markets), dollarDriver(), calendarData()]).then((x) => x.filter(Boolean).join("\n")), new Promise((r) => { timer = setTimeout(() => r(""), 12000); })]).catch(() => "");
   clearTimeout(timer);
   for (const model of [MARKET_MODEL, ...FALLBACK.filter((m) => m !== MARKET_MODEL)]) {
     try {

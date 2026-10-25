@@ -287,4 +287,38 @@ plot(close)
   const same = bad.replace("                zones.remove(i)\n", "                zones.remove(i)\n                up += 0\n");
   assert.ok(!checkPine(same).errors.some((x) => x.rule === "NX_IF_RETURN_TYPES"), "same type in every branch is fine");
 });
+t("alerts: placeholders in alert() and alertcondition() in a strategy (TradingView alerts FAQ)", () => {
+  const ind = `//@version=6
+indicator("A", overlay = true)
+up = ta.crossover(close, ta.ema(close, 20))
+msg = "{{ticker}} buy at {{close}}"
+okMsg = syminfo.ticker + " buy at " + str.tostring(close, format.mintick)
+if up
+    alert(msg, alert.freq_once_per_bar_close)
+if up
+    alert("x {{close}}", alert.freq_once_per_bar_close)
+if up
+    alert(okMsg, alert.freq_once_per_bar_close)
+alertcondition(up, "Up", "{{ticker}} up {{close}}")
+plot(close)
+`;
+  const lines = checkPine(ind).mustFix.filter((x) => x.rule === "NX_ALERT_PLACEHOLDER").map((x) => x.line);
+  assert.deepEqual(lines, [7, 9], "alert(msg) via a placeholder variable and an inline placeholder; alertcondition and value-built messages are fine");
+  const strat = `//@version=6
+strategy("S", overlay = true)
+up = ta.crossover(close, ta.ema(close, 20))
+if up
+    strategy.entry("L", strategy.long)
+alertcondition(up, "Up", "{{ticker}} up")
+plot(close)
+`;
+  const c = checkPine(strat);
+  assert.ok(c.shouldFix.some((x) => x.rule === "NX_STRATEGY_ALERTCONDITION"), JSON.stringify(c.shouldFix));
+  assert.ok(!c.errors.length, "never blocks delivery");
+  assert.ok(!checkPine(strat.replace("strategy(", "indicator(").replace(/if up\n    strategy.entry\("L", strategy.long\)\n/, "")).shouldFix.some((x) => x.rule === "NX_STRATEGY_ALERTCONDITION"), "indicators may use alertcondition");
+  for (const tpl of TEMPLATES) {
+    const r = checkPine(tpl.code);
+    assert.ok(!r.mustFix.some((x) => x.rule === "NX_ALERT_PLACEHOLDER") && !r.shouldFix.some((x) => x.rule === "NX_STRATEGY_ALERTCONDITION"), tpl.id);
+  }
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

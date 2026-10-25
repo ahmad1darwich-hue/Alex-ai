@@ -106,4 +106,23 @@ await t("weekend: closed-market mornings become a week-ahead outlook with the Sy
   assert.match(weekendNote(Date.parse("2026-10-24T20:00:00Z")), /CLOSED[\s\S]*🔒 السوق مسكّر — بيفتح الاثنين 09:00/);
   assert.equal(weekendNote(Date.parse("2026-10-21T20:00:00Z")), "");
 });
+await t("calendar feed: high-impact events in Sydney time, optional and safe", async () => {
+  const { calendarLines, calendarData } = await import("../../brain-app/api/_brain/market.js");
+  const now = Date.parse("2026-10-27T10:00:00Z"); // Tuesday, markets open
+  const feed = [
+    { title: "CPI m/m", country: "USD", date: "2026-10-27T08:30:00-04:00", impact: "High", forecast: "0.3%", previous: "0.4%" },
+    { title: "Crude Oil Inventories", country: "USD", date: "2026-10-28T10:30:00-04:00", impact: "Medium" },
+    { title: "Bank Holiday", country: "NZD", date: "2026-10-27T00:00:00-04:00", impact: "High" },
+    { title: "FOMC Statement", country: "USD", date: "2026-11-04T14:00:00-05:00", impact: "High" },
+    { title: "Old", country: "USD", date: "2026-10-26T08:30:00-04:00", impact: "High" },
+    null, { date: "bad", impact: "High", country: "USD" },
+  ];
+  const lines = calendarLines(feed, now, true);
+  assert.equal(lines.length, 1, JSON.stringify(lines));
+  assert.match(lines[0], /23:30 Sydney - USD CPI m\/m \(forecast 0\.3%, previous 0\.4%\)/, "08:30 New York (EDT) = 23:30 Sydney (AEDT)");
+  assert.equal(calendarLines(feed, Date.parse("2026-10-31T20:00:00Z"), false).length, 1, "weekend: the coming week (FOMC)");
+  assert.equal(await calendarData(async () => { throw new Error("down"); }, now), "");
+  assert.equal(await calendarData(async () => ({ not: "a list" }), now), "");
+  assert.match(await calendarData(async () => feed, now), /^CALENDAR DATA[\s\S]*CPI/);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

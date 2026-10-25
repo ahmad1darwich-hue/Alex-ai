@@ -297,3 +297,29 @@ Where it went:
 - bench: session_volume_profile (replaces the simple vwap_bands case; VWAP is covered by the scalper case).
 - Preview runner: request.security_lower_tf now returns arrays / tuples (chart bars stand in for intrabars, listed as approximate).
 - Market report: previous week high / low (last completed week; the last week itself on a weekend) in the price data + prompt.
+
+## 2026-10-25 (run 2) · alerts and automation: what traders expect from an indicator's alerts
+Sources: TradingView Pine v6 FAQ "Alerts" (official), TradingView support "How to use a variable value in alert" (official
+placeholder list), public docs of vendor alert systems and webhook relays (ideas only).
+Facts (official):
+- alertcondition(): indicators only (NO effect in a strategy), global scope, const message, placeholders filled; each one is a
+  separate entry in the Create Alert dialog and counts toward the plot count and the user's alert limit.
+- alert(): indicators and strategies, inside if blocks with freq (alert.freq_once_per_bar_close / _once_per_bar / _all),
+  series message, but placeholders are NOT processed. All alert() calls = one entry "Any alert() function call" = one alert.
+- Placeholders: {{ticker}} {{exchange}} {{close}} {{open}} {{high}} {{low}} {{volume}} {{time}} {{timenow}} {{interval}}
+  {{syminfo.currency}} {{syminfo.basecurrency}} {{plot_0}}..{{plot_19}} {{plot("Name")}}; strategy: {{strategy.order.action}},
+  {{strategy.order.price}}, {{strategy.order.alert_message}}, {{strategy.position_size}} ...
+- More than 15 alerts in 3 minutes halts the script's alerts; a runtime error stops them; alerts are snapshots (recreate after
+  changing inputs); no JSON helpers (build strings, double quotes); Telegram cannot receive TradingView webhooks directly.
+What traders want: one alert for the whole tool (Any alert() call) with per-type on/off inputs, Buy / Sell / Strong / Exit / Trend
+change types, once per bar close by default, JSON messages ready for bots (symbol, timeframe, side, price, stop), readable
+Telegram / Discord messages. Complaints: alert limits used up by many alertconditions, "{{close}}" arriving literally, alerts
+that fire then vanish (intrabar), floods.
+Where it went:
+- knowledge.js rule 8b (alert() facts, one-alert mode with per-type inputs, JSON strings, flood limit, recreate-after-change note).
+- lint: NX_ALERT_PLACEHOLDER (must fix: {{...}} in alert(), inline or through a variable) and NX_STRATEGY_ALERTCONDITION (one
+  repair attempt, never blocks). All 14 templates stay clean.
+- bench: alert_webhook_json (Arabic: one Any-alert JSON message with per-type toggles; replaces the simple bb_reentry case).
+- Brain: new /api/tv-alert webhook -> Ahmad's Telegram (secret TV_ALERT_KEY in the URL, 20 / min limit, repeats dropped,
+  JSON shown as labelled Arabic lines, never trades).
+- Market report: high-impact events from a public weekly calendar feed, converted to Sydney time in code (optional; search fallback).

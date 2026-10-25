@@ -128,4 +128,32 @@ await t("customer bot: same rules, and the owner is notified", async () => {
   for (const k of ["WA_BIZ_TOKEN", "WA_BIZ_PHONE_ID", "WA_APP_SECRET", "WA_OWNER"]) delete process.env[k];
 });
 
+const { default: tvAlert, formatAlert } = await import("../../brain-app/api/tv-alert.js");
+await t("TradingView alert webhook: secret in the URL, Telegram only, rate limited", async () => {
+  const post = (k, body) => tvAlert(new Request("https://b.test/api/tv-alert" + (k ? "?k=" + encodeURIComponent(k) : ""), { method: "POST", headers: { "content-type": "text/plain" }, body }));
+  delete process.env.TV_ALERT_KEY;
+  assert.equal((await post("x", "hi")).status, 503, "closed without TV_ALERT_KEY");
+  const info = await (await tvAlert(new Request("https://b.test/api/tv-alert"))).json();
+  assert.equal(info.configured, false); assert.ok(!JSON.stringify(info).includes(KEY));
+  process.env.TV_ALERT_KEY = "tv-alert-secret-0123456789abcdef";
+  process.env.TELEGRAM_BOT_TOKEN = "1:a"; process.env.TELEGRAM_CHAT_ID = "42";
+  assert.equal((await post("wrong-secret-0123456789abcdefgh", "hi")).status, 401);
+  assert.equal((await post("", "hi")).status, 401);
+  assert.equal(calls.length, 0, "nothing sent without the secret");
+  const ok = await post(process.env.TV_ALERT_KEY, JSON.stringify({ ticker: "XAUUSD", interval: "15", action: "buy", price: "4012.5", sl: "4004" }));
+  assert.equal(ok.status, 200);
+  assert.equal(calls.length, 1); assert.match(calls[0].url, /api\.telegram\.org\/bot1:a\/sendMessage/);
+  assert.match(calls[0].body.text, /^🟢 تنبيه TradingView\nالرمز: XAUUSD\nالفريم: 15\nالاتجاه: buy\nالسعر: 4012\.5\nالستوب: 4004/);
+  assert.match(calls[0].body.text, /مش نصيحة مالية/);
+  const dup = await (await post(process.env.TV_ALERT_KEY, JSON.stringify({ ticker: "XAUUSD", interval: "15", action: "buy", price: "4012.5", sl: "4004" }))).json();
+  assert.equal(dup.duplicate, true); assert.equal(calls.length, 1, "exact repeat within a minute dropped");
+  assert.match(formatAlert("SELL EURUSD 1.0850"), /^🔴/); assert.match(formatAlert("{bad json"), /^🔔 تنبيه TradingView\n\{bad json/);
+  assert.equal(formatAlert("   "), "");
+  let limited = 0;
+  for (let i = 0; i < 25; i++) if ((await post(process.env.TV_ALERT_KEY, "alert " + i)).status === 429) limited++;
+  assert.ok(limited >= 5, "more than 20 a minute are refused");
+  assert.ok(!calls.some((c) => /api\.anthropic|order|trade/i.test(c.url)), "only Telegram is called");
+  for (const k of ["TV_ALERT_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]) delete process.env[k];
+});
+
 if (!process.exitCode) console.log("ok - " + passed + " checks passed");
