@@ -81,3 +81,8 @@ Brain /api/tv-alert (TradingView webhook -> Ahmad's Telegram; needs TV_ALERT_KEY
 (CALENDAR DATA in Sydney time; check MARKET_REPORT output that events appear - if the feed is blocked from Vercel, nothing changes).
 NEXT: forward alerts to a customer Telegram channel per rented indicator (Ahmad's renting plan), a "copy webhook JSON" button on
 script cards, and an alert-presets block in the verified templates (one Any-alert mode) - one template at a time with a TV compile test.
+
+## Opening range / Initial Balance (2026-10-26 run)
+Shipped: OPENING RANGE / INITIAL BALANCE RULES in the knowledge pack, lint NX_SESSION_NO_TZ, bench orb_us100_retest, US cash open +
+first hour in Sydney time on the market report's ⏰ line. NEXT: watch the bench result for orb_us100_retest in DAILY_REPORT; if it
+passes a few days, add a verified opening_range template (ORB + IB, retest, FAILED, stats table) with a TradingView compile check.

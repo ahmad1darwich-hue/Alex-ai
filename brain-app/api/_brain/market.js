@@ -37,7 +37,7 @@ export function sessionClock(ms = Date.now()) {
   const syd = tzOffset("Australia/Sydney", ms), ny = tzOffset("America/New_York", ms), ldn = tzOffset("Europe/London", ms), tk = tzOffset("Asia/Tokyo", ms);
   if ([syd, ny, ldn, tk].some((x) => x === null)) return "";
   const at = (h, m, off) => { let t = (h + m / 60 - off + syd) % 24; if (t < 0) t += 24; const H = Math.floor(t), M = Math.round((t - H) * 60); return String(H).padStart(2, "0") + ":" + String(M).padStart(2, "0"); };
-  return `Sydney is UTC${syd >= 0 ? "+" : ""}${syd} today. Conversions to Sydney time: 08:30 New York = ${at(8, 30, ny)}, 10:00 New York = ${at(10, 0, ny)}, 14:00 New York (FOMC) = ${at(14, 0, ny)}, 07:00 London = ${at(7, 0, ldn)}, 09:30 London = ${at(9, 30, ldn)}, 08:50 Tokyo = ${at(8, 50, tk)}. A US/UK event in the evening there is often the NEXT calendar day in Sydney.`;
+  return `Sydney is UTC${syd >= 0 ? "+" : ""}${syd} today. Conversions to Sydney time: 08:30 New York = ${at(8, 30, ny)}, 09:30 New York (US cash open, indices) = ${at(9, 30, ny)}, 10:00 New York = ${at(10, 0, ny)}, 14:00 New York (FOMC) = ${at(14, 0, ny)}, 07:00 London = ${at(7, 0, ldn)}, 09:30 London = ${at(9, 30, ldn)}, 08:50 Tokyo = ${at(8, 50, tk)}. A US/UK event in the evening there is often the NEXT calendar day in Sydney.`;
 }
 
 // Weekend awareness: gold, oil and US index futures trade from Sunday 18:00 to Friday 17:00 New York time. On a
@@ -74,7 +74,8 @@ export function killZoneLine(ms = Date.now()) {
   const syd = tzOffset("Australia/Sydney", ms), ny = tzOffset("America/New_York", ms);
   if (syd === null || ny === null) return "";
   const at = (h) => { let t = (h - ny + syd) % 24; if (t < 0) t += 24; const H = Math.floor(t), M = Math.round((t - H) * 60); return String(H).padStart(2, "0") + ":" + String(M).padStart(2, "0"); };
-  return `⏰ أقوى أوقات حركة الذهب (سيدني): لندن ${at(2)}–${at(5)} · نيويورك ${at(7)}–${at(10)}`;
+  // US cash open 09:30 NY and the end of its first hour (the initial balance that index traders watch).
+  return `⏰ أقوى أوقات حركة الذهب (سيدني): لندن ${at(2)}–${at(5)} · نيويورك ${at(7)}–${at(10)} · افتتاح المؤشرات US100/US30 ${at(9.5)} (أول ساعة لـ ${at(10.5)})`;
 }
 export function addKillZones(text, ms = Date.now()) {
   const line = killZoneLine(ms);

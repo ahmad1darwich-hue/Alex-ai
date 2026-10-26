@@ -323,3 +323,26 @@ Where it went:
 - Brain: new /api/tv-alert webhook -> Ahmad's Telegram (secret TV_ALERT_KEY in the URL, 20 / min limit, repeats dropped,
   JSON shown as labelled Arabic lines, never trades).
 - Market report: high-impact events from a public weekly calendar feed, converted to Sydney time in code (optional; search fallback).
+
+## 2026-10-26 · indices at the New York open: opening range breakout (ORB) and the Initial Balance
+Sources: NexusFi Academy "Initial Balance" (definitions, extensions, day types, community stats - not verified), public
+descriptions of popular ORB / IB scripts on TradingView (an ORB breakout-retest tool, an IB statistics tool; ideas only, no code),
+TradingView Pine v6 docs "Time" (official: time() returns na outside the session; without a timezone argument the session is
+read in the exchange time zone syminfo.timezone).
+What traders use: ORB of the first 5 / 15 / 30 minutes after 09:30 New York, and the Initial Balance = first 60 minutes
+(09:30-10:30 NY) with its mid line and extensions at 1x / 1.5x / 2x the range. Day types: trend (one side breaks early and runs),
+normal (range holds), neutral (both sides broken, closes in the middle), normal variation. Width matters: a narrow range vs its
+own average tends to extend, a wide one tends to hold - only the script's own counted history should say how often.
+How good tools confirm a break: a CLOSE beyond the level on confirmed bars, then acceptance (closes beyond or a retest that holds
+inside a buffer ~10% of the range); a close back inside marks the side FAILED and it can re-arm; signals stop at the session end.
+Design that reads well: shaded window, high / low extended to the session end, dashed mid, extension tags at the right edge,
+only the last ~5 days drawn, a small table (width Narrow / Normal / Wide, which side broke first, stats with sample size).
+Complaints: levels shifted on timeframes larger than the window, wrong session on brokers with a different exchange time zone,
+false breakouts without retest, clutter from every day ever drawn, hit rates quoted from the internet.
+Where it went:
+- knowledge.js: new "OPENING RANGE / INITIAL BALANCE RULES" (explicit session + IANA zone, final range only after the window,
+  timeframe guard, extensions, close + acceptance / retest, FAILED state, one signal per side per day, width vs 20-day average,
+  own-history stats with sample size, plan with TP1 = 1x / TP2 = 2x and a time stop).
+- lint: NX_SESSION_NO_TZ (one repair, never blocks): time() / time_close() with a session but no timezone.
+- bench: orb_us100_retest (Arabic, US100 15-min ORB with retest, FAILED state, width table, alerts) replaces the simpler ny_first_hour case.
+- Market report: the US cash open (09:30 NY) and the end of its first hour in Sydney time on the ⏰ line and in the clock prompt.

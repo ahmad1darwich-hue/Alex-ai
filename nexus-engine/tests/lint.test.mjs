@@ -321,4 +321,16 @@ plot(close)
     assert.ok(!r.mustFix.some((x) => x.rule === "NX_ALERT_PLACEHOLDER") && !r.shouldFix.some((x) => x.rule === "NX_STRATEGY_ALERTCONDITION"), tpl.id);
   }
 });
+t("a session window without a timezone is one repair (exchange time zone differs by broker), never blocking", () => {
+  const head = '//@version=6\nindicator("ORB", overlay = true)\nsessInput = input.session("0930-0945", "Window")\ntzInput = input.string("America/New_York", "Time zone")\n';
+  const has = (body) => checkPine(head + body + "plot(close)\n").shouldFix.some((x) => x.rule === "NX_SESSION_NO_TZ");
+  assert.ok(has("a = not na(time(timeframe.period, sessInput))\nplotchar(a, char = \"x\")\n"), "input session without zone");
+  assert.ok(has("a = not na(time(timeframe.period, \"0930-1030\"))\nplotchar(a, char = \"x\")\n"), "literal session without zone");
+  const lit = checkPine(head + "a = not na(time(timeframe.period, \"0930-1030\")) // NY first hour\nplotchar(a, char = \"x\")\nplot(close)\n");
+  assert.ok(!lit.errors.length, "never blocks delivery");
+  assert.ok(!has("a = not na(time(timeframe.period, sessInput, tzInput))\nplotchar(a, char = \"x\")\n"), "zone given");
+  assert.ok(!has("a = not na(time(timeframe.period, sessInput, timezone = tzInput))\nplotchar(a, char = \"x\")\n"), "named zone");
+  assert.ok(!has("a = time(\"D\")\nplotchar(a > 0, char = \"x\")\n"), "no session");
+  for (const tpl of TEMPLATES) assert.ok(!checkPine(tpl.code).shouldFix.some((x) => x.rule === "NX_SESSION_NO_TZ"), tpl.id);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

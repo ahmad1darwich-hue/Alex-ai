@@ -39,6 +39,7 @@ await t("calendar clock: Sydney offsets with daylight saving; report guards", as
   assert.equal(tzOffset("Australia/Sydney", oct), 11); assert.equal(tzOffset("Australia/Sydney", jul), 10);
   assert.equal(tzOffset("America/New_York", oct), -4);
   assert.match(sessionClock(oct), /08:30 New York = 23:30/); assert.match(sessionClock(jul), /08:30 New York = 22:30/);
+  assert.match(sessionClock(oct), /09:30 New York \(US cash open, indices\) = 00:30/);
   assert.match(lastBody.messages[0].content, /Conversions to Sydney time/);
   assert.match(finishText("report", []), /مش مأكد/); assert.ok(finishText("report", [{ url: "u" }]).endsWith(DISCLAIMER));
   assert.equal(finishText("x\n" + DISCLAIMER, [{ url: "u" }]).split(DISCLAIMER).length, 2);
@@ -54,6 +55,8 @@ await t("gold kill zones in Sydney time are added before the disclaimer (DST-awa
   const oct = Date.UTC(2026, 9, 14, 12), jul = Date.UTC(2026, 6, 14, 12);
   assert.match(killZoneLine(oct), /لندن 17:00–20:00 · نيويورك 22:00–01:00/);
   assert.match(killZoneLine(jul), /لندن 16:00–19:00 · نيويورك 21:00–00:00/);
+  assert.match(killZoneLine(oct), /US100\/US30 00:30 \(أول ساعة لـ 01:30\)/);
+  assert.match(killZoneLine(jul), /US100\/US30 23:30 \(أول ساعة لـ 00:30\)/);
   const out = addKillZones("report\n\n" + DISCLAIMER, oct);
   assert.ok(out.endsWith(DISCLAIMER)); assert.ok(out.indexOf("⏰") < out.indexOf(DISCLAIMER));
   assert.equal(addKillZones(out, oct), out);

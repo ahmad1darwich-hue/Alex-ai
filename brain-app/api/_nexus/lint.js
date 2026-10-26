@@ -27,7 +27,7 @@ export const DESIGN_GLYPHS = "▲▼●◆•✕■○◇□"; // filled marks +
 // Nexus rules that reproduce TradingView compile errors the type checker lets through.
 const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE", "NX_IF_RETURN_TYPES"]);
 // Worth one repair attempt, but never block delivery on them.
-const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING", "NX_STRATEGY_ALERTCONDITION"]);
+const SHOULD_FIX_RULES = new Set(["REPAINTING_SECURITY", "SHADOW_VARIABLE", "ENTRY_WITHOUT_EXIT", "MULTILINE_STRING", "NX_STRATEGY_ALERTCONDITION", "NX_SESSION_NO_TZ"]);
 
 // Type-checker findings that TradingView's compiler does not report (confirmed on the real compiler): dropped.
 const KNOWN_FALSE_POSITIVES = [
@@ -480,6 +480,7 @@ function nexusRules(code) {
     try { compilerGapRules(masked, index, push); } catch (e) { /* ignore */ }
     try { floatXRule(masked, index.lineOf, push); } catch (e) { /* ignore */ }
     try { ifReturnTypeRule(maskedLines, push); } catch (e) { /* ignore */ }
+    try { sessionTzRule(lines, masked, push); } catch (e) { /* ignore */ }
   } catch (e) { /* ignore */ }
 
   // v6: linewidth must be 1 or more (compile error). timeframe.period always carries a multiplier ("1D", never "D").
@@ -554,6 +555,29 @@ export function legacyHint(message) {
   const a = /does not have an argument with the name "?(\w+)"?/.exec(message || "");
   if (a && LEGACY_ARG[a[1]]) return " Pine v6: " + LEGACY_ARG[a[1]];
   return "";
+}
+
+// time() / time_close() with a session but no timezone use the EXCHANGE time zone (syminfo.timezone, Pine v6 docs
+// "Time"), so "0930-0945" is New York time on one broker's gold and UTC or London on another's. One repair, never blocks.
+function sessionTzRule(lines, masked, push) {
+  const sessVars = new Set();
+  for (const m of masked.matchAll(/^[ \t]*(?:var[ \t]+)?(?:string[ \t]+)?([A-Za-z_]\w*)[ \t]*=[ \t]*input\.session[ \t]*\(/gm)) sessVars.add(m[1]);
+  const re = /(?<![\w.])(time|time_close)[ \t]*\(/g;
+  let m, n = 0;
+  while (n < 3 && (m = re.exec(masked)) !== null) {
+    const open = m.index + m[0].length - 1;
+    const args = splitArgs(masked, open);
+    if (!args || args.length !== 2 || args.some((a) => /^\s*timezone\s*=/.test(a))) continue;
+    // Masked lines keep every column of the raw line up to a comment, so the raw text is read from the same line.
+    const start = open + 1 + args[0].length + 1;
+    const lineStart = masked.lastIndexOf("\n", start - 1) + 1;
+    const lineNo = masked.slice(0, lineStart).split("\n").length;
+    const raw = (lines[lineNo - 1] || "").slice(start - lineStart, start - lineStart + args[1].length).trim();
+    const isSession = /^"\d{4}-\d{4}(?::\d+)?(?:,\d{4}-\d{4}(?::\d+)?)*"$/.test(raw) || sessVars.has(raw);
+    if (!isSession) continue;
+    n++;
+    push(lineNo, 1, "NX_SESSION_NO_TZ", `${m[1]}(${args[0].trim()}, ${raw}) has no timezone, so the session is read in the exchange time zone (syminfo.timezone), which differs between brokers and symbols. Pass an IANA zone as the third argument, e.g. ${m[1]}(timeframe.period, ${raw}, tzInput) with tzInput = input.string("America/New_York", "Time zone").`);
+  }
 }
 
 // Placeholders in alert() messages are sent literally; alertcondition() in a strategy creates no alert.
