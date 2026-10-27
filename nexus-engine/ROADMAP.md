@@ -86,3 +86,9 @@ script cards, and an alert-presets block in the verified templates (one Any-aler
 Shipped: OPENING RANGE / INITIAL BALANCE RULES in the knowledge pack, lint NX_SESSION_NO_TZ, bench orb_us100_retest, US cash open +
 first hour in Sydney time on the market report's ⏰ line. NEXT: watch the bench result for orb_us100_retest in DAILY_REPORT; if it
 passes a few days, add a verified opening_range template (ORB + IB, retest, FAILED, stats table) with a TradingView compile check.
+
+## Volatility squeeze (2026-10-27 run)
+Shipped: VOLATILITY SQUEEZE / COMPRESSION RULES in the knowledge pack, reference fixture tests/fixtures/squeeze_rules.pine (checker +
+preview test), bench squeeze_gold_release, daily volatility regime in the market report. NEXT: when squeeze_gold_release passes in
+DAILY_REPORT for a few days and Ahmad pastes the fixture into TradingView without errors, promote it to a verified `squeeze` template
+on the design system (theme input, glow, gallery card) - one TradingView compile check first.

@@ -370,4 +370,16 @@ plot(close)`;
   assert.ok(plain.boxes.length === 0 && plain.labels.every((l) => l.born === undefined), "without timeline the output is unchanged");
 });
 
+await t("squeeze rules reference (knowledge VOLATILITY SQUEEZE rules) is clean in the checker and previews coils + releases", async () => {
+  const { checkPine } = await import("../../brain-app/api/_nexus/lint.js");
+  const { SYSTEM_PROMPT } = await import("../../brain-app/api/_nexus/knowledge.js");
+  assert.match(SYSTEM_PROMPT, /# VOLATILITY SQUEEZE \/ COMPRESSION RULES/);
+  assert.match(SYSTEM_PROMPT, /a tuple - never assign it to one variable/);
+  const code = fs.readFileSync(path.join(here, "fixtures", "squeeze_rules.pine"), "utf8");
+  const c = checkPine(code); assert.ok(c.ok && c.clean, JSON.stringify(c.errors.concat(c.mustFix, c.shouldFix)));
+  const r = runPreview(code, candles, { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+  assert.ok(r.boxes.length > 0, "coil boxes drawn"); assert.equal(r.tables.length, 1); assert.ok(r.plots.length >= 2);
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

@@ -346,3 +346,22 @@ Where it went:
 - lint: NX_SESSION_NO_TZ (one repair, never blocks): time() / time_close() with a session but no timezone.
 - bench: orb_us100_retest (Arabic, US100 15-min ORB with retest, FAILED state, width table, alerts) replaces the simpler ny_first_hour case.
 - Market report: the US cash open (09:30 NY) and the end of its first hour in Sydney time on the ⏰ line and in the clock prompt.
+
+## 2026-10-27 · volatility squeeze / compression: BB inside Keltner, coils, releases and head fakes
+Sources: LuxAlgo library concept page "Squeeze Release Direction" (public text), TradingView "compression" script listing
+(public descriptions of ~16 squeeze / coil tools; ideas only, no code), a Tickblaze community post on a non-repainting squeeze
+momentum rebuild (closed-bar signals, neutral state excluded).
+What traders use: squeeze ON when Bollinger (20, 2) sits inside Keltner (20, 1.5 ATR); the release is the first bar it turns off.
+Direction from a linear-regression momentum histogram (sign AND slope) plus a close beyond the coil; HTF trend carries the most
+weight. Better tools go past ON / OFF: depth levels (KC 1.0 / 1.5 / 2.0), how unusual the width is (percentile rank of BB width
+over 100-250 bars), coil length, a coil box on price, release attempts vs fake releases, expansion follow-through.
+Complaints: plain ON / OFF hides how rare the squeeze is; signals that change on the live bar (fix: confirmed bars only);
+head fakes (break then reverse through the coil); constant squeezes on 1m-5m; momentum and breakout side disagreeing.
+Where it went:
+- knowledge.js: new "VOLATILITY SQUEEZE / COMPRESSION RULES" (explicit BB / KC definition, ta.bb tuple, depth + width rank,
+  release on a confirmed bar after N squeeze bars, momentum sign + slope + close beyond the coil, FAILED head fake that lets the
+  other side fire once, coil box with force_overlay from a pane, 4-step histogram + depth dots, own counted stats, LTF guard).
+- Reference script nexus-engine/tests/fixtures/squeeze_rules.pine: clean in our checker and drawn by the preview (test).
+- bench: squeeze_gold_release (Arabic, gold squeeze with coil box, momentum, FAILED state, table, alerts) replaces engulfing_filtered.
+- Market report: daily volatility regime per market (BB width percentile vs its last ~120 days, daily squeeze on / released /
+  off, 5-day vs 20-day range) with the rule "compression = bigger move likely, direction unknown - wait for a daily close outside".

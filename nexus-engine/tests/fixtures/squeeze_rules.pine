@@ -1,0 +1,98 @@
+//@version=6
+indicator("Squeeze Rules Check", shorttitle = "SQZ", overlay = false, max_boxes_count = 50, max_labels_count = 100)
+
+lenInput = input.int(20, "Length", minval = 5)
+bbMultInput = input.float(2.0, "BB multiplier", step = 0.1)
+kcMultInput = input.float(1.5, "KC multiplier", step = 0.1)
+minBarsInput = input.int(5, "Minimum squeeze bars", minval = 1)
+rankLenInput = input.int(150, "Width rank length", minval = 20)
+
+[bbMid, bbUp, bbLo] = ta.bb(close, lenInput, bbMultInput)
+kcMid = ta.sma(close, lenInput)
+atrV = ta.atr(lenInput)
+kcUp = kcMid + kcMultInput * atrV
+kcLo = kcMid - kcMultInput * atrV
+bool sqzOn = bbUp < kcUp and bbLo > kcLo
+bool tight = bbUp < kcMid + 1.0 * atrV and bbLo > kcMid - 1.0 * atrV
+float width = bbMid != 0 ? (bbUp - bbLo) / bbMid : na
+float widthRank = ta.percentrank(width, rankLenInput)
+float mom = ta.linreg(close - math.avg(math.avg(ta.highest(high, lenInput), ta.lowest(low, lenInput)), ta.sma(close, lenInput)), lenInput, 0)
+
+var int sqzBars = 0
+var float coilHi = na
+var float coilLo = na
+var box coilBox = na
+var int dirLive = 0
+var float liveHi = na
+var float liveLo = na
+var int releases = 0
+var int followed = 0
+bool sigUp = false
+bool sigDn = false
+bool failed = false
+
+if barstate.isconfirmed
+    if sqzOn
+        if sqzBars == 0
+            coilHi := high
+            coilLo := low
+            coilBox := box.new(bar_index, high, bar_index, low, border_color = color.new(#7C4DFF, 50), bgcolor = color.new(#7C4DFF, 85), force_overlay = true)
+        else
+            coilHi := math.max(coilHi, high)
+            coilLo := math.min(coilLo, low)
+            box.set_top(coilBox, coilHi)
+            box.set_bottom(coilBox, coilLo)
+            box.set_right(coilBox, bar_index)
+        sqzBars += 1
+    else if sqzBars > 0
+        if sqzBars >= minBarsInput
+            box.set_text(coilBox, "SQZ " + str.tostring(sqzBars))
+            box.set_text_size(coilBox, size.tiny)
+            box.set_text_color(coilBox, color.new(#B2B5BE, 0))
+            if close > coilHi and mom > 0 and mom > mom[1]
+                sigUp := true
+                dirLive := 1
+            else if close < coilLo and mom < 0 and mom < mom[1]
+                sigDn := true
+                dirLive := -1
+            if sigUp or sigDn
+                releases += 1
+                liveHi := coilHi
+                liveLo := coilLo
+        sqzBars := 0
+    else if dirLive != 0
+        if (dirLive == 1 and close < liveHi) or (dirLive == -1 and close > liveLo)
+            failed := true
+            dirLive := 0
+        else if (dirLive == 1 and close > liveHi + (liveHi - liveLo)) or (dirLive == -1 and close < liveLo - (liveHi - liveLo))
+            followed += 1
+            dirLive := 0
+
+color bullC = #00E5A0
+color bearC = #FF3D71
+color histC = mom >= 0 ? (mom > nz(mom[1]) ? bullC : color.new(bullC, 55)) : (mom < nz(mom[1]) ? bearC : color.new(bearC, 55))
+plot(mom, "Momentum", histC, style = plot.style_columns)
+color dotC = sqzOn ? (tight ? #FFB300 : color.new(#FFB300, 50)) : color.new(#787B86, 60)
+plot(0, "Squeeze", dotC, style = plot.style_circles, linewidth = 3)
+
+if sigUp
+    label.new(bar_index, low, "▲ RELEASE", style = label.style_label_up, color = bullC, textcolor = color.white, size = size.small, force_overlay = true)
+if sigDn
+    label.new(bar_index, high, "▼ RELEASE", style = label.style_label_down, color = bearC, textcolor = color.white, size = size.small, force_overlay = true)
+if failed
+    label.new(bar_index, close, "✕", style = label.style_label_center, color = color.new(#787B86, 20), textcolor = color.white, size = size.tiny, force_overlay = true)
+
+var table dash = table.new(position.top_right, 2, 4, bgcolor = color.new(#131722, 10))
+if barstate.islast
+    table.cell(dash, 0, 0, "NEXUS • Squeeze", text_color = #7C4DFF, text_size = size.small)
+    table.cell(dash, 1, 0, sqzOn ? "ON " + str.tostring(sqzBars) + " bars" : "Off", text_color = sqzOn ? #FFB300 : #B2B5BE, text_size = size.small)
+    table.cell(dash, 0, 1, "Width rank", text_color = #B2B5BE, text_size = size.small)
+    table.cell(dash, 1, 1, str.tostring(widthRank, "#") + "%", text_color = #D1D4DC, text_size = size.small)
+    table.cell(dash, 0, 2, "Momentum", text_color = #B2B5BE, text_size = size.small)
+    table.cell(dash, 1, 2, mom >= 0 ? "▲ Up" : "▼ Down", text_color = mom >= 0 ? bullC : bearC, text_size = size.small)
+    table.cell(dash, 0, 3, "Releases", text_color = #B2B5BE, text_size = size.small)
+    table.cell(dash, 1, 3, str.tostring(followed) + " / " + str.tostring(releases) + " followed", text_color = #D1D4DC, text_size = size.small)
+
+alertcondition(sigUp, "Squeeze release up", "Squeeze release up")
+alertcondition(sigDn, "Squeeze release down", "Squeeze release down")
+alertcondition(failed, "Squeeze release failed", "Squeeze release failed")

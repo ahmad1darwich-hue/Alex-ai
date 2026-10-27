@@ -86,7 +86,20 @@ await t("weekly trend + daily/weekly alignment from the same daily candles", asy
   const wk = weeklyTrend(up), wkC = weeklyTrend(up, true);
   assert.ok(wk.pwHigh > wk.pwLow && wkC.pwHigh > wk.pwHigh, "previous completed week: the week before the current one, or the last week on a weekend");
   assert.match(txt, /previous week high [\d.]+ \/ low [\d.]+; weekly trend up/);
-  assert.match(txt, /weekly trend up \(10-week average [\d.]+\); daily \+ weekly aligned up \[yahoo\]/);
+  assert.match(txt, /weekly trend up \(10-week average [\d.]+\); daily \+ weekly aligned up(; volatility [^[]+)? \[yahoo\]/);
+});
+await t("volatility regime: squeeze / compression from daily candles, said as 'move likely, direction unknown'", async () => {
+  const { volRegime, priceLevels } = await import("../../brain-app/api/_brain/market.js");
+  const mk = (n, f) => { const a = []; for (let i = 0; i < n; i++) { const [c, r] = f(i); a.push({ t: Date.UTC(2026, 3, 1 + i, 21), o: c, h: c + r, l: c - r, c }); } return a; };
+  // 100 wild days, then 30 calm sideways days -> the bands shrink inside the channel.
+  const calm = mk(130, (i) => (i < 100 ? [2000 + (i % 2 ? 60 : -60), 40] : [2000 + (i % 2 ? 2 : -2), 8]));
+  const V = volRegime(calm);
+  assert.equal(V.regime, "compressed"); assert.equal(V.squeeze, "on"); assert.ok(V.pct <= 20 && V.ratio < 1.3 && V.days >= 100);
+  const wild = mk(130, (i) => (i < 110 ? [2000 + (i % 2 ? 2 : -2), 8] : [2000 + (i - 110) * 50, 60]));
+  assert.equal(volRegime(wild).regime, "expanding"); assert.equal(volRegime(wild).squeeze, "off");
+  assert.equal(volRegime(calm.slice(0, 30)), null, "too few candles = no tag");
+  const txt = await priceLevels(["XAUUSD (Gold)"], async () => ({ candles: calm, source: "yahoo" }));
+  assert.match(txt, /volatility compressed \(Bollinger width percentile \d+ of the last \d+ days, daily squeeze on, last 5 days' range [\d.]+x the 20-day\) \[yahoo\]/);
 });
 await t("dollar driver (DXY) from daily closes: tone for gold, empty without data", async () => {
   const { dollarDriver } = await import("../../brain-app/api/_brain/market.js");
