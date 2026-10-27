@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Google tag (gtag.js) — Google Ads conversion tracking -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18469296336"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','AW-18469296336');
+// Count a conversion when a visitor taps/clicks any phone number on the site (beacon keeps it alive while the dialer opens)
+document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a[href^="tel:"]'):null;if(!a)return;try{gtag('event','conversion',{'send_to':'AW-18469296336/k9FBCLr9gasdENCx7OZE','transport_type':'beacon'});}catch(_){}},true);</script>
+
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap">
@@ -371,6 +377,7 @@ var g=function(k){var el=f.querySelector('[name="'+k+'"]');return el?(el.value||
 var n=g('n'),p=g('p'),s=g('s'),sv=g('sv'),d=g('d'),m=f.querySelector('.sent');
 if(!n||!p||!s){m.hidden=false;m.textContent='Please add your name, mobile and suburb so we can get back to you.';return;}
 var t='Hi USWS, I would like a free quote.\n\nName: '+n+'\nMobile: '+p+'\nSuburb: '+s+'\nService: '+sv+(d?('\nDetails: '+d):'')+'\n\n(Feel free to attach photos of your space to this email.)';
+try{gtag('event','generate_lead',{'send_to':'AW-18469296336'});}catch(_){}
 window.location.href='mailto:info@usws.com.au?subject='+encodeURIComponent('Free quote request - '+s+' - '+sv)+'&body='+encodeURIComponent(t);
 m.hidden=false;
 m.innerHTML='Opening your email app… if it does not open, call us on <a href="tel:+61434449997">0434 449 997</a> or <a href="tel:+61414922246">0414 922 246</a>, or email <a href="mailto:info@usws.com.au">info@usws.com.au</a>.';
