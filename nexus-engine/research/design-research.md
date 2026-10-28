@@ -389,3 +389,24 @@ Where it went:
   alerts) replaces fib_last_swing (covered by the fib_pivots template).
 - Market report: anchored VWAP / TWAP from the 60-day high and 60-day low per market (price above / below each, pinch) with the
   cohort reading in the prompt.
+
+## 2026-10-28 (run 2) · entry zones on REAL data: what makes a zone entry hold (Ahmad: "most entry zones are wrong")
+Method: zone lab (nexus-engine/research/zone-lab/zr.mjs, own code) over 55,000 real bars from the TradingView connector
+(XAUUSD 5m / 15m / 1h / 4h, EURUSD 1h, GBPUSD 1h, USDJPY 15m, NAS100 15m, BTCUSDT 15m / 1h, ETHUSDT 1h), first 60% of each
+market in-sample, last 40% out-of-sample, 2R target, stop 0.5 ATR beyond the zone, no costs. Then the real Pine templates were run
+through our preview engine on the same candles to confirm.
+Findings (expectancy per trade, honest counting):
+- A bug that hides losses: when the bar that touches a zone also closes through it, most tools (and our harness at first, and the
+  S&D / SMC templates) record nothing - but a limit at the edge was filled and lost. Counting it moved "+0.17R" to about -0.05R.
+  Every track record must count the fill bar.
+- Waiting for a candle to close back out of the zone (our old S&D entry) was the worst entry: -0.08R OOS, few trades, late price.
+  A limit at the proximal edge on the first return: ~-0.05R plain.
+- LOCATION was the only strong, consistent factor: demand edges in the lowest 25% of the last 100 bars' range (supply in the top
+  25%) -> +0.04R IS / +0.08R OOS; expectancy fell steadily the higher a demand zone sat in the range (top fifth: -0.18 / -0.09).
+- No help (or worse): trimming tall zones to 0.8 ATR, EMA 50/200 trend filter, "room to the next opposite zone", zone age, "price
+  must leave first", break-even after 1R, body-only vs full-candle order blocks, BOS-origin order blocks vs plain bases.
+Real templates on the same candles (our Pine preview): S&D old -0.11R (236 trades) -> new +0.06R (721 trades, 2R);
+SMC order blocks old -0.06R -> new +0.01R (1R target). Small edges before spread / commission: zones are places to look, not signals.
+Where it went: knowledge "ENTRY ZONES THAT HOLD UP" rule; supply_demand template (Entry: Limit at zone edge / Close confirmation,
+Location filter Deep 25% / Half / Off, stop 0.5 ATR input, touch bar counted); smc template (order-block entries at the edge,
+location filter, touch bar counted); catalog texts; test.

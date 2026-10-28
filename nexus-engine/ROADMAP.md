@@ -99,3 +99,10 @@ L018 (TWAP fallback), bench avwap_btc_swing, 60-day high / low anchored VWAP (TW
 NEXT: polyline.new support in the preview runner (the rules allow a polyline for the back-filled stretch; today only line pieces are
 drawn); when avwap_btc_swing passes in DAILY_REPORT for a few days and Ahmad pastes the fixture into TradingView without errors,
 promote it to a verified `avwap` template on the design system - one TradingView compile check first.
+
+## Entry zone accuracy (2026-10-28 run 2, Ahmad: "entry zones are mostly wrong, keep the code quality")
+Shipped: zone lab on 55k real bars (research/zone-lab), knowledge rule "ENTRY ZONES THAT HOLD UP" (location first, limit at the edge,
+stop 0.5 ATR, count the fill bar), supply_demand + smc templates updated the same way (checker clean, preview clean). NOT yet pasted
+into TradingView: Ahmad's first paste is the compile check. NEXT: apply the same honest fill-bar counting + location to the sr flip
+retest, liquidity and fib golden-zone signals (test each in the zone lab first); add spread / commission to the lab; try sweep-entry
+zones (wick through a swing low into the zone, close back above).

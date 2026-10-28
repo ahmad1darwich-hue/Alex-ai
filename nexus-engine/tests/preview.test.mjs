@@ -396,4 +396,15 @@ await t("anchored VWAP rules reference (knowledge ANCHORED VWAP rules) is clean 
   assert.ok(av && av.values.filter((v) => v != null && isFinite(v)).length > 100, "AVWAP plotted");
 });
 
+await t("entry zones (2026-10-28 zone lab): knowledge rule + S&D / SMC templates enter at the edge, filter by location and count the touch bar", async () => {
+  const { SYSTEM_PROMPT } = await import("../../brain-app/api/_nexus/knowledge.js");
+  const { TEMPLATE_BY_ID } = await import("../../brain-app/api/_nexus/templates.js");
+  assert.match(SYSTEM_PROMPT, /ENTRY ZONES THAT HOLD UP/);
+  assert.match(SYSTEM_PROMPT, /a bar that touches the edge and then closes through the zone is a filled LOSS/);
+  const sd = TEMPLATE_BY_ID.get("supply_demand").code, smc = TEMPLATE_BY_ID.get("smc").code;
+  assert.match(sd, /"Limit at zone edge"/); assert.match(sd, /"Deep \(25%\)", "Location filter"/); assert.match(sd, /if bar_index >= t\.bar/);
+  assert.match(smc, /"Deep \(25%\)", "Order block entries: location"/); assert.match(smc, /if bar_index >= p\.bar/);
+  for (const code of [sd, smc]) { const r = runPreview(code, candles, { tfSec: 900, symbol: GOLD }); assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []); }
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

@@ -1,0 +1,17 @@
+[["loc100 .5", {"entry":"limit","buf":0.5,"loc":100}],
+ ["loc100 .33", {"entry":"limit","buf":0.5,"loc":100,"locMax":0.33}],
+ ["loc100 .25", {"entry":"limit","buf":0.5,"loc":100,"locMax":0.25}],
+ ["loc100 .2", {"entry":"limit","buf":0.5,"loc":100,"locMax":0.2}],
+ ["loc50 .25", {"entry":"limit","buf":0.5,"loc":50,"locMax":0.25}],
+ ["loc200 .25", {"entry":"limit","buf":0.5,"loc":200,"locMax":0.25}],
+ ["loc100 .25 T1.5", {"entry":"limit","buf":0.5,"loc":100,"locMax":0.25,"T":1.5}],
+ ["loc100 .25 T3", {"entry":"limit","buf":0.5,"loc":100,"locMax":0.25,"T":3}],
+ ["loc100 .25 buf.3", {"entry":"limit","buf":0.3,"loc":100,"locMax":0.25}],
+ ["loc100 .25 buf1", {"entry":"limit","buf":1.0,"loc":100,"locMax":0.25}],
+ ["loc100 .25 confirm", {"entry":"confirm","buf":0.5,"loc":100,"locMax":0.25}],
+ ["loc100 .25 mid", {"entry":"mid","buf":0.5,"loc":100,"locMax":0.25}],
+ ["ob loc100 .25", {"gen":"ob","entry":"limit","buf":0.5,"loc":100,"locMax":0.25}],
+ ["ob loc100 .25 leave", {"gen":"ob","entry":"limit","buf":0.5,"loc":100,"locMax":0.25,"leave":true}],
+ ["loc100 .25 imp1.5", {"entry":"limit","buf":0.5,"loc":100,"locMax":0.25,"minImp":1.5}],
+ ["loc100 .25 htf", {"entry":"limit","buf":0.5,"loc":100,"locMax":0.25,"trend":"htf"}]
+]
