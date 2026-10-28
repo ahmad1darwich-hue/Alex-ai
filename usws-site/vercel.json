@@ -3,6 +3,11 @@
   "redirects": [
     {
       "source": "/areas/bondi",
+      "destination": "/",
+      "statusCode": 301
+    },
+    {
+      "source": "/areas/bondi-junction",
       "destination": "/areas/eastern-suburbs",
       "statusCode": 301
     },
