@@ -184,4 +184,5 @@ def main():
     print("enriched:", done)
     if skipped: print("skipped:", skipped)
 
-main()
+if __name__ == "__main__":
+    main()
