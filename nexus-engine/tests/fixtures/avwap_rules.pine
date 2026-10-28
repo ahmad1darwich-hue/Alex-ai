@@ -1,0 +1,93 @@
+//@version=6
+indicator("AVWAP Rules Check", shorttitle = "AVWAP", overlay = true, max_lines_count = 200, max_labels_count = 100)
+
+lenInput = input.int(5, "Swing length", minval = 2)
+bandInput = input.float(1.0, "Band sd", step = 0.5)
+coolInput = input.int(5, "Signal cooldown", minval = 1)
+
+atrV = ta.atr(14)
+bool hasVol = not na(volume) and volume > 0
+float w = hasVol ? volume : 1.0
+float src = hlc3
+
+// period anchor: the week open
+[wkVwap, wkUp, wkLo] = ta.vwap(src, timeframe.change("W"), 1.0)
+
+var float sV = na
+var float sPV = na
+var float sPV2 = na
+var int anchorBar = na
+var array<line> pieces = array.new<line>()
+float pl = ta.pivotlow(low, lenInput, lenInput)
+
+if not na(pl)
+    sV := 0.0
+    sPV := 0.0
+    sPV2 := 0.0
+    anchorBar := bar_index - lenInput
+    float prevV = na
+    for i = lenInput to 0
+        float wi = hasVol ? volume[i] : 1.0
+        sV += wi
+        sPV += src[i] * wi
+        sPV2 += src[i] * src[i] * wi
+        float cur = sPV / sV
+        if not na(prevV) and i > 0
+            pieces.push(line.new(bar_index - i - 1, prevV, bar_index - i, cur, color = color.new(#00E5A0, 0), width = 2))
+        prevV := cur
+    while pieces.size() > 150
+        pieces.shift().delete()
+else if not na(sV)
+    sV += w
+    sPV += src * w
+    sPV2 += src * src * w
+
+float avwap = na(sV) or sV == 0 ? na : sPV / sV
+float sd = na(avwap) ? na : math.sqrt(math.max(sPV2 / sV - avwap * avwap, 0))
+float up1 = avwap + bandInput * sd
+float lo1 = avwap - bandInput * sd
+
+var int state = 0
+var int sideCount = 0
+var int lastSig = na
+bool reclaim = false
+bool lost = false
+if barstate.isconfirmed and not na(avwap)
+    int side = close > avwap + 0.2 * atrV ? 1 : close < avwap - 0.2 * atrV ? -1 : 0
+    if side != 0 and side != state
+        if sideCount >= 3
+            reclaim := side == 1
+            lost := side == -1
+        state := side
+        sideCount := 0
+    else
+        sideCount += 1
+bool canSig = na(lastSig) or bar_index - lastSig >= coolInput
+bool sigUp = reclaim and canSig
+bool sigDn = lost and canSig
+if sigUp or sigDn
+    lastSig := bar_index
+    label.new(bar_index, sigUp ? low : high, sigUp ? "▲ RECLAIM" : "▼ LOST", style = sigUp ? label.style_label_up : label.style_label_down, color = sigUp ? #00E5A0 : #FF3D71, textcolor = color.white, size = size.small)
+
+color lineCol = close >= avwap ? #00E5A0 : #FF3D71
+plot(avwap, "AVWAP glow", color.new(lineCol, 85), 6, plot.style_linebr)
+plot(avwap, "AVWAP", lineCol, 2, plot.style_linebr)
+p1 = plot(up1, "+1 sd", color.new(#787B86, 60), 1, plot.style_linebr)
+p2 = plot(lo1, "-1 sd", color.new(#787B86, 60), 1, plot.style_linebr)
+fill(p1, p2, color.new(#7C4DFF, 92))
+plot(wkVwap, "Week VWAP", color.new(#B2B5BE, 30), 1, plot.style_linebr)
+
+var table tb = table.new(position.top_right, 2, 4, bgcolor = color.new(#131722, 10))
+if barstate.islast and not na(avwap)
+    float dist = atrV > 0 ? (close - avwap) / atrV : 0.0
+    tb.cell(0, 0, "NEXUS • AVWAP", text_color = #7C4DFF, text_size = size.small)
+    tb.cell(1, 0, hasVol ? "VWAP" : "TWAP", text_color = color.white, text_size = size.small)
+    tb.cell(0, 1, "State", text_color = color.white, text_size = size.small)
+    tb.cell(1, 1, close >= avwap ? "Above" : "Below", text_color = lineCol, text_size = size.small)
+    tb.cell(0, 2, "Distance ATR", text_color = color.white, text_size = size.small)
+    tb.cell(1, 2, str.tostring(dist, "#.##"), text_color = lineCol, text_size = size.small)
+    tb.cell(0, 3, "Anchor age", text_color = color.white, text_size = size.small)
+    tb.cell(1, 3, str.tostring(bar_index - anchorBar) + " bars", text_color = color.white, text_size = size.small)
+
+alertcondition(sigUp, "AVWAP reclaim", "AVWAP reclaimed on {{ticker}} {{interval}}")
+alertcondition(sigDn, "AVWAP lost", "AVWAP lost on {{ticker}} {{interval}}")

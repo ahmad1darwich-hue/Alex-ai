@@ -26,6 +26,7 @@ export const LESSONS = [
   { id: "L015", added: "2026-10-15", source: "seed", text: "Strategy exits: strategy.exit(\"TP/SL\", from_entry = \"Long\", stop = sl, limit = tp) with prices, or loss/profit in ticks; compute sl/tp once at entry and keep them in var floats so they do not move every bar." },
   { id: "L016", added: "2026-10-16", source: "owner", text: "Images labelled VIDEO are frames of one recording, in order. Read them together: which zones, lines, labels and signals appear, when, and how they change (touched, broken, recolored); build an indicator that reproduces that automatically." },
   { id: "L017", added: "2026-10-25", source: "owner", text: "A function returns its LAST statement. If that is an if / else chain (also inside the last for), every branch must end with the same type - arr.remove(i) (element) vs n += 1 (int) fails with CE10235. End such helpers with a plain line: true." },
+  { id: "L018", added: "2026-10-28", source: "research", text: "Any VWAP / volume-weighted math: volume is na or 0 on many forex / CFD symbols, so weight = volume > 0 ? volume : 1 (label it TWAP) and guard sumV > 0 before sumPV / sumV; never let one na bar turn the whole running sum into na." },
 ];
 
 // The block appended to the user turn. Empty when there are no lessons.

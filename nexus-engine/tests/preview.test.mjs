@@ -382,4 +382,18 @@ await t("squeeze rules reference (knowledge VOLATILITY SQUEEZE rules) is clean i
   assert.ok(r.boxes.length > 0, "coil boxes drawn"); assert.equal(r.tables.length, 1); assert.ok(r.plots.length >= 2);
 });
 
+await t("anchored VWAP rules reference (knowledge ANCHORED VWAP rules) is clean in the checker and previews the line, bands and back-fill", async () => {
+  const { checkPine } = await import("../../brain-app/api/_nexus/lint.js");
+  const { SYSTEM_PROMPT } = await import("../../brain-app/api/_nexus/knowledge.js");
+  assert.match(SYSTEM_PROMPT, /# ANCHORED VWAP RULES/);
+  assert.match(SYSTEM_PROMPT, /rebuild the sums from the pivot bar forward/);
+  const code = fs.readFileSync(path.join(here, "fixtures", "avwap_rules.pine"), "utf8");
+  const c = checkPine(code); assert.ok(c.ok && c.clean, JSON.stringify(c.errors.concat(c.mustFix, c.shouldFix)));
+  const r = runPreview(code, candles, { tfSec: 900, symbol: GOLD });
+  assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []);
+  assert.ok(r.lines.length > 0, "back-filled AVWAP pieces from the pivot bar"); assert.equal(r.tables.length, 1);
+  const av = r.plots.find((p) => p.title === "AVWAP") || r.plots[1];
+  assert.ok(av && av.values.filter((v) => v != null && isFinite(v)).length > 100, "AVWAP plotted");
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

@@ -99,7 +99,21 @@ await t("volatility regime: squeeze / compression from daily candles, said as 'm
   assert.equal(volRegime(wild).regime, "expanding"); assert.equal(volRegime(wild).squeeze, "off");
   assert.equal(volRegime(calm.slice(0, 30)), null, "too few candles = no tag");
   const txt = await priceLevels(["XAUUSD (Gold)"], async () => ({ candles: calm, source: "yahoo" }));
-  assert.match(txt, /volatility compressed \(Bollinger width percentile \d+ of the last \d+ days, daily squeeze on, last 5 days' range [\d.]+x the 20-day\) \[yahoo\]/);
+  assert.match(txt, /volatility compressed \(Bollinger width percentile \d+ of the last \d+ days, daily squeeze on, last 5 days' range [\d.]+x the 20-day\)(; anchored [^[]+)? \[yahoo\]/);
+});
+await t("anchored VWAP / TWAP from the 60-day high and low: cohort levels, pinch, TWAP without volume", async () => {
+  const { anchoredVwaps, priceLevels } = await import("../../brain-app/api/_brain/market.js");
+  const mk = (n, f, v) => { const a = []; for (let i = 0; i < n; i++) { const c = f(i); a.push({ t: Date.UTC(2026, 5, 1 + i, 21), o: c, h: c + 5, l: c - 5, c, ...(v ? { v: 1000 + i } : {}) }); } return a; };
+  // falls from 2100 to 1900 over 30 days, then rallies to 2050: above the low's line, below the high's line
+  const vee = mk(60, (i) => (i < 30 ? 2100 - i * 7 : 1897 + (i - 29) * 1.5), true);
+  const A = anchoredVwaps(vee);
+  assert.equal(A.kind, "VWAP"); assert.equal(A.lowDate, "2026-06-30"); assert.ok(A.low > 1897 && A.low < 1945 && A.aboveLow);
+  assert.ok(A.high > A.low && A.aboveHigh === false, JSON.stringify(A));
+  assert.equal(anchoredVwaps(mk(60, (i) => 2000 + (i % 2 ? 1 : -1))).kind, "TWAP", "no volume = time-weighted");
+  assert.equal(anchoredVwaps(mk(60, (i) => 2000 + (i % 2 ? 1 : -1))).pinch, true, "flat market = pinch");
+  assert.equal(anchoredVwaps(vee.slice(0, 10)), null);
+  const txt = await priceLevels(["XAUUSD (Gold)"], async () => ({ candles: vee, source: "yahoo" }));
+  assert.match(txt, /anchored VWAP from the 60-day high \(2026-06-01\) [\d.]+ \(price below\) and from the 60-day low \(2026-06-30\) [\d.]+ \(price above\) \[yahoo\]/);
 });
 await t("dollar driver (DXY) from daily closes: tone for gold, empty without data", async () => {
   const { dollarDriver } = await import("../../brain-app/api/_brain/market.js");

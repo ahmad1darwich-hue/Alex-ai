@@ -133,6 +133,23 @@ export function volRegime(c) {
   const regime = pct <= 20 || (now.squeeze && pct <= 50) ? "compressed" : pct >= 80 || ratio >= 1.3 ? "expanding" : "normal";
   return { pct, squeeze, ratio, regime, days: past.length };
 }
+// Anchored VWAP (from the 2026-10-28 AVWAP research): the volume-weighted average price of everyone who traded since the
+// 60-day high and since the 60-day low (typical price; time-weighted "TWAP" when the feed has no volume, e.g. gold / FX).
+// Price above the low's AVWAP = buyers since the low are in profit (dips there tend to be defended); below the high's
+// AVWAP = sellers since the high are in profit. Price between both lines while they are close = a pinch (compression).
+export function anchoredVwaps(c, look = 60) {
+  c = (c || []).filter((x) => x && isFinite(x.h) && isFinite(x.l) && isFinite(x.c));
+  if (c.length < 20) return null;
+  const w = c.slice(-look), vol = w.every((x) => x.v > 0);
+  let hi = 0, lo = 0;
+  w.forEach((x, i) => { if (x.h >= w[hi].h) hi = i; if (x.l <= w[lo].l) lo = i; });
+  const from = (k) => { let sv = 0, spv = 0; for (let i = k; i < w.length; i++) { const v = vol ? w[i].v : 1; sv += v; spv += v * (w[i].h + w[i].l + w[i].c) / 3; } return spv / sv; };
+  const day = (x) => new Date(x.t).toISOString().slice(0, 10), last = w[w.length - 1].c;
+  const H = from(hi), L = from(lo);
+  const tr = w.slice(-14).reduce((a, x) => a + (x.h - x.l), 0) / Math.min(14, w.length);
+  const pinch = last <= H && last >= L && Math.abs(H - L) < tr;
+  return { kind: vol ? "VWAP" : "TWAP", high: H, highDate: day(w[hi]), low: L, lowDate: day(w[lo]), aboveLow: last > L, aboveHigh: last > H, pinch, days: w.length };
+}
 // Weekly trend from the same daily candles (weeks start on Monday): close vs the 10-week average and its 3-week slope.
 // With the daily trend it gives a two-timeframe alignment tag, the same idea as the MTF matrix in the indicator bot.
 // Also the last COMPLETED week's high / low (PWH / PWL - key gold levels): the week before the current one, or the
@@ -162,8 +179,8 @@ export async function priceLevels(markets = MARKETS, fetchDaily = (sym) => getCa
       const { candles, source } = await fetchDaily(sym);
       const L = levelsFromDaily(candles);
       if (!L) return "";
-      const W = weeklyTrend(candles, !marketStatus().open), V = volRegime(candles);
-      return `${sym}: last daily candle ${L.date} close ${fmt(L.close)} (${L.chg >= 0 ? "+" : ""}${L.chg.toFixed(2)}%), high ${fmt(L.high)}, low ${fmt(L.low)}; previous day high ${fmt(L.prevHigh)} / low ${fmt(L.prevLow)}; 5-day high ${fmt(L.wkHigh)} / low ${fmt(L.wkLow)}; classic pivot ${fmt(L.pivot)}; average daily range (14) ${fmt(L.adr)}; data trend ${L.trend} (close ${L.smaDist >= 0 ? "+" : ""}${L.smaDist.toFixed(1)} ADR from the 20-day average ${fmt(L.sma20)}); position in the 5-day range ${L.rangePos}%${W ? `; previous week high ${fmt(W.pwHigh)} / low ${fmt(W.pwLow)}; weekly trend ${W.wtrend} (10-week average ${fmt(W.wsma10)}); daily + weekly ${alignment(L.trend, W.wtrend)}` : ""}${V ? `; volatility ${V.regime} (Bollinger width percentile ${V.pct} of the last ${V.days} days, daily squeeze ${V.squeeze}, last 5 days' range ${V.ratio.toFixed(1)}x the 20-day)` : ""} [${source}]`;
+      const W = weeklyTrend(candles, !marketStatus().open), V = volRegime(candles), A = anchoredVwaps(candles);
+      return `${sym}: last daily candle ${L.date} close ${fmt(L.close)} (${L.chg >= 0 ? "+" : ""}${L.chg.toFixed(2)}%), high ${fmt(L.high)}, low ${fmt(L.low)}; previous day high ${fmt(L.prevHigh)} / low ${fmt(L.prevLow)}; 5-day high ${fmt(L.wkHigh)} / low ${fmt(L.wkLow)}; classic pivot ${fmt(L.pivot)}; average daily range (14) ${fmt(L.adr)}; data trend ${L.trend} (close ${L.smaDist >= 0 ? "+" : ""}${L.smaDist.toFixed(1)} ADR from the 20-day average ${fmt(L.sma20)}); position in the 5-day range ${L.rangePos}%${W ? `; previous week high ${fmt(W.pwHigh)} / low ${fmt(W.pwLow)}; weekly trend ${W.wtrend} (10-week average ${fmt(W.wsma10)}); daily + weekly ${alignment(L.trend, W.wtrend)}` : ""}${V ? `; volatility ${V.regime} (Bollinger width percentile ${V.pct} of the last ${V.days} days, daily squeeze ${V.squeeze}, last 5 days' range ${V.ratio.toFixed(1)}x the 20-day)` : ""}${A ? `; anchored ${A.kind} from the ${A.days}-day high (${A.highDate}) ${fmt(A.high)} (price ${A.aboveHigh ? "above" : "below"}) and from the ${A.days}-day low (${A.lowDate}) ${fmt(A.low)} (price ${A.aboveLow ? "above" : "below"})${A.pinch ? ", pinch between them" : ""}` : ""} [${source}]`;
     } catch (e) { return ""; }
   }));
   const ok = lines.filter(Boolean);
@@ -236,7 +253,7 @@ ${sessionClock()}
 ${weekendNote()}
 
 Markets: ${markets.join(", ")}.
-${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, previous week high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason (when CALENDAR DATA is given, its events and Sydney times win over search results). If a search price is fresher, prefer it and keep levels consistent with it. The data trend is a fact, not a forecast: go against it (🟢 in a down trend, 🔴 in an up trend) only when today's news clearly says so, otherwise follow it or use 🟡; near the top of the 5-day range (>85%) or the bottom (<15%) mention the stretch in the reason. When daily + weekly are aligned up / down that direction is the main bias and dips / rallies against it are pullbacks; when they are mixed say the bigger trend disagrees (one short phrase) and prefer 🟡 unless the news is clear. Volatility: \"compressed\" (or squeeze on) means a bigger move is likely soon but NOT its direction - say \"ضغط تقلّب، انتظر إغلاق يومي برّا الرينج\" in the reason and keep the bias from trend / news; \"squeeze released\" means the expansion has started in the direction of the latest daily close vs the 5-day range; \"expanding\" means wider swings - mention it before high-impact news. Never invent a squeeze when the data says off.\n" : ""}
+${levels ? "\n" + levels + "\nUse this price data for every price and for the support / resistance levels (previous day high/low, previous week high/low, 5-day high/low, pivot); a level is valid only if it is on the right side of the current price. Use the search results for news, the calendar and the reason (when CALENDAR DATA is given, its events and Sydney times win over search results). If a search price is fresher, prefer it and keep levels consistent with it. The data trend is a fact, not a forecast: go against it (🟢 in a down trend, 🔴 in an up trend) only when today's news clearly says so, otherwise follow it or use 🟡; near the top of the 5-day range (>85%) or the bottom (<15%) mention the stretch in the reason. When daily + weekly are aligned up / down that direction is the main bias and dips / rallies against it are pullbacks; when they are mixed say the bigger trend disagrees (one short phrase) and prefer 🟡 unless the news is clear. Volatility: \"compressed\" (or squeeze on) means a bigger move is likely soon but NOT its direction - say \"ضغط تقلّب، انتظر إغلاق يومي برّا الرينج\" in the reason and keep the bias from trend / news; \"squeeze released\" means the expansion has started in the direction of the latest daily close vs the 5-day range; \"expanding\" means wider swings - mention it before high-impact news. Never invent a squeeze when the data says off. Anchored VWAP / TWAP lines are the average cost of traders since the 60-day high / low: price above the low's line = buyers since the low in profit (dips to it tend to be defended, a daily close below it = that support lost); below the high's line = sellers in control (rallies to it tend to be sold, a close above it = reclaimed); a pinch = wait for a daily close outside both. Use them as levels only when they are on the right side of price, as a zone (~), never as guaranteed support.\n" : ""}
 Ahmad wants it SHORT: no long explanations. Write in Levantine Arabic (tickers and numbers in English). Plain text for a chat app: no markdown headings, no tables, no ** bold. Exactly this layout:
 
 📊 الذهب والنفط والمؤشرات · <date>

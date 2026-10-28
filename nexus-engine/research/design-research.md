@@ -365,3 +365,27 @@ Where it went:
 - bench: squeeze_gold_release (Arabic, gold squeeze with coil box, momentum, FAILED state, table, alerts) replaces engulfing_filtered.
 - Market report: daily volatility regime per market (BB width percentile vs its last ~120 days, daily squeeze on / released /
   off, 5-day vs 20-day range) with the rule "compression = bigger move likely, direction unknown - wait for a daily close outside".
+
+## 2026-10-28 · anchored VWAP (AVWAP): swing / event / period anchors, cohorts, reclaim and loss (crypto swing + indices)
+Sources: LuxAlgo library concept pages "Anchored VWAP" and "Anchored VWAP as Level" (public text), TrendSpider learning center
+"Anchored VWAP trading strategies", public descriptions of TradingView AVWAP scripts (a crypto swing-high/low AVWAP, an auto-anchored
+VWAP with a flatness / trend read, multi-anchor and session / week / month VWAP suites with deviation bands; ideas only, no code).
+What traders use: AVWAP = the volume-weighted break-even of everyone who traded since the anchor. Anchors that matter: the last major
+swing high and swing low (they bracket the auction), gap / news / earnings / breakout bars, highest-volume bar, week / month / quarter /
+year opens. Above a rising line the cohort is in profit and dips get defended; a loss + acceptance below turns it into resistance and
+the FIRST retest is the most informative; a reclaim and hold repairs the breakdown. Swing-high and swing-low AVWAPs close together =
+a "pinch" (compression). Several AVWAPs or an AVWAP + a fixed level close together = a stronger zone. Bands at 1 / 2 / 3 sd: +1 sd =
+extension, back to 0 = mean reversion; flatness of the line (drift in ATR) tells trend vs range.
+Complaints: arbitrary anchors nobody watches, old anchors that flatten and stop reacting, treating the line as an exact price, swing
+anchors that silently start at the confirmation bar instead of the swing, forex tick volume presented as real VWAP, chasing price
+far from the line.
+Where it went:
+- knowledge.js: new "ANCHORED VWAP RULES" (explicit var sums + sd bands, TWAP fallback, anchor menu, back-fill from the pivot bar on
+  confirmation with plot.style_linebr resets, cohort states with LOSS / RECLAIM after >= 3 closes, first-retest signal + cooldown,
+  pinch = no signals, stretch in sd with EXT veto, confluence box, look + dashboard, crypto UTC opens, retest plan).
+- Reference script nexus-engine/tests/fixtures/avwap_rules.pine: clean in our checker and drawn by the preview (test).
+- lessons.js L018: volume na / 0 -> weight 1 (TWAP) and guard sumV > 0.
+- bench: avwap_btc_swing (Arabic, BTC 4h swing AVWAPs from the pivot bar, bands, first retest after reclaim / loss, EXT + pinch, table,
+  alerts) replaces fib_last_swing (covered by the fib_pivots template).
+- Market report: anchored VWAP / TWAP from the 60-day high and 60-day low per market (price above / below each, pinch) with the
+  cohort reading in the prompt.

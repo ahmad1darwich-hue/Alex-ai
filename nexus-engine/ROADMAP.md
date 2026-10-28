@@ -92,3 +92,10 @@ Shipped: VOLATILITY SQUEEZE / COMPRESSION RULES in the knowledge pack, reference
 preview test), bench squeeze_gold_release, daily volatility regime in the market report. NEXT: when squeeze_gold_release passes in
 DAILY_REPORT for a few days and Ahmad pastes the fixture into TradingView without errors, promote it to a verified `squeeze` template
 on the design system (theme input, glow, gallery card) - one TradingView compile check first.
+
+## Anchored VWAP (2026-10-28 run)
+Shipped: ANCHORED VWAP RULES in the knowledge pack, reference fixture tests/fixtures/avwap_rules.pine (checker + preview test), lesson
+L018 (TWAP fallback), bench avwap_btc_swing, 60-day high / low anchored VWAP (TWAP without volume) per market in the market report.
+NEXT: polyline.new support in the preview runner (the rules allow a polyline for the back-filled stretch; today only line pieces are
+drawn); when avwap_btc_swing passes in DAILY_REPORT for a few days and Ahmad pastes the fixture into TradingView without errors,
+promote it to a verified `avwap` template on the design system - one TradingView compile check first.
