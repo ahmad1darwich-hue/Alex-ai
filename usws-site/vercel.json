@@ -20,6 +20,11 @@
       "source": "/contact/",
       "destination": "/",
       "statusCode": 301
+    },
+    {
+      "source": "/services",
+      "destination": "/",
+      "statusCode": 301
     }
   ],
   "rewrites": [
@@ -36,7 +41,11 @@
       "destination": "/areas/:slug.html"
     },
     {
-      "source": "/((?!api|gallery|areas|assets|sitemap|robots|.*\\.).*)",
+      "source": "/services/:slug",
+      "destination": "/services/:slug.html"
+    },
+    {
+      "source": "/((?!api|gallery|areas|services|assets|sitemap|robots|.*\\.).*)",
       "destination": "/index.html"
     }
   ]
