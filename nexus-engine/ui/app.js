@@ -192,6 +192,7 @@
     lib_del: ['حذف', 'Delete'], lib_del_sure: ['أكيد؟ اضغط كمان مرّة', 'Sure? Press again'],
     lib_ren: ['إعادة تسمية', 'Rename'], lib_ren_ask: ['الاسم الجديد:', 'New name:'],
     lib_prev: ['رجّع النسخة السابقة', 'Restore previous version'],
+    lib_auto: ['تحديث تلقائي {d} ← نسخة {v}', 'auto-updated {d} → v{v}'],
     lib_vers: ['{n} نسخة سابقة', '{n} earlier version(s)'],
     lib_saved: ['💾 انحفظ بمؤشراتي', '💾 Saved to my indicators'],
     lib_updated: ['💾 انحفظ التعديل على نفس المؤشر', '💾 Changes saved to the same indicator'],
@@ -1489,7 +1490,7 @@
       nm.dir = dirOf(it.name);
       head.appendChild(nm);
       head.appendChild(tx(el('span', 'badge ' + (it.verified ? 'ok' : 'warn')), it.verified ? 'b_ok' : 'b_warn', it.verified ? null : { n: Math.max(1, (it.errors || []).length) }));
-      meta.dir = 'auto'; meta.textContent = fmtDate(it.updated) + ' · ' + t('n_lines', { n: num(it.lines, 0) }) + (it.source === 'telegram' ? ' · Telegram' : '') + (it.versions ? ' · ' + t('lib_vers', { n: it.versions }) : '');
+      meta.dir = 'auto'; meta.textContent = fmtDate(it.updated) + ' · ' + t('n_lines', { n: num(it.lines, 0) }) + (it.source === 'telegram' ? ' · Telegram' : '') + (it.versions ? ' · ' + t('lib_vers', { n: it.versions }) : '') + (it.lastUpgrade && it.lastUpgrade.day ? ' · ' + t('lib_auto', { d: it.lastUpgrade.day, v: it.lastUpgrade.to }) : '');
       main.appendChild(head); main.appendChild(meta);
       if (it.request) { var rq = el('div', 'libreq', it.request); rq.dir = dirOf(it.request); main.appendChild(rq); }
       var more = el('button', 'libmore', '⋯'); more.type = 'button'; more.title = t('lib_more'); more.setAttribute('aria-label', t('lib_more')); more.setAttribute('aria-expanded', 'false');

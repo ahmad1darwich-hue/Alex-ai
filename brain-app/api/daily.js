@@ -10,6 +10,8 @@
 //      and judges each one: verified by the checker, and the expected building blocks present.
 //   2. Reads the engine's counters, the scripts that could not be verified, the TradingView errors users pasted and
 //      the thumbs-down feedback from the KV store.
+//   2b. Updates a few saved indicators (library) with engine improvements they do not have yet (_brain/lib-upgrade.js)
+//      and sends Ahmad a separate Telegram message: date, indicator, version N -> N+1, what changed.
 //   3. Stores the report (nx:daily:<day>), logs "DAILY_REPORT {...}" and sends Ahmad a summary on Telegram.
 // The daily improvement run (nexus-engine/DAILY.md) reads the report and fixes what it shows.
 //
@@ -23,6 +25,8 @@ import { KNOWLEDGE_REV } from "./_nexus/knowledge.js";
 import { LESSONS } from "./_nexus/lessons.js";
 import { BENCH, casesFor, judge } from "./_nexus/bench.js";
 import { brainAuth } from "./_brain/lock.js";
+import { runLibraryUpgrades, upgradeText } from "./_brain/lib-upgrade.js";
+import { UPGRADES } from "./_brain/lib-upgrade-notes.js";
 
 const MODEL = process.env.NEXUS_MODEL || "claude-sonnet-5-5";
 const BUDGET_MS = 250000; // the stream may run for 300 s on Edge
@@ -124,7 +128,9 @@ export async function runSelfCheck({ key, signal, trigger }) {
   const deadline = started + BUDGET_MS;
   const dayIndex = Math.floor(started / 86400000);
   const cases = key ? casesFor(dayIndex) : [];
-  const results = await Promise.all(cases.map((c) => runCase(c, key, deadline, signal)));
+  const day = sydneyDay(started);
+  const upgradesP = key ? runLibraryUpgrades({ callModel: makeCaller(key, deadline, {}, signal), deadline, signal, day }).catch((e) => ({ day, results: [], remaining: 0, error: clip(e && e.message, 160) })) : Promise.resolve({ day, results: [], remaining: 0 });
+  const [results, upgrades] = await Promise.all([Promise.all(cases.map((c) => runCase(c, key, deadline, signal))), upgradesP]);
   const stats = await readStats(3).catch(() => null);
   const days = stats && stats.ok ? stats.days : [];
   const today = utcDay(), yesterday = utcDay(1);
@@ -132,13 +138,14 @@ export async function runSelfCheck({ key, signal, trigger }) {
   const recent = (list) => (Array.isArray(list) ? list.filter((x) => x && typeof x === "object" && (!x.at || x.at >= since)) : []);
   const report = {
     ok: true,
-    day: sydneyDay(started),
+    day,
     at: new Date(started).toISOString(),
     trigger,
     engineRev: KNOWLEDGE_REV,
     lessons: LESSONS.length,
     model: MODEL,
     secs: 0,
+    library: { updated: upgrades.results.filter((r) => r.status === "updated").length, checked: upgrades.results.length, remaining: upgrades.remaining, results: upgrades.results, error: upgrades.error },
     bench: { total: results.length, passed: results.filter((r) => r.pass).length, cases: results, pool: BENCH.length, noKey: !key },
     stats: { today: dayStats(days.find((d) => d.day === today)), yesterday: dayStats(days.find((d) => d.day === yesterday)), storeOk: !!(stats && stats.ok) },
     samples: {
@@ -153,6 +160,8 @@ export async function runSelfCheck({ key, signal, trigger }) {
   await kvPipeline([["SET", "nx:daily:" + report.day, text, "EX", 60 * 86400], ["SET", "nx:daily:latest", text, "EX", 60 * 86400]]);
   try { console.log("DAILY_REPORT " + text); } catch (e) {}
   report.telegram = await sendTelegram(telegramText(report));
+  const up = upgradeText(upgrades, UPGRADES);
+  if (up) report.libraryTelegram = await sendTelegram(up);
   return report;
 }
 

@@ -42,4 +42,40 @@ await t("versions are capped", async () => {
   for (let i = 0; i < 9; i++) await L.saveItem({ id: a.id, code: CODE + "// " + i + "\n" });
   assert.equal((await L.getItem(a.id)).history.length, L.MAX_VERSIONS);
 });
+await t("automatic update of saved indicators: version N -> N+1 with the date, old code kept, untouched when not concerned, Telegram text", async () => {
+  L._resetMemory();
+  const U = await import("../../brain-app/api/_brain/lib-upgrade.js");
+  const N = await import("../../brain-app/api/_brain/lib-upgrade-notes.js");
+  const ZONE = '//@version=6\nindicator("Gold Zones", overlay = true, max_boxes_count = 50)\nlenInput = input.int(10, "Length")\nvar box zb = na\nif ta.change(ta.highest(high, lenInput)) != 0\n    zb := box.new(bar_index - 1, high, bar_index, low)\nplot(ta.ema(close, lenInput), "EMA", color.teal)\n';
+  const NEWZ = ZONE.replace('lenInput = input.int(10, "Length")', 'lenInput = input.int(10, "Length")\nlocInput = input.string("Deep (25%)", "Location filter", options = ["Deep (25%)", "Half (50%)", "Off"])').replace("var box zb = na\n", "var box zb = na\nfloat slow = ta.sma(close, 100)\n").replace("!= 0\n", "!= 0 and (locInput == \"Off\" or close < slow)\n");
+  // saved before the update system existed (no upgradeRev), a script without zones, and one saved today
+  const z = await L.saveItem({ code: ZONE, source: "web" }); const zid = z.id;
+  const meta = (await L.listItems()).find((x) => x.id === zid); assert.equal(meta.ver, 1); assert.equal(meta.upgradeRev, N.LATEST_UPGRADE, "saved now = built with today's rules");
+  await L.markUpgradeChecked(zid, "", ""); // pretend it is old
+  const p = await L.saveItem({ code: CODE, source: "web" }); await L.markUpgradeChecked(p.id, "", "");
+  await L.saveItem({ code: CODE.replace("20", "30"), source: "web" });
+  const picks = U.pickCandidates(await L.listItems(), 9);
+  assert.deepEqual(picks.map((x) => x.id).sort(), [zid, p.id].sort(), "only items with pending updates");
+  let calls = 0;
+  const cm = async () => { calls++; return { text: "<title>Gold Zones</title>\n<file>gold_zones.pine</file>\n<base>CURRENT</base>\n<code>\n" + NEWZ + "</code>\n<explain>ضفت فلتر مكان المنطقة بالرينج.</explain>", stopReason: "end_turn", usage: { input: 1, output: 1 }, model: "mock" }; };
+  const run = await U.runLibraryUpgrades({ callModel: cm, deadline: Date.now() + 60000, day: "2026-10-30" });
+  const byId = Object.fromEntries(run.results.map((r) => [r.id, r]));
+  assert.equal(byId[p.id].status, "not_concerned"); assert.equal(calls >= 1, true);
+  assert.equal(byId[zid].status, "updated", JSON.stringify(byId[zid])); assert.equal(byId[zid].from, 1); assert.equal(byId[zid].to, 2);
+  const it = await L.getItem(zid);
+  assert.equal(it.code.trim(), NEWZ.trim()); assert.equal(it.history[0].code, ZONE, "old version kept");
+  assert.equal(it.upgradeRev, N.LATEST_UPGRADE); assert.equal(it.lastUpgrade.day, "2026-10-30"); assert.equal(it.ver, 2); assert.equal(it.source, "web");
+  assert.equal(U.pickCandidates(await L.listItems(), 9).length, 0, "nothing pending after the run");
+  const txt = U.upgradeText(run, N.UPGRADES);
+  assert.match(txt, /📅 تحديث المؤشرات المحفوظة · 2026-10-30/); assert.match(txt, /Gold Zones: النسخة 1 ← صارت النسخة 2/); assert.match(txt, /مناطق الدخول/);
+  assert.match(txt, /ما احتاج تغيير/);
+  assert.equal(U.upgradeText({ day: "x", results: [] }, N.UPGRADES), "", "no message when nothing happened");
+  // a broken edit is never saved; automatic updates can be turned off per indicator
+  await L.markUpgradeChecked(zid, "", "");
+  const bad = async () => ({ text: "<base>CURRENT</base>\n<code>\n//@version=6\nindicator(\"Gold Zones\")\nplot(close +)\n</code>\n<explain>x</explain>", stopReason: "end_turn", usage: {}, model: "mock" });
+  const r2 = await U.runLibraryUpgrades({ callModel: bad, deadline: Date.now() + 60000, day: "2026-10-31" });
+  assert.equal(r2.results.find((r) => r.id === zid).status, "rejected"); assert.equal((await L.getItem(zid)).code.trim(), NEWZ.trim());
+  assert.equal((await (await call("POST", "", { action: "autoupdate", id: zid, on: false })).json()).item.autoUpdate, false);
+  assert.equal(U.pickCandidates(await L.listItems(), 9).length, 0);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

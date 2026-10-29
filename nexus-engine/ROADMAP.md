@@ -106,3 +106,15 @@ stop 0.5 ATR, count the fill bar), supply_demand + smc templates updated the sam
 into TradingView: Ahmad's first paste is the compile check. NEXT: apply the same honest fill-bar counting + location to the sr flip
 retest, liquidity and fib golden-zone signals (test each in the zone lab first); add spread / commission to the lab; try sweep-entry
 zones (wick through a swing low into the zone, close back above).
+
+## Automatic updates of saved indicators (2026-10-29, Ahmad: "update the saved indicators by itself and tell me: on date X we updated this version")
+Shipped: brain-app/api/_brain/lib-upgrade-notes.js (UPGRADES list) + _brain/lib-upgrade.js, run by the daily cron (api/daily.js)
+next to the bench: up to 3 saved indicators per day with pending updates are edited by the engine with the update rules ("change only
+this, keep everything else"), kept ONLY when the checker verifies them and the preview runs them; saved as version N+1 (old code
+stays as a restorable version; meta.ver, upgradeRev, lastUpgrade {day, from, to, note}); scripts the update does not concern are
+marked checked without a model call; failures retried up to 3 times. A separate Telegram message: date, indicator, version N -> N+1,
+what changed, how many are still waiting. Library card shows "auto-updated <day> -> v<N>". Per-indicator opt-out:
+POST /api/library { action: "autoupdate", id, on: false }.
+DAILY RUNS: when you ship an improvement that makes EXISTING scripts better (accuracy, repaint, Pine v6 fixes) add ONE entry to
+UPGRADES (rev = today's date, ar line, applies regex, concrete rules). Not for new features or style. Never edit a shipped entry.
+NEXT: an on / off switch on the library card, and a Telegram command to undo the last automatic update of an indicator.

@@ -1,8 +1,12 @@
 // Brain Indicators library: every indicator the bot builds is kept here so it can be opened and edited later.
 // Shared by the web page (api/library.js) and the Telegram bot (api/telegram.js). Lives in the KV store:
-//   brain:ind:lib:meta  hash  id -> { id, name, file, title, verified, errors, lines, source, created, updated, versions }
+//   brain:ind:lib:meta  hash  id -> { id, name, file, title, verified, errors, lines, source, created, updated, versions,
+//                                      ver (version number, +1 on every code change), upgradeRev (last automatic update
+//                                      applied, see _brain/lib-upgrade.js), lastUpgrade { day, rev, from, to, note }, autoUpdate }
 //   brain:ind:lib:code  hash  id -> { code, history: [{ at, code }] }   (last MAX_VERSIONS earlier versions)
 // Without a store (local development) an in-memory map is used.
+
+import { LATEST_UPGRADE } from "./lib-upgrade-notes.js";
 
 export const MAX_ITEMS = 300;
 export const MAX_VERSIONS = 5;
@@ -85,6 +89,8 @@ export async function saveItem(input) {
   let history = prev ? prev.history.slice() : [];
   if (prev && prev.code && prev.code !== code) history = [{ at: prev.updated || now, code: prev.code }].concat(history).slice(0, MAX_VERSIONS);
   const errors = Array.isArray(input.errors) ? input.errors.slice(0, 3).map((e) => clean(typeof e === "string" ? e : (e && e.message) || "", 200)).filter(Boolean) : [];
+  const prevVer = prev ? Number(prev.ver) || (prev.versions || 0) + 1 : 0;
+  const changed = !prev || prev.code !== code;
   const meta = {
     id,
     name: clean(input.name, 80) || (prev && prev.name) || clean(input.title, 80) || nameFromCode(code) || "Indicator",
@@ -94,11 +100,17 @@ export async function saveItem(input) {
     verified: input.verified === true,
     errors,
     lines: code.replace(/\n$/, "").split("\n").length,
-    source: ["web", "telegram", "manual"].includes(input.source) ? input.source : "web",
+    source: ["web", "telegram", "manual"].includes(input.source) ? input.source : prev && input.source === "upgrade" ? prev.source : "web",
     created: prev ? prev.created : now,
     updated: now,
     versions: history.length,
+    ver: changed ? prevVer + 1 : prevVer,
+    // A script saved now is built with today's rules; an automatic update says which update it applied.
+    upgradeRev: input.upgradeRev || (input.source === "upgrade" ? "" : LATEST_UPGRADE) || (prev && prev.upgradeRev) || "",
+    autoUpdate: prev && prev.autoUpdate === false ? false : true,
   };
+  if (input.lastUpgrade) meta.lastUpgrade = input.lastUpgrade;
+  else if (prev && prev.lastUpgrade) meta.lastUpgrade = prev.lastUpgrade;
   const ok = await kv([["HSET", META, id, JSON.stringify(meta)], ["HSET", CODE, id, JSON.stringify({ code, history })]]);
   if (!ok) return { ok: false, message: "store unavailable" };
   return { ok: true, id, item: meta };
@@ -127,5 +139,37 @@ export async function restoreVersion(id, index) {
   if (!it) return { ok: false, message: it === undefined ? "store unavailable" : "not found" };
   const v = it.history[Number(index)];
   if (!v) return { ok: false, message: "no such version" };
-  return saveItem({ id, code: v.code, name: it.name, file: it.file, title: it.title, request: it.request, verified: false, source: it.source });
+  return saveItem({ id, code: v.code, name: it.name, file: it.file, title: it.title, request: it.request, verified: false, source: it.source, upgradeRev: it.upgradeRev || LATEST_UPGRADE });
+}
+
+// Turns the automatic daily update on / off for one saved indicator.
+export async function setAutoUpdate(id, on) {
+  const it = await getItem(id);
+  if (!it) return { ok: false, message: it === undefined ? "store unavailable" : "not found" };
+  const { code, history, ...meta } = it;
+  meta.autoUpdate = on !== false;
+  const ok = await kv([["HSET", META, id, JSON.stringify(meta)]]);
+  return ok ? { ok: true, item: meta } : { ok: false, message: "store unavailable" };
+}
+
+// Marks an item as checked against an update without changing its code (nothing in the update applied to it).
+export async function markUpgradeChecked(id, rev, note) {
+  const it = await getItem(id);
+  if (!it) return { ok: false, message: it === undefined ? "store unavailable" : "not found" };
+  const { code, history, ...meta } = it;
+  meta.upgradeRev = rev;
+  meta.upgradeTries = 0;
+  if (note) meta.lastCheck = note;
+  const ok = await kv([["HSET", META, id, JSON.stringify(meta)]]);
+  return ok ? { ok: true, item: meta } : { ok: false, message: "store unavailable" };
+}
+
+// Counts a failed automatic update, so a script the engine cannot update is not retried forever (lib-upgrade MAX_TRIES).
+export async function noteUpgradeTry(id) {
+  const it = await getItem(id);
+  if (!it) return { ok: false };
+  const { code, history, ...meta } = it;
+  meta.upgradeTries = (Number(meta.upgradeTries) || 0) + 1;
+  const ok = await kv([["HSET", META, id, JSON.stringify(meta)]]);
+  return { ok: !!ok };
 }

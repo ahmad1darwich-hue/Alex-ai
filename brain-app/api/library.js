@@ -3,8 +3,9 @@
 //   GET ?id=<id>        -> { ok, item: { ...meta, code, history: [{ at, code }] } }
 //   POST { action: "save", id?, code, name?, file?, title?, request?, verified?, errors? } -> { ok, id, item }
 //   POST { action: "rename", id, name } | { action: "delete", id } | { action: "restore", id, index }
+//        | { action: "autoupdate", id, on }   (automatic daily update of this indicator on / off, default on)
 import { brainAuth, lockedReply } from "./_brain/lock.js";
-import { listItems, getItem, saveItem, renameItem, deleteItem, restoreVersion, validId, MAX_CODE } from "./_brain/library.js";
+import { listItems, getItem, saveItem, renameItem, deleteItem, restoreVersion, setAutoUpdate, validId, MAX_CODE } from "./_brain/library.js";
 export const config = { runtime: "edge" };
 
 const SITES = ["https://indicator-build.vercel.app"];
@@ -43,6 +44,7 @@ export default async function handler(req) {
   else if (b.action === "rename") out = await renameItem(b.id, b.name);
   else if (b.action === "delete") out = await deleteItem(b.id);
   else if (b.action === "restore") out = await restoreVersion(b.id, b.index);
+  else if (b.action === "autoupdate") out = await setAutoUpdate(b.id, b.on !== false);
   else return json({ ok: false, message: "unknown action" }, 400, cors);
   const status = out.ok ? 200 : out.message === "store unavailable" ? 503 : out.message === "not found" ? 404 : 400;
   return json(out, status, cors);
