@@ -410,3 +410,20 @@ SMC order blocks old -0.06R -> new +0.01R (1R target). Small edges before spread
 Where it went: knowledge "ENTRY ZONES THAT HOLD UP" rule; supply_demand template (Entry: Limit at zone edge / Close confirmation,
 Location filter Deep 25% / Half / Off, stop 0.5 ATR input, touch bar counted); smc template (order-block entries at the edge,
 location filter, touch bar counted); catalog texts; test.
+
+## 2026-10-29 · entry zones re-tested on two more data sources (Twelve Data + FMP connectors)
+Data: Twelve Data intraday (XAU/USD 15m / 1h / 4h, EUR/USD 1h, GBP/USD 1h, USD/JPY 15m, BTC/USD 1h, ETH/USD 1h; ~35k bars, weekend
+flat bars removed) and FMP daily 2007-2026 (gold, silver, EUR/USD, GBP/USD, USD/JPY, AUD/USD; 30k bars). Same zone lab, and the real
+Pine templates through our preview engine.
+Real S&D template, expectancy per trade at 2R (TradingView / Twelve Data / FMP daily):
+- old (close confirmation, losses on the touch bar not counted): -0.11 / -0.07 / -0.18 -> worst everywhere.
+- new, limit at the edge + honest counting, location Off: -0.04 / -0.04 / -0.01 -> stable.
+- new with location Deep (25%): +0.06 / 0.00 / -0.13 -> NOT stable: it hurt on 19 years of daily data. Yesterday's "location first"
+  finding was partly luck of one data set.
+SMC order blocks (break-of-structure origin) at 1R, location Off -> Deep: -0.06 -> +0.01 / -0.11 -> -0.05 / +0.01 -> +0.05: a small gain
+on all three, so Deep stays the default there.
+Lesson: one data set is not enough - every zone rule goes through all three sources before it becomes a default. Even the best versions
+are near break-even before costs; zones are context, not signals.
+Changes: supply_demand Location filter default Off; knowledge rule rewritten ("ENTRY ZONES - WHAT HELD UP ON REAL DATA"); automatic
+update 2026-10-28 rewritten before any saved indicator got it (no location filter on plain bases) + a 2026-10-29 fix entry for any
+script that got the Deep default on plain bases; catalog texts; tests.

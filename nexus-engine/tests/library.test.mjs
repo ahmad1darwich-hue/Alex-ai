@@ -85,7 +85,7 @@ await t("library card: pending flag + the update text in the list, 'update now' 
   const b = await L.saveItem({ code: CODE.replace("20", "40") });
   const l = await (await call("GET")).json();
   assert.equal(l.upgrade.rev, N.LATEST_UPGRADE); assert.match(l.upgrade.ar, /مناطق الدخول/);
-  assert.deepEqual(l.items.find((x) => x.id === a.id).pending, [N.LATEST_UPGRADE]); assert.equal(l.items.find((x) => x.id === b.id).pending, undefined);
+  assert.deepEqual(l.items.find((x) => x.id === a.id).pending, N.UPGRADES.map((u) => u.rev)); assert.equal(l.items.find((x) => x.id === b.id).pending, undefined);
   const up = await (await call("POST", "", { action: "upgrade", id: b.id })).json();
   assert.equal(up.result.status, "up_to_date");
   process.env.ANTHROPIC_API_KEY = "test-key";

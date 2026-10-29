@@ -35,8 +35,12 @@ export default async function handler(req) {
     const items = await listItems();
     if (!items) return unavailable();
     for (const it of items) it.pending = it.autoUpdate !== false && pendingUpgrades(it).length > 0 ? pendingUpgrades(it).map((u) => u.rev) : undefined;
+    // The text of every update that some indicator is still waiting for (oldest first).
+    const waiting = new Set(items.flatMap((it) => it.pending || []));
+    const ups = UPGRADES.filter((u) => waiting.has(u.rev));
     const last = UPGRADES[UPGRADES.length - 1];
-    return json({ ok: true, items, upgrade: last ? { rev: last.rev, ar: last.ar, en: last.en } : null }, 200, cors);
+    const upgrade = ups.length ? { rev: ups[ups.length - 1].rev, ar: ups.map((u) => u.ar).join(" · "), en: ups.map((u) => u.en).join(" · ") } : last ? { rev: last.rev, ar: last.ar, en: last.en } : null;
+    return json({ ok: true, items, upgrade }, 200, cors);
   }
   if (req.method !== "POST") return new Response("GET or POST", { status: 405, headers: cors });
 

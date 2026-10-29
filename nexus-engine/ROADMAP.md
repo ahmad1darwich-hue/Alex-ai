@@ -100,7 +100,9 @@ NEXT: polyline.new support in the preview runner (the rules allow a polyline for
 drawn); when avwap_btc_swing passes in DAILY_REPORT for a few days and Ahmad pastes the fixture into TradingView without errors,
 promote it to a verified `avwap` template on the design system - one TradingView compile check first.
 
-## Entry zone accuracy (2026-10-28 run 2, Ahmad: "entry zones are mostly wrong, keep the code quality")
+## Entry zone accuracy (2026-10-29: re-tested on Twelve Data + FMP; location filter now Off for plain S&D, kept for SMC order blocks. RULE: a zone rule
+becomes a default only after it holds on all three sources - TradingView connector, Twelve Data connector, FMP daily connector)
+## (2026-10-28 run 2, Ahmad: "entry zones are mostly wrong, keep the code quality")
 Shipped: zone lab on 55k real bars (research/zone-lab), knowledge rule "ENTRY ZONES THAT HOLD UP" (location first, limit at the edge,
 stop 0.5 ATR, count the fill bar), supply_demand + smc templates updated the same way (checker clean, preview clean). NOT yet pasted
 into TradingView: Ahmad's first paste is the compile check. NEXT: apply the same honest fill-bar counting + location to the sr flip

@@ -45,7 +45,7 @@ string dashPosInput      = input.string("Top right", "Dashboard position", optio
 
 string GRP_R = "Track record"
 float  targetRInput      = input.float(1.0, "Order block held = reaches this many R", minval = 0.5, step = 0.25, group = GRP_R, tooltip = "On the first touch of a fresh order block: a limit at the block's near edge, stop 0.5 ATR beyond the far side. Held = price reaches entry + this many times the risk before the stop. The touch bar counts (a touch that closes through the block is a loss).")
-string obLocInput        = input.string("Deep (25%)", "Order block entries: location", options = ["Deep (25%)", "Half (50%)", "Off"], group = GRP_R, tooltip = "Count a bullish block's first touch only when its edge sits in the lowest part of the last 100 bars' range (bearish: highest part). Location mattered more than any other filter in tests on 55,000 real bars.")
+string obLocInput        = input.string("Deep (25%)", "Order block entries: location", options = ["Deep (25%)", "Half (50%)", "Off"], group = GRP_R, tooltip = "Count a bullish block's first touch only when its edge sits in the lowest part of the last 100 bars' range (bearish: highest part). On order blocks at a break of structure it improved the result on all three data sets we tested (TradingView intraday, Twelve Data intraday, 19 years of FMP daily), by a small amount.")
 int    expiryInput       = input.int(40, "Give up after (bars)", minval = 5, group = GRP_R)
 
 string GRP_SY = "Style"

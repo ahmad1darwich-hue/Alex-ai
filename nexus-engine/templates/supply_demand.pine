@@ -20,7 +20,7 @@ string htfInput     = input.timeframe("240", "", group = GRP_H, inline = "h", to
 string GRP_S = "Signals"
 bool   showSigInput = input.bool(true, "Entry on first touch", group = GRP_S, tooltip = "The first return to a fresh zone. Limit = filled at the zone edge (proximal) when price touches it. Close confirmation = waits for a candle that closes back out of the zone (later and usually worse price).")
 string entryInput   = input.string("Limit at zone edge", "Entry", options = ["Limit at zone edge", "Close confirmation"], group = GRP_S)
-string locInput     = input.string("Deep (25%)", "Location filter", options = ["Deep (25%)", "Half (50%)", "Off"], group = GRP_S, tooltip = "Demand entries only when the zone edge sits in the lowest part of the last N bars' range, supply entries only in the highest part. Tested on 55,000 bars of gold, FX, indices and crypto: location mattered more than any other zone filter.")
+string locInput     = input.string("Off", "Location filter", options = ["Deep (25%)", "Half (50%)", "Off"], group = GRP_S, tooltip = "Demand entries only when the zone edge sits in the lowest part of the last N bars' range, supply entries only in the highest part. Off by default: it helped on some data sets and hurt on 19 years of daily FX and metals, so it is not a proven edge for plain bases.")
 int    locLenInput  = input.int(100, "Location range (bars)", minval = 20, group = GRP_S)
 float  stopInput    = input.float(0.5, "Stop beyond the zone (x ATR)", minval = 0.0, step = 0.1, group = GRP_S)
 float  targetRInput = input.float(2.0, "Track record target (R)", minval = 0.5, step = 0.5, group = GRP_S)
