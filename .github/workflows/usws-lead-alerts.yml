@@ -1,0 +1,36 @@
+name: USWS lead alerts
+
+# Pings Brain's /api/leads endpoint every 15 minutes. Brain checks the
+# info@usws.com.au mailbox and sends Ahmad a Telegram alert on new customer
+# emails. (Vercel Hobby crons can only run once a day, so the frequent check
+# runs here instead.) The ping key is stored as the repo secret LEADS_PING_KEY.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: usws-lead-alerts
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check info@usws.com.au for new leads
+        env:
+          LEADS_PING_KEY: ${{ secrets.LEADS_PING_KEY }}
+        run: |
+          if [ -z "$LEADS_PING_KEY" ]; then
+            echo "LEADS_PING_KEY secret not set yet — skipping. Add it in repo Settings > Secrets and variables > Actions."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/leads.json -w "%{http_code}" --max-time 90 \
+            "https://brain-ahmad-93cb.vercel.app/api/leads?run=1&key=${LEADS_PING_KEY}")
+          echo "HTTP $code"
+          cat /tmp/leads.json || true
+          echo
+          [ "$code" = "200" ] || { echo "Brain /api/leads returned $code"; exit 1; }

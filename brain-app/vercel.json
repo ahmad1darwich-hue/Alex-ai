@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/leads",
-      "schedule": "0,30 * * * *"
+      "schedule": "7 21 * * *"
     }
   ],
   "functions": {

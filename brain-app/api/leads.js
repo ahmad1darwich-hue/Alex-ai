@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   const q = req.query || Object.fromEntries(new URL(req.url, "http://x").searchParams);
   const bearer = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   const cronOk = sameSecret(bearer, process.env.CRON_SECRET);
-  const keyOk = sameSecret(q.key, process.env.DAILY_KEY) || sameSecret(q.key, process.env.CRON_SECRET) || brainAuth(req.headers["x-brain-key"]) === "ok";
+  const keyOk = sameSecret(q.key, process.env.LEADS_PING_KEY) || sameSecret(q.key, process.env.DAILY_KEY) || sameSecret(q.key, process.env.CRON_SECRET) || brainAuth(req.headers["x-brain-key"]) === "ok";
   if (!cronOk && !keyOk) {
     if (q.run) return send(res, { ok: false, message: "not allowed" }, 401);
     return send(res, { ok: true, info: "Brain USWS lead alert. Watches info@usws.com.au and pings Telegram on new customer emails. Runs by cron." });
@@ -71,7 +71,7 @@ export default async function handler(req, res) {
   const USER = process.env.INFO_MAIL_USER || "info@usws.com.au";
   const HOST = process.env.INFO_MAIL_HOST || "ventraip.email";
   const PASS = (process.env.INFO_MAIL_PASSWORD || "").replace(/^\s+|\s+$/g, "");
-  const lookbackMin = parseInt(process.env.LEADS_LOOKBACK_MIN || "60", 10);
+  const lookbackMin = parseInt(process.env.LEADS_LOOKBACK_MIN || "180", 10);
   const max = parseInt(process.env.LEADS_MAX || "12", 10);
 
   if (!PASS) return send(res, { ok: false, ready: false, message: "INFO_MAIL_PASSWORD not set" });
