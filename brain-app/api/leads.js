@@ -68,6 +68,12 @@ export default async function handler(req, res) {
     return send(res, { ok: true, info: "Brain USWS lead alert. Watches info@usws.com.au and pings Telegram on new customer emails. Runs by cron." });
   }
 
+  // Quick proof-of-life: /api/leads?test=1&key=... sends one Telegram line and returns.
+  if (q.test) {
+    const r = await sendToTelegram("✅ تجربة: نظام تنبيهات ليدز الشغل شغّال. لما يجي إيميل زبون جديد ع info@usws.com.au رح يوصلك تنبيه هون.");
+    return send(res, { ok: !!(r && r.ok), test: true, telegram: r });
+  }
+
   const USER = process.env.INFO_MAIL_USER || "info@usws.com.au";
   const HOST = process.env.INFO_MAIL_HOST || "ventraip.email";
   const PASS = (process.env.INFO_MAIL_PASSWORD || "").replace(/^\s+|\s+$/g, "");
