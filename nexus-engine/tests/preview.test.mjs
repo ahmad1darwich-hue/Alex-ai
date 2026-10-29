@@ -396,30 +396,4 @@ await t("anchored VWAP rules reference (knowledge ANCHORED VWAP rules) is clean 
   assert.ok(av && av.values.filter((v) => v != null && isFinite(v)).length > 100, "AVWAP plotted");
 });
 
-await t("zones stay fixed (lesson L019, Ahmad 2026-10-29: boxes moved with price); the withdrawn entry-zone rule is gone", async () => {
-  const { SYSTEM_PROMPT } = await import("../../brain-app/api/_nexus/knowledge.js");
-  const { LESSONS } = await import("../../brain-app/api/_nexus/lessons.js");
-  assert.ok(LESSONS.some((l) => l.id === "L019" && /FIXED price areas/.test(l.text)));
-  assert.doesNotMatch(SYSTEM_PROMPT, /ENTRY ZONES THAT HOLD UP|ENTRY ZONES - WHAT HELD UP/);
-  const { UPGRADES } = await import("../../brain-app/api/_brain/lib-upgrade-notes.js");
-  assert.equal(UPGRADES.filter((u) => /^2026-10-2[89]$/.test(u.rev)).length, 0, "withdrawn saved-indicator updates never come back");
-});
-
-await t("liquidity_areas template: fixed boxes (top / bottom never move as new bars arrive), plan levels, two tables", async () => {
-  const { TEMPLATE_BY_ID } = await import("../../brain-app/api/_nexus/templates.js");
-  const code = TEMPLATE_BY_ID.get("liquidity_areas").code;
-  const A = runPreview(code, candles.slice(0, -40), { tfSec: 900, symbol: GOLD });
-  const B = runPreview(code, candles, { tfSec: 900, symbol: GOLD });
-  assert.ok(A.ok && B.ok, A.error || B.error); assert.deepEqual(B.unsupported, []);
-  assert.equal(B.tables.length, 2);
-  // Areas sit in one column next to the last candle; their PRICES never change while they live.
-  const areasOf = (r) => r.boxes.filter((b) => /strength|Corrective|قوة|تصحيحي/.test(b.text || ""));
-  const lastA = A.lastBar ?? (candles.length - 41), live = areasOf(B);
-  assert.ok(live.length > 0 && live.length <= 4, "at most 2 areas per side");
-  for (const b of live) assert.ok(b.top > b.bottom);
-  const older = areasOf(A).filter((a) => live.some((b) => Math.abs(b.top - a.top) < 1e-9 || Math.abs(b.bottom - a.bottom) < 1e-9));
-  for (const a of older) assert.ok(live.some((b) => b.top === a.top && b.bottom === a.bottom), "an area that still lives kept its exact price range");
-  assert.ok(B.labels.some((l) => /^(TP|SL)$/.test(l.text || "")) || B.labels.some((l) => /^(Sell|Buy)$/.test(l.text || "")), "signals / hits marked");
-});
-
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

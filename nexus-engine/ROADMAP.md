@@ -1,5 +1,15 @@
 # Nexus / Brain Indicators roadmap (read by every daily run)
 
+## !!! FREEZE - READ FIRST (Ahmad, 2026-10-30 01:40 Sydney): "Brain Indicators was better before; every update breaks it.
+## The night of 2026-10-28 was better than today."
+The whole indicator engine (brain-app/api/_nexus/*, nexus-engine/templates, catalog, lint) is back EXACTLY to commit efade0a
+(2026-10-28 evening). Until Ahmad lifts this freeze in chat:
+- Daily runs must NOT change knowledge.js, lessons.js, lint.js, engine.js, handler.js, design.js, templates or the catalog.
+  Research may continue: write findings into research/design-research.md and proposals into research/candidates/ only.
+- Any engine change needs Ahmad's OK first, shown to him on a chart picture, one change at a time.
+- Candidate waiting for his OK: research/candidates/liquidity_areas.pine (sell / buy strength boxes, TP / SL marks, risk table).
+- Main Brain, market report, library, Telegram / WhatsApp / email work is not frozen.
+
 ## NEXT BIG FEATURE: live chart preview next to the chat (decided by Ahmad, 2026-10-16)
 
 Goal: in Brain Indicators (and later the public Nexus site) the page shows a live chart beside the chat; every

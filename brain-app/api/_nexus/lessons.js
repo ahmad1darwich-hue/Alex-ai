@@ -27,8 +27,6 @@ export const LESSONS = [
   { id: "L016", added: "2026-10-16", source: "owner", text: "Images labelled VIDEO are frames of one recording, in order. Read them together: which zones, lines, labels and signals appear, when, and how they change (touched, broken, recolored); build an indicator that reproduces that automatically." },
   { id: "L017", added: "2026-10-25", source: "owner", text: "A function returns its LAST statement. If that is an if / else chain (also inside the last for), every branch must end with the same type - arr.remove(i) (element) vs n += 1 (int) fails with CE10235. End such helpers with a plain line: true." },
   { id: "L018", added: "2026-10-28", source: "research", text: "Any VWAP / volume-weighted math: volume is na or 0 on many forex / CFD symbols, so weight = volume > 0 ? volume : 1 (label it TWAP) and guard sumV > 0 before sumPV / sumV; never let one na bar turn the whole running sum into na." },
-  { id: "L019", added: "2026-10-29", source: "feedback", text: "Supply/demand, order block, FVG and S/R zones are FIXED price areas: set the box top and bottom once, when the zone is created from its candles; afterwards only extend the right edge. Never move a zone's top/bottom with the current high/low/close." },
-  { id: "L020", added: "2026-10-30", source: "feedback", text: "Never hang a box on a level that changes every bar (SuperTrend, trailing line, live structure low): the box moves with price and looks like a broken zone. Show such levels as lines; boxes are for fixed zones. Color a zone by its role." },
 ];
 
 // The block appended to the user turn. Empty when there are no lessons.
