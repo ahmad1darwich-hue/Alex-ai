@@ -6,8 +6,8 @@
       "schedule": "0 17 * * *"
     },
     {
-      "path": "/api/market",
-      "schedule": "0 20 * * *"
+      "path": "/api/leads",
+      "schedule": "0,30 * * * *"
     }
   ],
   "functions": {
@@ -21,6 +21,9 @@
       "maxDuration": 60
     },
     "api/email.js": {
+      "maxDuration": 60
+    },
+    "api/leads.js": {
       "maxDuration": 60
     },
     "api/telegram.js": {
