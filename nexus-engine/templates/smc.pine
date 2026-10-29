@@ -44,8 +44,7 @@ bool   showDashInput     = input.bool(true, "Dashboard", group = GRP_L)
 string dashPosInput      = input.string("Top right", "Dashboard position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = GRP_L)
 
 string GRP_R = "Track record"
-float  targetRInput      = input.float(1.0, "Order block held = reaches this many R", minval = 0.5, step = 0.25, group = GRP_R, tooltip = "On the first touch of a fresh order block: a limit at the block's near edge, stop 0.5 ATR beyond the far side. Held = price reaches entry + this many times the risk before the stop. The touch bar counts (a touch that closes through the block is a loss).")
-string obLocInput        = input.string("Deep (25%)", "Order block entries: location", options = ["Deep (25%)", "Half (50%)", "Off"], group = GRP_R, tooltip = "Count a bullish block's first touch only when its edge sits in the lowest part of the last 100 bars' range (bearish: highest part). On order blocks at a break of structure it improved the result on all three data sets we tested (TradingView intraday, Twelve Data intraday, 19 years of FMP daily), by a small amount.")
+float  targetRInput      = input.float(1.0, "Order block held = reaches this many R", minval = 0.5, step = 0.25, group = GRP_R, tooltip = "On the first touch of a fresh order block: entry at the close, stop 0.5 ATR beyond the far side. Held = price reaches entry + this many times the risk before the stop.")
 int    expiryInput       = input.int(40, "Give up after (bars)", minval = 5, group = GRP_R)
 
 string GRP_SY = "Style"
@@ -313,9 +312,6 @@ if barstate.isconfirmed and showFvgInput and not na(atr)
             addZone(fvgs, bar_index, hBearTop, hBearBot, -1, "HTF FVG", 60)
 
 // ---------- Zone life cycle (confirmed bars; a zone is not tested on its own bar) ----------
-float obRngHi = ta.highest(high, 100)[1]
-float obRngLo = ta.lowest(low, 100)[1]
-float obLocPct = obLocInput == "Deep (25%)" ? 0.25 : 0.5
 bool obTouched = false
 bool obBroken = false
 bool breakerNew = false
@@ -326,14 +322,6 @@ if barstate.isconfirmed and obs.size() > 0
         if bar_index > z.born
             bool through = z.dir == 1 ? (obMitigInput == "Close" ? close < z.bot : low < z.bot) : (obMitigInput == "Close" ? close > z.top : high > z.top)
             bool touching = high >= z.bot and low <= z.top
-            // First touch of a fresh order block = a limit at its near edge; recorded even when the same bar closes through.
-            if touching and not z.inside and z.kind == "OB" and z.touches == 0
-                bool located = obLocInput == "Off" or na(obRngLo) or (z.dir == 1 ? z.top <= obRngLo + obLocPct * (obRngHi - obRngLo) : z.bot >= obRngHi - obLocPct * (obRngHi - obRngLo))
-                float stop  = z.dir == 1 ? z.bot - atr[1] * 0.5 : z.top + atr[1] * 0.5
-                float entry = z.dir == 1 ? math.min(z.top, open) : math.max(z.bot, open)
-                if located and (z.dir == 1 ? entry > stop : entry < stop)
-                    obTouched := true
-                    pending.push(Pending.new(z.dir, entry, stop, bar_index))
             if through
                 if z.kind == "OB" and showBreakerInput
                     obBroken := true
@@ -350,6 +338,10 @@ if barstate.isconfirmed and obs.size() > 0
                     obs.remove(i)
             else
                 if touching and not z.inside
+                    if z.kind == "OB" and z.touches == 0
+                        obTouched := true
+                        float stop = z.dir == 1 ? z.bot - atr * 0.5 : z.top + atr * 0.5
+                        pending.push(Pending.new(z.dir, close, stop, bar_index))
                     z.touches += 1
                 z.inside := touching
 
@@ -383,14 +375,14 @@ if barstate.isconfirmed
     trim(obs, obCountInput)
     trim(fvgs, fvgCountInput)
 
-// Track record of first touches on fresh order blocks (target first = held, stop first - the touch bar included - = failed, or expired).
+// Track record of first touches on fresh order blocks (target first = held, stop first = failed, or expired).
 if barstate.isconfirmed and pending.size() > 0
     for i = pending.size() - 1 to 0
         Pending p = pending.get(i)
-        if bar_index >= p.bar
+        if bar_index > p.bar
             float risk = math.abs(p.entry - p.stop)
             float tgt  = p.entry + p.dir * risk * targetRInput
-            bool  won  = bar_index > p.bar and (p.dir == 1 ? high >= tgt : low <= tgt)
+            bool  won  = p.dir == 1 ? high >= tgt : low <= tgt
             bool  lost = p.dir == 1 ? low <= p.stop : high >= p.stop
             if lost
                 failed += 1

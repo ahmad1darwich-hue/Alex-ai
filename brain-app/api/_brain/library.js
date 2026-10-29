@@ -6,7 +6,7 @@
 //   brain:ind:lib:code  hash  id -> { code, history: [{ at, code }] }   (last MAX_VERSIONS earlier versions)
 // Without a store (local development) an in-memory map is used.
 
-import { LATEST_UPGRADE } from "./lib-upgrade-notes.js";
+import { latestUpgrade } from "./lib-upgrade-notes.js";
 
 export const MAX_ITEMS = 300;
 export const MAX_VERSIONS = 5;
@@ -106,7 +106,7 @@ export async function saveItem(input) {
     versions: history.length,
     ver: changed ? prevVer + 1 : prevVer,
     // A script saved now is built with today's rules; an automatic update says which update it applied.
-    upgradeRev: input.upgradeRev || (input.source === "upgrade" ? "" : LATEST_UPGRADE) || (prev && prev.upgradeRev) || "",
+    upgradeRev: input.upgradeRev || (input.source === "upgrade" ? "" : latestUpgrade()) || (prev && prev.upgradeRev) || "",
     autoUpdate: prev && prev.autoUpdate === false ? false : true,
   };
   if (input.lastUpgrade) meta.lastUpgrade = input.lastUpgrade;
@@ -139,7 +139,7 @@ export async function restoreVersion(id, index) {
   if (!it) return { ok: false, message: it === undefined ? "store unavailable" : "not found" };
   const v = it.history[Number(index)];
   if (!v) return { ok: false, message: "no such version" };
-  return saveItem({ id, code: v.code, name: it.name, file: it.file, title: it.title, request: it.request, verified: false, source: it.source, upgradeRev: it.upgradeRev || LATEST_UPGRADE });
+  return saveItem({ id, code: v.code, name: it.name, file: it.file, title: it.title, request: it.request, verified: false, source: it.source, upgradeRev: it.upgradeRev || latestUpgrade() });
 }
 
 // Turns the automatic daily update on / off for one saved indicator.

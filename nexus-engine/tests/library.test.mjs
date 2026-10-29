@@ -46,11 +46,12 @@ await t("automatic update of saved indicators: version N -> N+1 with the date, o
   L._resetMemory();
   const U = await import("../../brain-app/api/_brain/lib-upgrade.js");
   const N = await import("../../brain-app/api/_brain/lib-upgrade-notes.js");
+  if (!N.UPGRADES.length) N.UPGRADES.push({ rev: "2099-01-01", ar: "مناطق الدخول (تجربة)", en: "test update", applies: "box\\.new|zone", rules: "test rules" });
   const ZONE = '//@version=6\nindicator("Gold Zones", overlay = true, max_boxes_count = 50)\nlenInput = input.int(10, "Length")\nvar box zb = na\nif ta.change(ta.highest(high, lenInput)) != 0\n    zb := box.new(bar_index - 1, high, bar_index, low)\nplot(ta.ema(close, lenInput), "EMA", color.teal)\n';
   const NEWZ = ZONE.replace('lenInput = input.int(10, "Length")', 'lenInput = input.int(10, "Length")\nlocInput = input.string("Deep (25%)", "Location filter", options = ["Deep (25%)", "Half (50%)", "Off"])').replace("var box zb = na\n", "var box zb = na\nfloat slow = ta.sma(close, 100)\n").replace("!= 0\n", "!= 0 and (locInput == \"Off\" or close < slow)\n");
   // saved before the update system existed (no upgradeRev), a script without zones, and one saved today
   const z = await L.saveItem({ code: ZONE, source: "web" }); const zid = z.id;
-  const meta = (await L.listItems()).find((x) => x.id === zid); assert.equal(meta.ver, 1); assert.equal(meta.upgradeRev, N.LATEST_UPGRADE, "saved now = built with today's rules");
+  const meta = (await L.listItems()).find((x) => x.id === zid); assert.equal(meta.ver, 1); assert.equal(meta.upgradeRev, N.latestUpgrade(), "saved now = built with today's rules");
   await L.markUpgradeChecked(zid, "", ""); // pretend it is old
   const p = await L.saveItem({ code: CODE, source: "web" }); await L.markUpgradeChecked(p.id, "", "");
   await L.saveItem({ code: CODE.replace("20", "30"), source: "web" });
@@ -64,7 +65,7 @@ await t("automatic update of saved indicators: version N -> N+1 with the date, o
   assert.equal(byId[zid].status, "updated", JSON.stringify(byId[zid])); assert.equal(byId[zid].from, 1); assert.equal(byId[zid].to, 2);
   const it = await L.getItem(zid);
   assert.equal(it.code.trim(), NEWZ.trim()); assert.equal(it.history[0].code, ZONE, "old version kept");
-  assert.equal(it.upgradeRev, N.LATEST_UPGRADE); assert.equal(it.lastUpgrade.day, "2026-10-30"); assert.equal(it.ver, 2); assert.equal(it.source, "web");
+  assert.equal(it.upgradeRev, N.latestUpgrade()); assert.equal(it.lastUpgrade.day, "2026-10-30"); assert.equal(it.ver, 2); assert.equal(it.source, "web");
   assert.equal(U.pickCandidates(await L.listItems(), 9).length, 0, "nothing pending after the run");
   const txt = U.upgradeText(run, N.UPGRADES);
   assert.match(txt, /📅 تحديث المؤشرات المحفوظة · 2026-10-30/); assert.match(txt, /Gold Zones: النسخة 1 ← صارت النسخة 2/); assert.match(txt, /مناطق الدخول/);
@@ -81,17 +82,18 @@ await t("automatic update of saved indicators: version N -> N+1 with the date, o
 await t("library card: pending flag + the update text in the list, 'update now' action streams one JSON line", async () => {
   L._resetMemory();
   const N = await import("../../brain-app/api/_brain/lib-upgrade-notes.js");
+  if (!N.UPGRADES.length) N.UPGRADES.push({ rev: "2099-01-01", ar: "مناطق الدخول (تجربة)", en: "test update", applies: "box\\.new|zone", rules: "test rules" });
   const a = await L.saveItem({ code: CODE }); await L.markUpgradeChecked(a.id, "", "");
   const b = await L.saveItem({ code: CODE.replace("20", "40") });
   const l = await (await call("GET")).json();
-  assert.equal(l.upgrade.rev, N.LATEST_UPGRADE); assert.match(l.upgrade.ar, /مناطق الدخول/);
+  assert.equal(l.upgrade.rev, N.latestUpgrade()); assert.match(l.upgrade.ar, /مناطق الدخول/);
   assert.deepEqual(l.items.find((x) => x.id === a.id).pending, N.UPGRADES.map((u) => u.rev)); assert.equal(l.items.find((x) => x.id === b.id).pending, undefined);
   const up = await (await call("POST", "", { action: "upgrade", id: b.id })).json();
   assert.equal(up.result.status, "up_to_date");
   process.env.ANTHROPIC_API_KEY = "test-key";
   const res = await call("POST", "", { action: "upgrade", id: a.id });
   const txt = await res.text(); const j = JSON.parse(txt.trim().split("\n").pop());
-  assert.equal(j.ok, true); assert.equal(j.result.status, "not_concerned", "no zones = no model call, marked checked"); assert.equal(j.item.upgradeRev, N.LATEST_UPGRADE);
+  assert.equal(j.ok, true); assert.equal(j.result.status, "not_concerned", "no zones = no model call, marked checked"); assert.equal(j.item.upgradeRev, N.latestUpgrade());
   delete process.env.ANTHROPIC_API_KEY;
   assert.equal((await (await call("GET")).json()).items.every((x) => !x.pending), true);
 });

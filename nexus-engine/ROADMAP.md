@@ -100,7 +100,11 @@ NEXT: polyline.new support in the preview runner (the rules allow a polyline for
 drawn); when avwap_btc_swing passes in DAILY_REPORT for a few days and Ahmad pastes the fixture into TradingView without errors,
 promote it to a verified `avwap` template on the design system - one TradingView compile check first.
 
-## Entry zone accuracy (2026-10-29: re-tested on Twelve Data + FMP; location filter now Off for plain S&D, kept for SMC order blocks. RULE: a zone rule
+## ROLLED BACK 2026-10-29 (Ahmad: after the entry-zone changes the bot "knows nothing about zones, boxes move with price, every zone wrong";
+before was much better): knowledge.js, supply_demand.pine, smc.pine and catalog are back to commit efade0a; the saved-indicator updates
+2026-10-28 / 2026-10-29 are withdrawn (UPGRADES is empty, never re-add them); lesson L019 added (zones are fixed: top / bottom set once,
+only the right edge extends). Do NOT re-add any entry-zone rule or template change without asking Ahmad first and showing him the chart.
+## (history) Entry zone accuracy (2026-10-29: re-tested on Twelve Data + FMP; location filter now Off for plain S&D, kept for SMC order blocks. RULE: a zone rule
 becomes a default only after it holds on all three sources - TradingView connector, Twelve Data connector, FMP daily connector)
 ## (2026-10-28 run 2, Ahmad: "entry zones are mostly wrong, keep the code quality")
 Shipped: zone lab on 55k real bars (research/zone-lab), knowledge rule "ENTRY ZONES THAT HOLD UP" (location first, limit at the edge,

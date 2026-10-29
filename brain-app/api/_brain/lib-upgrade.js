@@ -10,7 +10,7 @@ import { runPipeline } from "../_nexus/engine.js";
 import { runPreview } from "../_nexus/preview-run.js";
 import { sampleCandles } from "./candles.js";
 import { listItems, getItem, saveItem, markUpgradeChecked, noteUpgradeTry } from "./library.js";
-import { pendingUpgrades, LATEST_UPGRADE } from "./lib-upgrade-notes.js";
+import { pendingUpgrades, latestUpgrade } from "./lib-upgrade-notes.js";
 
 export const MAX_PER_RUN = 3;
 export const MAX_TRIES = 3;
@@ -36,7 +36,7 @@ function previewOk(code) {
 
 export async function upgradeOne(meta, { callModel, deadline, signal, day }) {
   const ups = pendingUpgrades(meta);
-  const rev = ups.length ? ups[ups.length - 1].rev : LATEST_UPGRADE;
+  const rev = ups.length ? ups[ups.length - 1].rev : latestUpgrade();
   const out = { id: meta.id, name: meta.name, from: Number(meta.ver) || (meta.versions || 0) + 1, to: null, status: "", note: "", rev, updates: ups.map((u) => u.rev) };
   const it = await getItem(meta.id);
   if (!it) { out.status = "missing"; return out; }

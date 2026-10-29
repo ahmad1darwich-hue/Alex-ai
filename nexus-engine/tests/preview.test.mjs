@@ -396,15 +396,13 @@ await t("anchored VWAP rules reference (knowledge ANCHORED VWAP rules) is clean 
   assert.ok(av && av.values.filter((v) => v != null && isFinite(v)).length > 100, "AVWAP plotted");
 });
 
-await t("entry zones (2026-10-28 zone lab): knowledge rule + S&D / SMC templates enter at the edge, filter by location and count the touch bar", async () => {
+await t("zones stay fixed (lesson L019, Ahmad 2026-10-29: boxes moved with price); the withdrawn entry-zone rule is gone", async () => {
   const { SYSTEM_PROMPT } = await import("../../brain-app/api/_nexus/knowledge.js");
-  const { TEMPLATE_BY_ID } = await import("../../brain-app/api/_nexus/templates.js");
-  assert.match(SYSTEM_PROMPT, /ENTRY ZONES - WHAT HELD UP ON REAL DATA/); assert.match(SYSTEM_PROMPT, /default "Off" for plain bases/);
-  assert.match(SYSTEM_PROMPT, /a bar that touches the edge and then closes through the zone is a filled LOSS/);
-  const sd = TEMPLATE_BY_ID.get("supply_demand").code, smc = TEMPLATE_BY_ID.get("smc").code;
-  assert.match(sd, /"Limit at zone edge"/); assert.match(sd, /input\.string\("Off", "Location filter"/); assert.match(sd, /if bar_index >= t\.bar/);
-  assert.match(smc, /"Deep \(25%\)", "Order block entries: location"/); assert.match(smc, /if bar_index >= p\.bar/);
-  for (const code of [sd, smc]) { const r = runPreview(code, candles, { tfSec: 900, symbol: GOLD }); assert.ok(r.ok, r.error); assert.deepEqual(r.unsupported, []); }
+  const { LESSONS } = await import("../../brain-app/api/_nexus/lessons.js");
+  assert.ok(LESSONS.some((l) => l.id === "L019" && /FIXED price areas/.test(l.text)));
+  assert.doesNotMatch(SYSTEM_PROMPT, /ENTRY ZONES THAT HOLD UP|ENTRY ZONES - WHAT HELD UP/);
+  const { UPGRADES } = await import("../../brain-app/api/_brain/lib-upgrade-notes.js");
+  assert.equal(UPGRADES.filter((u) => /^2026-10-2[89]$/.test(u.rev)).length, 0, "withdrawn saved-indicator updates never come back");
 });
 
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
