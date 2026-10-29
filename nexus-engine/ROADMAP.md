@@ -127,3 +127,9 @@ UPGRADES (rev = today's date, ar line, applies regex, concrete rules). Not for n
 "🔄 Update all (N)", a "🔄 Update ready" badge per card, "🔄 Update now" and "Auto update: on / off" in the card menu
 (POST /api/library { action: "upgrade", id } - streamed, same checks as the cron). NEXT: a Telegram command to undo the last
 automatic update of an indicator.
+
+## Liquidity areas template (2026-10-29, Ahmad sent pictures of a vendor "zones at liquidity" indicator - ideas only, own code)
+Shipped: verified template liquidity_areas (sell / buy areas at swing liquidity, FIXED boxes from the swing candle that only extend
+right, strength %, corrective-only against the trend, first-visit rejection Buy / Sell, SL / EN / TP1 / TP2 at the right edge, risk
+table, MTF table M5-4H). Checker clean, preview clean, preview test proves boxes never move. NOT yet pasted into TradingView: Ahmad's
+first paste is the compile check - fix any error he sends first. The catalog `use` tells the bot to take it as the base for zone requests.

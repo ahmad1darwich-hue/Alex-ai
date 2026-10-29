@@ -245,6 +245,27 @@ export const CATALOG = [
     },
   },
   {
+    id: "liquidity_areas",
+    src: "liquidity_areas.pine",
+    file: "nexus_liquidity_areas.pine",
+    title: { en: "Nexus Liquidity Areas - Sell / Buy Zones & Trade Plan", ar: "مناطق بيع وشراء عند السيولة مع خطة صفقة" },
+    use: "USE THIS AS THE BASE when the user wants sell / buy zones (boxes) where liquidity rests, entry areas, 'H_Area'-style zone tools, zones with strength %, Buy/Sell on the zone with SL / EN / TP1 / TP2 at the right edge, a balance / risk table or an MTF trend table (M5-4H), or sends a picture of such an indicator. Sell areas above the latest confirmed swing highs, buy areas below swing lows, each a FIXED price box built once from the swing candle (wick to body edge, height clamped 0.3-1.0 ATR) that only extends right and is removed when a bar closes beyond its far side - never moves with price; equal highs / lows stack on the area (+strength); strength % from displacement after the swing + trend; areas against the EMA 50/200 trend are dashed 'corrective only'; dotted liquidity line at each swing; signal = first visit to an area rejected by a close back out (confirmed bar), one plan at a time: EN close, SL beyond the area + ATR buffer, TP1 / TP2 in R (inputs 1.9 / 3.5), lines + labels at the right edge, TP1-before-SL record; risk table (balance, risk %, risk, SL distance, size from syminfo.pointvalue, TP R); MTF table M5 / M15 / M30 / 1H / 4H from closed bars (request.security, [1], lookahead_on); alerts.",
+    explain: {
+      en: [
+        "Sell areas above the latest swing highs and buy areas below the latest swing lows - where the stops (liquidity) rest. Each box is fixed at its price from the candle that made it; it only extends to the right and disappears when a candle closes through it.",
+        "Each area shows its strength %: how strongly price left the swing, equal highs / lows on it, and the trend. Against the trend it is dashed and says 'corrective only'.",
+        "The first visit to an area that closes back out prints Sell / Buy with a plan at the right edge: EN, SL beyond the area, TP1 and TP2 in R.",
+        "Tables: balance and risk with position size, and the trend on M5, M15, M30, 1H and 4H. Confirmed bars only.",
+      ],
+      ar: [
+        "مناطق بيع فوق آخر قمم ومناطق شراء تحت آخر قيعان، يعني وين الستوبات (السيولة) قاعدة. كل صندوق ثابت على سعره من الشمعة اللي عملته، بس بيمتد لليمين، وبينمسح لما شمعة تسكّر من خلاله.",
+        "كل منطقة عليها قوّتها بالنسبة: قديش السعر طلع منها بقوة، والقمم أو القيعان المتساوية عليها، والترند. إذا عكس الترند بتكون متقطّعة ومكتوب عليها corrective only (تصحيحي فقط).",
+        "أول زيارة للمنطقة إذا سكّرت الشمعة راجعة لبرّا بتطلع Sell أو Buy مع خطة على اليمين: دخول EN، ستوب SL ورا المنطقة، و TP1 و TP2 بالـ R.",
+        "الجداول: الرصيد والمخاطرة وحجم الصفقة، والترند على 5 و15 و30 دقيقة وساعة و4 ساعات. على شموع مسكّرة بس.",
+      ],
+    },
+  },
+  {
     id: "liquidity",
     src: "liquidity.pine",
     file: "nexus_liquidity.pine",

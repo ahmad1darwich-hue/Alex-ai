@@ -1,0 +1,272 @@
+//@version=6
+indicator("Nexus Liquidity Areas - Sell / Buy Zones & Trade Plan", shorttitle = "NX Areas", overlay = true, max_boxes_count = 60, max_lines_count = 120, max_labels_count = 150)
+
+// Sell areas sit where buy-side liquidity rests (above the latest swing highs), buy areas where sell-side liquidity rests
+// (below the latest swing lows). Each area is a FIXED price box built once from its swing candle (wick to body edge,
+// height clamped in ATR); afterwards only its right edge extends. It is removed when a bar closes beyond its far side.
+// Strength % = how the swing was left (displacement), equal highs / lows stacked on it, and the trend. Against the trend
+// an area is marked "corrective only". Signal = the first touch of an area rejected by a close back out of it (confirmed
+// bar). Every signal gets a plan: EN at the close, SL beyond the area, TP1 / TP2 in R, shown at the right edge.
+
+// ---------- Inputs ----------
+string GRP_A = "Areas"
+bool   autoInput    = input.bool(true, "Auto swing length", group = GRP_A, tooltip = "5m and below: 5, up to 1h: 8, above: 10. Turn off to use the manual value.")
+int    lenInput     = input.int(8, "Swing length (manual)", minval = 2, maxval = 50, group = GRP_A)
+int    perSideInput = input.int(2, "Areas per side", minval = 1, maxval = 5, group = GRP_A)
+float  minHInput    = input.float(0.3, "Min area height (x ATR)", minval = 0.05, step = 0.05, group = GRP_A)
+float  maxHInput    = input.float(1.0, "Max area height (x ATR)", minval = 0.2, step = 0.1, group = GRP_A)
+float  eqTolInput   = input.float(0.15, "Equal highs / lows tolerance (x ATR)", minval = 0.02, step = 0.01, group = GRP_A)
+bool   showLiqInput = input.bool(true, "Liquidity lines at the swings", group = GRP_A)
+string GRP_T = "Trade plan"
+bool   showSigInput = input.bool(true, "Buy / Sell signals", group = GRP_T)
+float  slBufInput   = input.float(0.3, "SL beyond the area (x ATR)", minval = 0.0, step = 0.1, group = GRP_T)
+float  tp1Input     = input.float(1.9, "TP1 (R)", minval = 0.5, step = 0.1, group = GRP_T)
+float  tp2Input     = input.float(3.5, "TP2 (R)", minval = 0.5, step = 0.1, group = GRP_T)
+float  balInput     = input.float(1000, "Balance", minval = 1, group = GRP_T)
+float  riskInput    = input.float(1.0, "Risk per trade (%)", minval = 0.1, step = 0.1, group = GRP_T)
+string GRP_L = "Layers"
+bool   showRiskInput = input.bool(true, "Risk table", group = GRP_L)
+bool   showMtfInput  = input.bool(true, "Multi-timeframe table", group = GRP_L)
+string GRP_S = "Style"
+string themeInput = input.string("Neon", "Theme", options = ["Neon", "Classic", "Minimal", "Mono"], group = GRP_S)
+
+// ---------- Theme ----------
+pick(color neon, color classic, color minimal, color mono) =>
+    themeInput == "Neon" ? neon : themeInput == "Classic" ? classic : themeInput == "Minimal" ? minimal : mono
+
+color bullC    = pick(#00E5A0, #089981, #26A69A, #D1D4DC)
+color bearC    = pick(#FF3D71, #F23645, #EF5350, #787B86)
+color accentC  = pick(#FFC400, #2962FF, #B2B5BE, #E0E3EB)
+color neutralC = pick(#8C8FA3, #787B86, #9598A1, #5D606B)
+color textC    = pick(#C3C6CF, #787B86, #9598A1, #B2B5BE)
+
+// ---------- Types & state ----------
+type Area
+    box   bx
+    line  liq
+    float top
+    float bot
+    float level   // the swing price (where the stops rest)
+    int   dir     // -1 = sell area (above highs), 1 = buy area (below lows)
+    int   score
+    int   hits
+    bool  used    // the first visit is over (or gave its signal)
+    bool  visiting
+    int   born
+
+type Plan
+    int   dir
+    float en
+    float sl
+    float tp1
+    float tp2
+    int   bar
+    bool  open
+
+var array<Area> areas = array.new<Area>()
+var array<line> ended = array.new<line>() // liquidity lines of finished areas, newest 20
+var Plan plan = Plan.new(0, na, na, na, na, na, false)
+var line  lnSL  = na
+var line  lnEN  = na
+var line  lnTP1 = na
+var line  lnTP2 = na
+var label lbSL  = na
+var label lbEN  = na
+var label lbTP1 = na
+var label lbTP2 = na
+var int wins = 0
+var int losses = 0
+
+int   tfSec = timeframe.in_seconds()
+int   len   = autoInput ? (tfSec <= 300 ? 5 : tfSec <= 3600 ? 8 : 10) : lenInput
+float atr   = ta.atr(14)
+float ph    = ta.pivothigh(high, len, len)
+float pl    = ta.pivotlow(low, len, len)
+float emaF  = ta.ema(close, 50)
+float emaS  = ta.ema(close, 200)
+int   trend = emaF > emaS and close > emaS ? 1 : emaF < emaS and close < emaS ? -1 : 0
+// how far price travelled away from the swing in the len bars after it (displacement, in ATR)
+float dropAfter = ta.highest(high, len + 1) - ta.lowest(low, len)
+float riseAfter = ta.highest(high, len) - ta.lowest(low, len + 1)
+
+// ---------- Helpers ----------
+areaText(Area a) =>
+    bool counter = a.dir == -1 ? trend == 1 : trend == -1
+    string side = a.dir == -1 ? "Sell" : "Buy"
+    counter ? side + " - corrective only " + str.tostring(a.score) + "%" : side + " strength " + str.tostring(a.score) + "%"
+
+paint(Area a) =>
+    color c = a.dir == -1 ? bearC : bullC
+    bool counter = a.dir == -1 ? trend == 1 : trend == -1
+    a.bx.set_right(bar_index + 15)
+    a.bx.set_bgcolor(color.new(c, counter ? 88 : a.used ? 84 : 72))
+    a.bx.set_border_color(color.new(c, counter ? 70 : 35))
+    a.bx.set_border_style(counter or a.used ? line.style_dashed : line.style_solid)
+    a.bx.set_text(areaText(a))
+    if not na(a.liq)
+        a.liq.set_x2(bar_index + 15)
+
+// A new swing: stacks on a live area of the same side within the tolerance (equal highs / lows), or opens a new area.
+addArea(int dir, int x, float level, float wickEdge, float bodyEdge, float travel) =>
+    bool stacked = false
+    for a in areas
+        if not stacked and a.dir == dir and math.abs(a.level - level) <= eqTolInput * atr
+            a.hits  += 1
+            a.score := math.min(95, a.score + 10)
+            stacked := true
+    if not stacked
+        float h   = math.min(math.max(math.abs(wickEdge - bodyEdge), minHInput * atr), maxHInput * atr)
+        float top = dir == -1 ? wickEdge : wickEdge + h
+        float bot = dir == -1 ? wickEdge - h : wickEdge
+        int   sc  = int(math.min(95, 45 + math.min(travel / atr, 4.0) * 10 + ((dir == -1 and trend == -1) or (dir == 1 and trend == 1) ? 10 : 0)))
+        color c   = dir == -1 ? bearC : bullC
+        box   b   = box.new(x, top, bar_index + 15, bot, border_width = 1, text_size = size.small, text_color = color.new(color.white, 10), text_halign = text.align_center, text_valign = text.align_center)
+        line  l   = showLiqInput ? line.new(x, level, bar_index + 15, level, color = color.new(c, 40), style = line.style_dotted, width = 1) : na
+        Area  a   = Area.new(b, l, top, bot, level, dir, sc, 1, false, false, bar_index)
+        paint(a)
+        areas.push(a)
+        int same = 0
+        for k = areas.size() - 1 to 0
+            Area q = areas.get(k)
+            if q.dir == dir
+                same += 1
+                if same > perSideInput
+                    q.bx.delete()
+                    q.liq.delete()
+                    areas.remove(k)
+    stacked
+
+// Draws (or moves) one plan level at the right edge.
+drawLevel(line ln, label lb, float y, string txt, color c) =>
+    line  l = ln
+    label t = lb
+    if na(l)
+        l := line.new(bar_index, y, bar_index + 25, y, color = color.new(c, 20), style = line.style_dotted, width = 1)
+        t := label.new(bar_index + 25, y, txt, style = label.style_label_left, color = c, textcolor = color.white, size = size.small)
+    else
+        l.set_xy1(plan.bar, y)
+        l.set_xy2(bar_index + 25, y)
+        t.set_xy(bar_index + 25, y)
+        t.set_text(txt)
+    [l, t]
+
+// ---------- New areas from confirmed swings ----------
+if not na(atr)
+    if not na(ph)
+        addArea(-1, bar_index - len, ph, ph, math.max(open[len], close[len]), dropAfter)
+    if not na(pl)
+        addArea(1, bar_index - len, pl, pl, math.min(open[len], close[len]), riseAfter)
+
+// ---------- Life cycle and signals (confirmed bars only) ----------
+bool sigSell = false
+bool sigBuy  = false
+if barstate.isconfirmed and areas.size() > 0
+    for k = areas.size() - 1 to 0
+        Area a = areas.get(k)
+        if bar_index > a.born
+            bool broken  = a.dir == -1 ? close > a.top : close < a.bot
+            bool touched = a.dir == -1 ? high >= a.bot : low <= a.top
+            if broken
+                a.bx.delete()
+                if not na(a.liq)
+                    a.liq.set_x2(bar_index)
+                    a.liq.set_color(color.new(neutralC, 70))
+                    ended.push(a.liq)
+                    if ended.size() > 20
+                        ended.shift().delete()
+                areas.remove(k)
+            else
+                // First visit only: a signal on any bar of that visit that closes back out of the area.
+                if not touched and a.visiting
+                    a.used := true
+                    a.visiting := false
+                if touched and not a.used
+                    a.visiting := true
+                    bool rejected = a.dir == -1 ? close < a.bot and close < open : close > a.top and close > open
+                    if rejected
+                        a.used := true
+                    if rejected and showSigInput and not plan.open
+                        float en = close
+                        float sl = a.dir == -1 ? a.top + slBufInput * atr : a.bot - slBufInput * atr
+                        float r  = math.abs(en - sl)
+                        plan := Plan.new(a.dir, en, sl, en + a.dir * r * tp1Input, en + a.dir * r * tp2Input, bar_index, true)
+                        sigSell := sigSell or a.dir == -1
+                        sigBuy  := sigBuy or a.dir == 1
+                        label.new(bar_index, a.dir == -1 ? high : low, a.dir == -1 ? "Sell" : "Buy", style = a.dir == -1 ? label.style_label_down : label.style_label_up, color = a.dir == -1 ? bearC : bullC, textcolor = color.white, size = size.small, tooltip = "First touch of the area rejected. EN " + str.tostring(en, format.mintick) + ", SL " + str.tostring(sl, format.mintick) + ".")
+                paint(a)
+
+// ---------- Plan: track it (SL from the signal bar on, targets from the next bar) ----------
+if barstate.isconfirmed and plan.open and bar_index > plan.bar
+    bool hitSL  = plan.dir == -1 ? high >= plan.sl : low <= plan.sl
+    bool hitTP1 = plan.dir == -1 ? low <= plan.tp1 : high >= plan.tp1
+    if hitSL
+        losses += 1
+        plan.open := false
+    else if hitTP1
+        wins += 1
+        plan.open := false
+
+if barstate.islast and not na(plan.en)
+    color planC = plan.dir == -1 ? bearC : bullC
+    [l1, t1] = drawLevel(lnSL, lbSL, plan.sl, "SL " + str.tostring(plan.sl, format.mintick), bearC)
+    [l2, t2] = drawLevel(lnEN, lbEN, plan.en, "EN " + str.tostring(plan.en, format.mintick), neutralC)
+    [l3, t3] = drawLevel(lnTP1, lbTP1, plan.tp1, "TP1 " + str.tostring(plan.tp1, format.mintick), bullC)
+    [l4, t4] = drawLevel(lnTP2, lbTP2, plan.tp2, "TP2 " + str.tostring(plan.tp2, format.mintick), bullC)
+    lnSL := l1
+    lbSL := t1
+    lnEN := l2
+    lbEN := t2
+    lnTP1 := l3
+    lbTP1 := t3
+    lnTP2 := l4
+    lbTP2 := t4
+
+// ---------- Risk table ----------
+var table risk = table.new(position.top_right, 2, 7, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+cellR(int r, string k, string v, color vc) =>
+    risk.cell(0, r, k, text_color = textC, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_left)
+    risk.cell(1, r, v, text_color = vc, bgcolor = color.new(#131722, 10), text_size = size.small, text_halign = text.align_right, text_font_family = font.family_monospace)
+
+if showRiskInput and barstate.islast
+    float riskCash = balInput * riskInput / 100
+    float slDist   = na(plan.en) ? na : math.abs(plan.en - plan.sl)
+    float qty      = na(slDist) or slDist == 0 ? na : riskCash / (slDist * syminfo.pointvalue)
+    int   judged   = wins + losses
+    risk.cell(0, 0, "NEXUS", text_color = color.white, bgcolor = color.new(accentC, 25), text_size = size.small)
+    risk.cell(1, 0, "Areas", text_color = color.white, bgcolor = color.new(accentC, 25), text_size = size.small)
+    cellR(1, "Balance / risk", str.tostring(balInput, "#") + " / " + str.tostring(riskInput, "#.#") + "%", textC)
+    cellR(2, "Risk", str.tostring(riskCash, "#.##"), bearC)
+    cellR(3, "SL distance", na(slDist) ? "-" : str.tostring(slDist, format.mintick), bearC)
+    cellR(4, "Size", na(qty) ? "-" : str.tostring(qty, "#.##"), textC)
+    cellR(5, "TP1 / TP2", str.tostring(tp1Input, "#.#") + "R / " + str.tostring(tp2Input, "#.#") + "R", bullC)
+    cellR(6, "TP1 before SL", judged > 0 ? str.tostring(wins) + " / " + str.tostring(judged) : "-", judged > 0 ? color.from_gradient(wins * 100.0 / judged, 30, 60, bearC, bullC) : textC)
+
+// ---------- Multi-timeframe trend (closed bars of each timeframe) ----------
+tfTrend() =>
+    float f = ta.ema(close, 50)
+    float s = ta.ema(close, 200)
+    f[1] > s[1] and close[1] > s[1] ? 1 : f[1] < s[1] and close[1] < s[1] ? -1 : 0
+
+int m5  = request.security(syminfo.tickerid, "5", tfTrend(), lookahead = barmerge.lookahead_on)
+int m15 = request.security(syminfo.tickerid, "15", tfTrend(), lookahead = barmerge.lookahead_on)
+int m30 = request.security(syminfo.tickerid, "30", tfTrend(), lookahead = barmerge.lookahead_on)
+int h1  = request.security(syminfo.tickerid, "60", tfTrend(), lookahead = barmerge.lookahead_on)
+int h4  = request.security(syminfo.tickerid, "240", tfTrend(), lookahead = barmerge.lookahead_on)
+
+var table mtf = table.new(position.bottom_right, 2, 6, border_width = 1, border_color = color.new(#787B86, 85), frame_color = color.new(accentC, 40), frame_width = 1)
+cellM(int r, string tf, int t) =>
+    mtf.cell(0, r, tf, text_color = color.white, bgcolor = color.new(t == 1 ? bullC : t == -1 ? bearC : neutralC, 30), text_size = size.small)
+    mtf.cell(1, r, t == 1 ? "▲ Up" : t == -1 ? "▼ Down" : "● Range", text_color = t == 1 ? bullC : t == -1 ? bearC : neutralC, bgcolor = color.new(#131722, 10), text_size = size.small)
+
+if showMtfInput and barstate.islast
+    mtf.cell(0, 0, "MTF", text_color = color.white, bgcolor = color.new(accentC, 25), text_size = size.small)
+    mtf.cell(1, 0, "Trend", text_color = color.white, bgcolor = color.new(accentC, 25), text_size = size.small)
+    cellM(1, "M5", m5)
+    cellM(2, "M15", m15)
+    cellM(3, "M30", m30)
+    cellM(4, "1H", h1)
+    cellM(5, "4H", h4)
+
+// ---------- Alerts ----------
+alertcondition(sigSell, "Sell signal", "Nexus Areas: SELL - sell area rejected on {{ticker}} {{interval}} at {{close}}")
+alertcondition(sigBuy, "Buy signal", "Nexus Areas: BUY - buy area rejected on {{ticker}} {{interval}} at {{close}}")

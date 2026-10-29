@@ -52,7 +52,7 @@ for (const [rel, html] of Object.entries(built)) {
   ok(rel + ": every text key is defined (" + used.size + " used)", used.size > 40 && missing.length === 0, missing);
   const empty = Object.entries(cfg.i18n || {}).filter(([, v]) => !Array.isArray(v) || v.length !== 2 || !v[0] || !v[1]).map(([k]) => k);
   ok(rel + ": landing texts have both languages", empty.length === 0, empty);
-  ok(rel + ": templates in the gallery", Array.isArray(cfg.templates) && cfg.templates.length === 14 && cfg.templates.every((t) => t.id && t.title.ar && t.title.en && t.blurb.ar && t.blurb.en));
+  ok(rel + ": templates in the gallery", Array.isArray(cfg.templates) && cfg.templates.length === 15 && cfg.templates.every((t) => t.id && t.title.ar && t.title.en && t.blurb.ar && t.blurb.en));
 }
 
 // 4. The copy states what the product does. These phrases promise more and must not come back.

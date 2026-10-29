@@ -405,4 +405,15 @@ await t("zones stay fixed (lesson L019, Ahmad 2026-10-29: boxes moved with price
   assert.equal(UPGRADES.filter((u) => /^2026-10-2[89]$/.test(u.rev)).length, 0, "withdrawn saved-indicator updates never come back");
 });
 
+await t("liquidity_areas template: fixed boxes (top / bottom never move as new bars arrive), plan levels, two tables", async () => {
+  const { TEMPLATE_BY_ID } = await import("../../brain-app/api/_nexus/templates.js");
+  const code = TEMPLATE_BY_ID.get("liquidity_areas").code;
+  const A = runPreview(code, candles.slice(0, -40), { tfSec: 900, symbol: GOLD });
+  const B = runPreview(code, candles, { tfSec: 900, symbol: GOLD });
+  assert.ok(A.ok && B.ok, A.error || B.error); assert.deepEqual(B.unsupported, []);
+  assert.ok(B.boxes.length > 0, "areas drawn"); assert.equal(B.tables.length, 2);
+  for (const b of B.boxes) { const a = A.boxes.find((x) => x.left === b.left); if (a) { assert.equal(a.top, b.top); assert.equal(a.bottom, b.bottom); } }
+  assert.ok(B.boxes.every((b) => b.left < candles.length - 1), "each box starts at its swing candle, not at the last bar");
+});
+
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);
