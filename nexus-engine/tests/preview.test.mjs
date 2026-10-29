@@ -411,9 +411,15 @@ await t("liquidity_areas template: fixed boxes (top / bottom never move as new b
   const A = runPreview(code, candles.slice(0, -40), { tfSec: 900, symbol: GOLD });
   const B = runPreview(code, candles, { tfSec: 900, symbol: GOLD });
   assert.ok(A.ok && B.ok, A.error || B.error); assert.deepEqual(B.unsupported, []);
-  assert.ok(B.boxes.length > 0, "areas drawn"); assert.equal(B.tables.length, 2);
-  for (const b of B.boxes) { const a = A.boxes.find((x) => x.left === b.left); if (a) { assert.equal(a.top, b.top); assert.equal(a.bottom, b.bottom); } }
-  assert.ok(B.boxes.every((b) => b.left < candles.length - 1), "each box starts at its swing candle, not at the last bar");
+  assert.equal(B.tables.length, 2);
+  // Areas sit in one column next to the last candle; their PRICES never change while they live.
+  const areasOf = (r) => r.boxes.filter((b) => /strength|Corrective|قوة|تصحيحي/.test(b.text || ""));
+  const lastA = A.lastBar ?? (candles.length - 41), live = areasOf(B);
+  assert.ok(live.length > 0 && live.length <= 4, "at most 2 areas per side");
+  for (const b of live) assert.ok(b.top > b.bottom);
+  const older = areasOf(A).filter((a) => live.some((b) => Math.abs(b.top - a.top) < 1e-9 || Math.abs(b.bottom - a.bottom) < 1e-9));
+  for (const a of older) assert.ok(live.some((b) => b.top === a.top && b.bottom === a.bottom), "an area that still lives kept its exact price range");
+  assert.ok(B.labels.some((l) => /^(TP|SL)$/.test(l.text || "")) || B.labels.some((l) => /^(Sell|Buy)$/.test(l.text || "")), "signals / hits marked");
 });
 
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

@@ -56,7 +56,9 @@ t("design glyphs are allowed inside strings only", () => {
   const inComment = checkPine('//@version=6\nindicator("Glyphs", overlay = true)\n// ▲ marker\nplot(close)\n');
   assert.ok(inComment.mustFix.some((w) => w.rule === "NX_NON_ASCII"));
   const arabic = checkPine('//@version=6\nindicator("Glyphs", overlay = true)\nif barstate.islast\n    label.new(bar_index, high, "شراء")\nplot(close)\n');
-  assert.ok(arabic.mustFix.some((w) => w.rule === "NX_NON_ASCII"));
+  assert.ok(!arabic.mustFix.some((w) => w.rule === "NX_NON_ASCII"), "Arabic text inside a string is allowed (2026-10-29: labels in Arabic)");
+  const arabicComment = checkPine('//@version=6\nindicator("Glyphs", overlay = true)\n// شراء\nplot(close)\n');
+  assert.ok(arabicComment.mustFix.some((w) => w.rule === "NX_NON_ASCII"), "Arabic outside strings is still rejected");
 });
 t("missing version is an error", () => {
   const c = checkPine('indicator("x")\nplot(close)\n');

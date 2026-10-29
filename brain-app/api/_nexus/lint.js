@@ -24,6 +24,7 @@ const MUST_FIX_RULES = new Set([
 ]);
 // Glyphs allowed inside string literals (labels, table cells): the design system's arrows and markers.
 export const DESIGN_GLYPHS = "▲▼●◆•✕■○◇□"; // filled marks + their hollow pairs (gauges, strength dots)
+const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/; // Arabic letters, allowed inside strings only
 // Nexus rules that reproduce TradingView compile errors the type checker lets through.
 const ERROR_RULES = new Set(["NX_FLOAT_X", "NX_LINEWIDTH", "NX_CONST_STRING", "NX_FILL_KINDS", "NX_TOSTRING_FORMAT", "NX_DECLARATION_LIMIT", "NX_FIELD_ASSIGN", "NX_FOREIGN_SYNTAX", "NX_STYLE_NAMESPACE", "NX_IF_RETURN_TYPES"]);
 // Worth one repair attempt, but never block delivery on them.
@@ -520,8 +521,11 @@ function nexusRules(code) {
     while ((m = re.exec(raw))) {
       const inString = m.index < ml.length && ml[m.index] === " ";
       if (inString && DESIGN_GLYPHS.includes(m[0])) continue;
+      // Arabic letters inside string literals (labels / box texts the user asked to read in Arabic) compile and display
+      // fine in TradingView; outside strings and in comments they stay forbidden.
+      if (inString && ARABIC_RE.test(m[0])) continue;
       nonAscii++;
-      push(i + 1, m.index + 1, "NX_NON_ASCII", `Non-ASCII character "${m[0]}" in the script. Use plain English ASCII in code and comments; inside strings only the design glyphs ${DESIGN_GLYPHS.split("").join(" ")} are allowed.`);
+      push(i + 1, m.index + 1, "NX_NON_ASCII", `Non-ASCII character "${m[0]}" in the script. Use plain English ASCII in code and comments; inside strings only the design glyphs ${DESIGN_GLYPHS.split("").join(" ")} and Arabic letters are allowed.`);
       break;
     }
   }
