@@ -78,4 +78,21 @@ await t("automatic update of saved indicators: version N -> N+1 with the date, o
   assert.equal((await (await call("POST", "", { action: "autoupdate", id: zid, on: false })).json()).item.autoUpdate, false);
   assert.equal(U.pickCandidates(await L.listItems(), 9).length, 0);
 });
+await t("library card: pending flag + the update text in the list, 'update now' action streams one JSON line", async () => {
+  L._resetMemory();
+  const N = await import("../../brain-app/api/_brain/lib-upgrade-notes.js");
+  const a = await L.saveItem({ code: CODE }); await L.markUpgradeChecked(a.id, "", "");
+  const b = await L.saveItem({ code: CODE.replace("20", "40") });
+  const l = await (await call("GET")).json();
+  assert.equal(l.upgrade.rev, N.LATEST_UPGRADE); assert.match(l.upgrade.ar, /مناطق الدخول/);
+  assert.deepEqual(l.items.find((x) => x.id === a.id).pending, [N.LATEST_UPGRADE]); assert.equal(l.items.find((x) => x.id === b.id).pending, undefined);
+  const up = await (await call("POST", "", { action: "upgrade", id: b.id })).json();
+  assert.equal(up.result.status, "up_to_date");
+  process.env.ANTHROPIC_API_KEY = "test-key";
+  const res = await call("POST", "", { action: "upgrade", id: a.id });
+  const txt = await res.text(); const j = JSON.parse(txt.trim().split("\n").pop());
+  assert.equal(j.ok, true); assert.equal(j.result.status, "not_concerned", "no zones = no model call, marked checked"); assert.equal(j.item.upgradeRev, N.LATEST_UPGRADE);
+  delete process.env.ANTHROPIC_API_KEY;
+  assert.equal((await (await call("GET")).json()).items.every((x) => !x.pending), true);
+});
 console.log(process.exitCode ? "SOME TESTS FAILED" : `ok - ${n} checks passed`);

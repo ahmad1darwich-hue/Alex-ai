@@ -84,6 +84,8 @@ html[dir="rtl"] .drawer.on,html[dir="ltr"] .drawer.on{transform:none;visibility:
 .badge.ok{color:#04160d;background:var(--acc)}
 .badge.warn{color:#231400;background:#f5b94f}
 .badge.bad{color:#fff;background:#b42318}
+.badge.upd{color:#fff;background:#2962FF;margin-inline-start:6px}
+.libupd{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;border:1px solid #2962FF;border-radius:12px;padding:8px 10px;margin-bottom:8px}
 .art .meta{color:var(--mut);font-size:12px;white-space:nowrap}
 .art .sp{margin-inline-start:auto;display:flex;gap:8px}
 .codewrap{position:relative}

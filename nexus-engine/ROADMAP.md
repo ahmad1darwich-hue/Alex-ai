@@ -117,4 +117,7 @@ what changed, how many are still waiting. Library card shows "auto-updated <day>
 POST /api/library { action: "autoupdate", id, on: false }.
 DAILY RUNS: when you ship an improvement that makes EXISTING scripts better (accuracy, repaint, Pine v6 fixes) add ONE entry to
 UPGRADES (rev = today's date, ar line, applies regex, concrete rules). Not for new features or style. Never edit a shipped entry.
-NEXT: an on / off switch on the library card, and a Telegram command to undo the last automatic update of an indicator.
+2026-10-29 run 2 (Ahmad could not find anything to tap): the library shows a blue box "update for saved indicators: <what>" with
+"🔄 Update all (N)", a "🔄 Update ready" badge per card, "🔄 Update now" and "Auto update: on / off" in the card menu
+(POST /api/library { action: "upgrade", id } - streamed, same checks as the cron). NEXT: a Telegram command to undo the last
+automatic update of an indicator.

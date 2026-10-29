@@ -193,6 +193,16 @@
     lib_ren: ['إعادة تسمية', 'Rename'], lib_ren_ask: ['الاسم الجديد:', 'New name:'],
     lib_prev: ['رجّع النسخة السابقة', 'Restore previous version'],
     lib_auto: ['تحديث تلقائي {d} ← نسخة {v}', 'auto-updated {d} → v{v}'],
+    lib_upd_badge: ['🔄 في تحديث', '🔄 Update ready'],
+    lib_upd_btn: ['🔄 حدّث هلق', '🔄 Update now'],
+    lib_upd_all: ['🔄 حدّث الكل ({n})', '🔄 Update all ({n})'],
+    lib_upd_what: ['تحديث جديد للمؤشرات المحفوظة: {x}', 'New update for saved indicators: {x}'],
+    lib_upd_busy: ['عم حدّث «{x}»… (دقيقة أو دقيقتين)', 'Updating “{x}”… (a minute or two)'],
+    lib_upd_done: ['✅ «{x}»: النسخة {a} ← صارت النسخة {b}. القديمة محفوظة (رجّع النسخة السابقة).', '✅ “{x}”: version {a} → version {b}. The old one is kept (Restore previous version).'],
+    lib_upd_same: ['➖ «{x}»: ما احتاج تغيير.', '➖ “{x}”: nothing to change.'],
+    lib_upd_fail: ['⚠️ «{x}»: التحديث ما نجح بالفحص، ضلّ على النسخة القديمة.', '⚠️ “{x}”: the update did not pass the check; the old version stays.'],
+    lib_auto_on: ['تحديث تلقائي: شغّال', 'Auto update: on'],
+    lib_auto_off: ['تحديث تلقائي: موقّف', 'Auto update: off'],
     lib_vers: ['{n} نسخة سابقة', '{n} earlier version(s)'],
     lib_saved: ['💾 انحفظ بمؤشراتي', '💾 Saved to my indicators'],
     lib_updated: ['💾 انحفظ التعديل على نفس المؤشر', '💾 Changes saved to the same indicator'],
@@ -1431,13 +1441,22 @@
       }).catch(function () { if (cb) cb(false); });
   }
   function fmtDate(ms) { try { return new Date(ms).toLocaleString(L ? 'en-AU' : 'ar', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return ''; } }
-  var libItems = [];
+  var libItems = [], libUpgrade = null, libUpdating = {};
+  // Applies the pending engine update to one saved indicator now (the server checks it and keeps the old version).
+  function libUpgradeOne(it, done) {
+    libUpdating[it.id] = true; renderLibrary(); toast(t('lib_upd_busy', { x: it.name || it.file }), 4000);
+    libCall('POST', '', { action: 'upgrade', id: it.id }).then(function (j) {
+      var r = j.result || {}, nm = it.name || it.file;
+      if (j.item) { var k = libItems.indexOf(it); if (k >= 0) { j.item.pending = r.status === 'rejected' || r.status === 'error' ? it.pending : undefined; libItems[k] = j.item; } }
+      toast(r.status === 'updated' ? t('lib_upd_done', { x: nm, a: r.from, b: r.to }) : r.status === 'rejected' || r.status === 'error' ? t('lib_upd_fail', { x: nm }) : t('lib_upd_same', { x: nm }), 6000);
+    }).catch(function () { toast(t('lib_err'), 3500); }).then(function () { delete libUpdating[it.id]; renderLibrary(); if (done) done(); });
+  }
   function openLibrary() {
     openModal('libModal');
     var list = $('libList'), q = $('libQ'); q.value = '';
     list.innerHTML = ''; list.appendChild(tx(el('div', 'libnote'), 'lib_loading'));
     if (!syncKey) { list.innerHTML = ''; list.appendChild(activateBox(openLibrary)); return; }
-    libCall('GET').then(function (j) { libItems = Array.isArray(j.items) ? j.items : []; renderLibrary(); })
+    libCall('GET').then(function (j) { libItems = Array.isArray(j.items) ? j.items : []; libUpgrade = j.upgrade || null; renderLibrary(); })
       .catch(function (e) { list.innerHTML = ''; list.appendChild(e.locked ? activateBox(openLibrary) : tx(el('div', 'libnote'), 'lib_err')); });
   }
   // Search by name: Arabic letter forms unified (أ إ آ = ا, ة = ه, ى = ي, no tashkeel), every word must match the
@@ -1482,6 +1501,13 @@
     list.innerHTML = '';
     var items = libFilter(libItems, raw);
     if (!libItems.length) { list.appendChild(tx(el('div', 'libnote'), 'lib_empty')); return; }
+    var waiting = libItems.filter(function (x) { return x.pending && !libUpdating[x.id]; });
+    if (waiting.length) {
+      var ub = el('div', 'libupd'), ut = el('div', 'libnote', t('lib_upd_what', { x: libUpgrade ? (L ? libUpgrade.en : libUpgrade.ar) : '' })), ua = el('button', 'btn2 pri', t('lib_upd_all', { n: waiting.length }));
+      ut.dir = 'auto'; ua.type = 'button';
+      ua.onclick = function () { ua.disabled = true; var q = waiting.slice(); (function next() { var x = q.shift(); if (x) libUpgradeOne(x, next); })(); };
+      ub.appendChild(ut); ub.appendChild(ua); list.appendChild(ub);
+    }
     // Every saved indicator is listed at once; the search box only narrows the list. Tapping a card opens it.
     list.appendChild(el('div', 'libnote libcount', libNorm(raw) ? (items.length ? t(items.byRequest ? 'lib_found_req' : 'lib_found', { n: items.length, all: libItems.length }) : t('lib_none', { x: raw.trim() })) : t('lib_all', { n: libItems.length })));
     items.forEach(function (it) {
@@ -1490,6 +1516,7 @@
       nm.dir = dirOf(it.name);
       head.appendChild(nm);
       head.appendChild(tx(el('span', 'badge ' + (it.verified ? 'ok' : 'warn')), it.verified ? 'b_ok' : 'b_warn', it.verified ? null : { n: Math.max(1, (it.errors || []).length) }));
+      if (it.pending) head.appendChild(tx(el('span', 'badge upd'), 'lib_upd_badge'));
       meta.dir = 'auto'; meta.textContent = fmtDate(it.updated) + ' · ' + t('n_lines', { n: num(it.lines, 0) }) + (it.source === 'telegram' ? ' · Telegram' : '') + (it.versions ? ' · ' + t('lib_vers', { n: it.versions }) : '') + (it.lastUpgrade && it.lastUpgrade.day ? ' · ' + t('lib_auto', { d: it.lastUpgrade.day, v: it.lastUpgrade.to }) : '');
       main.appendChild(head); main.appendChild(meta);
       if (it.request) { var rq = el('div', 'libreq', it.request); rq.dir = dirOf(it.request); main.appendChild(rq); }
@@ -1508,6 +1535,14 @@
       acts.appendChild(bo);
       if (PREVIEW && window.NexusChart) { var bc = tx(el('button', 'btn2'), 'lib_chart'); bc.type = 'button'; bc.onclick = function () { closeModals(); openStudio('lib:' + it.id); }; acts.appendChild(bc); }
       acts.appendChild(br);
+      if (it.pending) {
+        var bu = tx(el('button', 'btn2 pri'), 'lib_upd_btn'); bu.type = 'button'; bu.disabled = !!libUpdating[it.id];
+        bu.onclick = function () { libUpgradeOne(it); };
+        acts.appendChild(bu);
+      }
+      var ba = tx(el('button', 'btn2'), it.autoUpdate === false ? 'lib_auto_off' : 'lib_auto_on'); ba.type = 'button';
+      ba.onclick = function () { var on = it.autoUpdate === false; libCall('POST', '', { action: 'autoupdate', id: it.id, on: on }).then(function (j) { var k = libItems.indexOf(it); if (k >= 0) { j.item.pending = on ? it.pending : undefined; libItems[k] = j.item; } renderLibrary(); }).catch(function () { toast(t('lib_err'), 3000); }); };
+      acts.appendChild(ba);
       if (it.versions) {
         var bp = tx(el('button', 'btn2'), 'lib_prev'); bp.type = 'button';
         bp.onclick = function () { libCall('POST', '', { action: 'restore', id: it.id, index: 0 }).then(function (j) { var k = libItems.indexOf(it); if (k >= 0) libItems[k] = j.item; renderLibrary(); toast(t('lib_restored')); }).catch(function () { toast(t('lib_err'), 3000); }); };
